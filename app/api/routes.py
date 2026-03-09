@@ -321,6 +321,12 @@ async def api_generate(request: Request):
         pass
     custom_theme = body.get("theme", "").strip() or None
     custom_genre = body.get("genre", "").strip() or None
+    max_scenes = body.get("max_scenes")
+    if max_scenes:
+        try:
+            max_scenes = int(max_scenes)
+        except (ValueError, TypeError):
+            max_scenes = None
 
     import datetime
 
@@ -339,7 +345,8 @@ async def api_generate(request: Request):
                 result = run_full_pipeline(
                     progress_callback=pipeline_progress_callback,
                     custom_theme=custom_theme,
-                    custom_genre=custom_genre
+                    custom_genre=custom_genre,
+                    max_scenes=max_scenes
                 )
                 pipeline_status["last_result"] = result
                 pipeline_log("パイプライン完了", step=9)

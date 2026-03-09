@@ -68,7 +68,7 @@ def _ensure_active_series(progress_callback=None):
     }
 
 
-def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=None):
+def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=None, max_scenes=None):
     if progress_callback is None:
         progress_callback = _noop_progress
 
@@ -142,6 +142,11 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         )
         narration = script_data.get("narration", "")
         scenes = script_data.get("scenes", [])
+        if max_scenes and len(scenes) > max_scenes:
+            scenes = scenes[:max_scenes]
+            scene_narrations = [s.get("narration", "") for s in scenes]
+            narration = "".join(scene_narrations)
+            progress_callback(2, f"テストモード: {max_scenes}シーンに制限")
         update_drama(drama_id, script=narration, scene_count=len(scenes))
         progress_callback(2, f"脚本生成完了: {len(narration)}文字, {len(scenes)}シーン")
 
