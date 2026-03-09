@@ -860,3 +860,410 @@ async def api_upload_character_image(request: Request):
         f.write(contents)
 
     return JSONResponse({"success": True, "path": filepath})
+
+
+production_tasks = {}
+
+
+def _get_production_task_key(drama_id, task_type, scene_num=None):
+    if scene_num is not None:
+        return f"{drama_id}_{task_type}_{scene_num}"
+    return f"{drama_id}_{task_type}"
+
+
+@router.get("/production/{drama_id}", response_class=HTMLResponse)
+async def production_page(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        raise HTTPException(status_code=404, detail="Drama not found")
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+
+    scene_assets = []
+    for s in scenes:
+        sn = s.get("scene_number", 0)
+        img_path = f"app/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png"
+        vid_path = f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4"
+        scene_assets.append({
+            "scene_number": sn,
+            "has_image": os.path.exists(img_path),
+            "image_url": f"/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png" if os.path.exists(img_path) else None,
+            "has_video": os.path.exists(vid_path),
+            "video_url": f"/static/scenes/drama_{drama_id}_scene_{sn}.mp4" if os.path.exists(vid_path) else None,
+        })
+
+    audio_path = f"app/static/audio/drama_{drama_id}.mp3"
+    thumb_path = f"app/static/thumbnail/drama_{drama_id}.png"
+    video_path = f"app/static/videos/drama_{drama_id}.mp4"
+
+    return templates.TemplateResponse("production.html", {
+        "request": request,
+        "user": user,
+        "drama": drama,
+        "script_data": script_data,
+        "scenes": scenes,
+        "scene_assets": scene_assets,
+        "has_audio": os.path.exists(audio_path),
+        "audio_url": f"/static/audio/drama_{drama_id}.mp3" if os.path.exists(audio_path) else None,
+        "has_thumbnail": os.path.exists(thumb_path),
+        "thumbnail_url": f"/static/thumbnail/drama_{drama_id}.png" if os.path.exists(thumb_path) else None,
+        "has_final_video": os.path.exists(video_path),
+        "final_video_url": f"/static/videos/drama_{drama_id}.mp4" if os.path.exists(video_path) else None,
+    })
+
+
+@router.get("/api/production/{drama_id}/assets")
+async def api_production_assets(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+    scene_assets = []
+    for s in scenes:
+        sn = s.get("scene_number", 0)
+        img_path = f"app/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png"
+        vid_path = f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4"
+        img_size = os.path.getsize(img_path) if os.path.exists(img_path) else 0
+        vid_size = os.path.getsize(vid_path) if os.path.exists(vid_path) else 0
+
+        task_img_key = _get_production_task_key(drama_id, "image", sn)
+        task_vid_key = _get_production_task_key(drama_id, "video", sn)
+
+        scene_assets.append({
+            "scene_number": sn,
+            "has_image": os.path.exists(img_path) and img_size > 1000,
+            "image_url": f"/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png?t={int(os.path.getmtime(img_path))}" if os.path.exists(img_path) and img_size > 1000 else None,
+            "has_video": os.path.exists(vid_path) and vid_size > 5000,
+            "video_url": f"/static/scenes/drama_{drama_id}_scene_{sn}.mp4?t={int(os.path.getmtime(vid_path))}" if os.path.exists(vid_path) and vid_size > 5000 else None,
+            "image_generating": production_tasks.get(task_img_key, {}).get("status") == "running",
+            "video_generating": production_tasks.get(task_vid_key, {}).get("status") == "running",
+            "image_error": production_tasks.get(task_img_key, {}).get("error", ""),
+            "video_error": production_tasks.get(task_vid_key, {}).get("error", ""),
+        })
+
+    audio_path = f"app/static/audio/drama_{drama_id}.mp3"
+    thumb_path = f"app/static/thumbnail/drama_{drama_id}.png"
+    video_path = f"app/static/videos/drama_{drama_id}.mp4"
+
+    task_audio_key = _get_production_task_key(drama_id, "audio")
+    task_thumb_key = _get_production_task_key(drama_id, "thumbnail")
+    task_assemble_key = _get_production_task_key(drama_id, "assemble")
+
+    return JSONResponse({
+        "scenes": scene_assets,
+        "has_audio": os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000,
+        "audio_url": f"/static/audio/drama_{drama_id}.mp3?t={int(os.path.getmtime(audio_path))}" if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000 else None,
+        "audio_generating": production_tasks.get(task_audio_key, {}).get("status") == "running",
+        "audio_error": production_tasks.get(task_audio_key, {}).get("error", ""),
+        "has_thumbnail": os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 1000,
+        "thumbnail_url": f"/static/thumbnail/drama_{drama_id}.png?t={int(os.path.getmtime(thumb_path))}" if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 1000 else None,
+        "thumbnail_generating": production_tasks.get(task_thumb_key, {}).get("status") == "running",
+        "thumbnail_error": production_tasks.get(task_thumb_key, {}).get("error", ""),
+        "has_final_video": os.path.exists(video_path) and os.path.getsize(video_path) > 10000,
+        "final_video_url": f"/static/videos/drama_{drama_id}.mp4?t={int(os.path.getmtime(video_path))}" if os.path.exists(video_path) and os.path.getsize(video_path) > 10000 else None,
+        "assemble_generating": production_tasks.get(task_assemble_key, {}).get("status") == "running",
+        "assemble_error": production_tasks.get(task_assemble_key, {}).get("error", ""),
+        "drama_status": drama.get("status", ""),
+    })
+
+
+@router.post("/api/production/{drama_id}/scene-image/{scene_num}")
+async def api_production_scene_image(request: Request, drama_id: int, scene_num: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+    scene = None
+    for s in scenes:
+        if s.get("scene_number") == scene_num:
+            scene = s
+            break
+
+    if not scene:
+        return JSONResponse({"error": f"Scene {scene_num} not found"}, status_code=404)
+
+    task_key = _get_production_task_key(drama_id, "image", scene_num)
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_image_gen():
+        try:
+            from app.services.video.scene_generator import _generate_scene_specific_image
+            result = _generate_scene_specific_image(
+                scene.get("description", ""),
+                drama_id, scene_num
+            )
+            if result:
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "画像生成に失敗しました"}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_image_gen, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": f"Scene {scene_num} image generation started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/scene-video/{scene_num}")
+async def api_production_scene_video(request: Request, drama_id: int, scene_num: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+    scene = None
+    for s in scenes:
+        if s.get("scene_number") == scene_num:
+            scene = s
+            break
+
+    if not scene:
+        return JSONResponse({"error": f"Scene {scene_num} not found"}, status_code=404)
+
+    task_key = _get_production_task_key(drama_id, "video", scene_num)
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_video_gen():
+        try:
+            from app.services.video.scene_generator import generate_scene_video
+            img_path = f"app/static/scene_images/drama_{drama_id}_scene_{scene_num}_ai.png"
+            ref_image = img_path if os.path.exists(img_path) else None
+
+            result = generate_scene_video(
+                scene_description=scene.get("description", ""),
+                scene_number=scene_num,
+                drama_id=drama_id,
+                reference_image=ref_image,
+                emotion=scene.get("emotion", ""),
+                duration=float(scene.get("duration", 6))
+            )
+            if result and os.path.exists(result):
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "動画生成に失敗しました"}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_video_gen, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": f"Scene {scene_num} video generation started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/audio")
+async def api_production_audio(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    task_key = _get_production_task_key(drama_id, "audio")
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_audio_gen():
+        try:
+            from app.services.video.audio_generator import generate_voice
+            narration = script_data.get("narration", "")
+            scenes = script_data.get("scenes", [])
+            result = generate_voice(narration, drama_id, scenes=scenes)
+            if result and os.path.exists(result):
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "音声生成に失敗しました"}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_audio_gen, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "Audio generation started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/thumbnail")
+async def api_production_thumbnail(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    task_key = _get_production_task_key(drama_id, "thumbnail")
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_thumb_gen():
+        try:
+            from app.services.video.image_generator import generate_thumbnail
+            result = generate_thumbnail(
+                title=drama.get("title", ""),
+                genre=drama.get("genre", "CEOドラマ"),
+                drama_id=drama_id,
+                episode_number=drama.get("series_episode") or drama.get("episode_number")
+            )
+            if result and os.path.exists(result):
+                update_drama(drama_id, thumbnail_url=result)
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "サムネイル生成に失敗しました"}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_thumb_gen, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "Thumbnail generation started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/assemble")
+async def api_production_assemble(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+    scene_videos = []
+    missing = []
+    for s in scenes:
+        sn = s.get("scene_number", 0)
+        vid_path = f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4"
+        if os.path.exists(vid_path) and os.path.getsize(vid_path) > 5000:
+            scene_videos.append(vid_path)
+        else:
+            missing.append(sn)
+
+    if missing:
+        return JSONResponse({"error": f"シーン {', '.join(map(str, missing))} の動画がありません"}, status_code=400)
+
+    audio_path = f"app/static/audio/drama_{drama_id}.mp3"
+    if not os.path.exists(audio_path):
+        return JSONResponse({"error": "音声がまだ生成されていません"}, status_code=400)
+
+    task_key = _get_production_task_key(drama_id, "assemble")
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already assembling"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_assemble():
+        try:
+            from app.services.video.subtitle_generator import generate_subtitle
+            from app.services.video.video_generator import edit_video
+
+            subtitle_path = generate_subtitle(scenes, drama_id)
+            final_video = edit_video(scene_videos, audio_path, drama_id, subtitle_path=subtitle_path)
+            update_drama(drama_id, video_url=final_video, status="ready")
+            production_tasks[task_key] = {"status": "done", "error": ""}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_assemble, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "Video assembly started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/save-script")
+async def api_production_save_script(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama(drama_id)
+    if not drama:
+        return JSONResponse({"error": "ドラマが見つかりません"}, status_code=404)
+
+    body = await request.json()
+    script_data = body.get("script_data")
+    if not script_data:
+        return JSONResponse({"error": "脚本データが必要です"}, status_code=400)
+
+    import json
+    update_drama(drama_id, script=json.dumps(script_data, ensure_ascii=False))
+    return JSONResponse({"success": True})

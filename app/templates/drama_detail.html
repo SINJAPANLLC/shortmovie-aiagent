@@ -2,9 +2,14 @@
 {% block title %}{{ drama.title or 'ドラマ詳細' }} - CEOの扉{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <a href="/dramas" class="btn btn-secondary btn-sm spa-link" style="margin-bottom:12px;display:inline-block">← 戻る</a>
-    <h1>{{ drama.title or '無題' }}</h1>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <a href="/dramas" class="btn btn-secondary btn-sm spa-link" style="margin-bottom:12px;display:inline-block">← 戻る</a>
+        <h1>{{ drama.title or '無題' }}</h1>
+    </div>
+    {% if drama.status in ['script_ready', 'generating', 'ready', 'published'] %}
+    <a href="/production/{{ drama.id }}" class="btn btn-primary spa-link" data-testid="link-production" style="font-size:0.9rem">プロダクション →</a>
+    {% endif %}
 </div>
 
 <div class="detail-grid">

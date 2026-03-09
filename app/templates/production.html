@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block title %}プロダクション - {{ drama.title or 'Drama' }}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1 data-testid="text-production-title" style="font-size:1.3rem">プロダクションスタジオ</h1>
+        <p style="color:var(--text-secondary);font-size:0.9rem" data-testid="text-drama-title">{{ drama.title or 'Untitled' }}</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="/dramas/{{ drama.id }}" class="btn btn-secondary spa-link" data-testid="link-back-drama" style="font-size:0.85rem">← ドラマ詳細</a>
+    </div>
+</div>
+
+<div id="progress-bar" data-testid="progress-bar" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-weight:600;font-size:0.95rem">制作進捗</span>
+        <span id="progress-text" data-testid="text-progress" style="font-size:0.85rem;color:var(--text-secondary)"></span>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap" id="progress-badges"></div>
+</div>
+
+<div id="scenes-container" data-testid="scenes-container">
+    {% for scene in scenes %}
+    {% set idx = loop.index0 %}
+    {% set sn = scene.scene_number or loop.index %}
+    {% set asset = scene_assets[idx] if idx < scene_assets|length else {} %}
+    <div class="card scene-card" data-scene="{{ sn }}" data-testid="scene-card-{{ sn }}" style="margin-bottom:16px;padding:0;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-hover);border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700">{{ sn }}</span>
+                <span style="font-weight:600;font-size:0.95rem">シーン {{ sn }}</span>
+                <span style="font-size:0.75rem;padding:2px 8px;background:var(--accent-light);color:#fff;border-radius:4px">{{ scene.emotion or '' }}</span>
+                <span style="font-size:0.75rem;color:var(--text-secondary)">{{ scene.duration or 6 }}秒</span>
+            </div>
+            <div style="display:flex;gap:4px" id="scene-status-{{ sn }}">
+                <span class="status-dot" id="img-status-{{ sn }}" style="width:10px;height:10px;border-radius:50%;background:{% if asset.has_image %}var(--success){% else %}var(--border){% endif %}"></span>
+                <span class="status-dot" id="vid-status-{{ sn }}" style="width:10px;height:10px;border-radius:50%;background:{% if asset.has_video %}var(--success){% else %}var(--border){% endif %}"></span>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:200px">
+            <div style="padding:14px 16px;border-right:1px solid var(--border)">
+                <label style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">セリフ / ナレーション</label>
+                <textarea class="scene-narration" data-scene="{{ sn }}" data-testid="textarea-narration-{{ sn }}" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;resize:vertical;margin-top:4px;font-family:inherit;line-height:1.5">{{ scene.narration or '' }}</textarea>
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <div style="flex:1">
+                        <label style="font-size:0.7rem;color:var(--text-secondary)">話者</label>
+                        <select class="scene-speaker" data-scene="{{ sn }}" data-testid="select-speaker-{{ sn }}" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem">
+                            <option value="主人公" {% if scene.speaker == '主人公' %}selected{% endif %}>主人公</option>
+                            <option value="CEO" {% if scene.speaker == 'CEO' %}selected{% endif %}>CEO</option>
+                            <option value="ナレーション" {% if scene.speaker == 'ナレーション' %}selected{% endif %}>ナレーション</option>
+                        </select>
+                    </div>
+                    <div style="flex:1">
+                        <label style="font-size:0.7rem;color:var(--text-secondary)">感情</label>
+                        <input type="text" class="scene-emotion" data-scene="{{ sn }}" value="{{ scene.emotion or '' }}" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem">
+                    </div>
+                    <div style="width:60px">
+                        <label style="font-size:0.7rem;color:var(--text-secondary)">秒</label>
+                        <input type="number" class="scene-duration" data-scene="{{ sn }}" value="{{ scene.duration or 6 }}" min="3" max="15" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem">
+                    </div>
+                </div>
+
+                <label style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;margin-top:10px;display:block;text-transform:uppercase;letter-spacing:0.5px">映像指示 (English)</label>
+                <textarea class="scene-desc" data-scene="{{ sn }}" data-testid="textarea-desc-{{ sn }}" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;resize:vertical;margin-top:4px;font-family:inherit;line-height:1.4;color:var(--text-secondary)">{{ scene.description or '' }}</textarea>
+            </div>
+
+            <div style="padding:14px 16px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;height:100%">
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">シーン画像</label>
+                        <div id="img-preview-{{ sn }}" data-testid="img-preview-{{ sn }}" style="margin-top:4px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+                            {% if asset.has_image %}
+                            <img src="{{ asset.image_url }}" style="width:100%;height:auto;border-radius:8px;max-height:200px;object-fit:cover">
+                            {% else %}
+                            <span style="font-size:0.8rem;color:var(--text-secondary)">未生成</span>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-secondary btn-gen-image" data-scene="{{ sn }}" data-testid="btn-gen-image-{{ sn }}" style="width:100%;margin-top:6px;font-size:0.8rem;padding:6px">
+                            {% if asset.has_image %}画像を再生成{% else %}画像を生成{% endif %}
+                        </button>
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">シーン動画</label>
+                        <div id="vid-preview-{{ sn }}" data-testid="vid-preview-{{ sn }}" style="margin-top:4px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+                            {% if asset.has_video %}
+                            <video src="{{ asset.video_url }}" controls style="width:100%;border-radius:8px;max-height:200px"></video>
+                            {% else %}
+                            <span style="font-size:0.8rem;color:var(--text-secondary)">未生成</span>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-secondary btn-gen-video" data-scene="{{ sn }}" data-testid="btn-gen-video-{{ sn }}" style="width:100%;margin-top:6px;font-size:0.8rem;padding:6px">
+                            {% if asset.has_video %}動画を再生成{% else %}動画を生成{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div style="display:flex;justify-content:center;margin:16px 0">
+    <button id="btn-save-script" class="btn btn-secondary" data-testid="btn-save-script" style="font-size:0.85rem">脚本を保存</button>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px">
+    <div class="card" data-testid="audio-section" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:1rem">音声</h3>
+            <span id="audio-status-badge" style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:{% if has_audio %}var(--success){% else %}var(--border){% endif %};color:{% if has_audio %}#fff{% else %}var(--text-secondary){% endif %}">{% if has_audio %}生成済み{% else %}未生成{% endif %}</span>
+        </div>
+        <div id="audio-preview" data-testid="audio-preview">
+            {% if has_audio %}
+            <audio src="{{ audio_url }}" controls style="width:100%;margin-bottom:8px"></audio>
+            {% else %}
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-bottom:8px">音声を生成してください</div>
+            {% endif %}
+        </div>
+        <button id="btn-gen-audio" class="btn btn-primary" data-testid="btn-gen-audio" style="width:100%;font-size:0.85rem">
+            {% if has_audio %}音声を再生成{% else %}音声を生成{% endif %}
+        </button>
+    </div>
+
+    <div class="card" data-testid="thumbnail-section" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:1rem">サムネイル</h3>
+            <span id="thumb-status-badge" style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:{% if has_thumbnail %}var(--success){% else %}var(--border){% endif %};color:{% if has_thumbnail %}#fff{% else %}var(--text-secondary){% endif %}">{% if has_thumbnail %}生成済み{% else %}未生成{% endif %}</span>
+        </div>
+        <div id="thumb-preview" data-testid="thumb-preview">
+            {% if has_thumbnail %}
+            <img src="{{ thumbnail_url }}" style="width:100%;border-radius:8px;max-height:200px;object-fit:contain;margin-bottom:8px">
+            {% else %}
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-bottom:8px">サムネイルを生成してください</div>
+            {% endif %}
+        </div>
+        <button id="btn-gen-thumb" class="btn btn-primary" data-testid="btn-gen-thumb" style="width:100%;font-size:0.85rem">
+            {% if has_thumbnail %}サムネイルを再生成{% else %}サムネイルを生成{% endif %}
+        </button>
+    </div>
+</div>
+
+<div class="card" style="margin-top:16px;padding:20px;text-align:center" data-testid="assemble-section">
+    <h3 style="font-size:1.1rem;margin-bottom:8px">最終動画</h3>
+    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px">全てのシーン動画と音声が揃ったら、最終動画を組み立てられます</p>
+    <div id="final-video-preview" data-testid="final-video-preview" style="margin-bottom:12px">
+        {% if has_final_video %}
+        <video src="{{ final_video_url }}" controls style="max-width:300px;border-radius:8px;margin:0 auto"></video>
+        {% endif %}
+    </div>
+    <button id="btn-assemble" class="btn btn-lg" data-testid="btn-assemble" style="background:var(--accent-dark);color:#fff;font-size:0.95rem;padding:12px 40px">
+        {% if has_final_video %}動画を再組み立て{% else %}動画を組み立てる{% endif %}
+    </button>
+    <div id="assemble-error" style="margin-top:8px;font-size:0.85rem;color:var(--error)"></div>
+</div>
+
+<script>
+var DRAMA_ID = {{ drama.id }};
+var TOTAL_SCENES = {{ scenes|length }};
+var pollTimer = null;
+var isPolling = false;
+
+function updateProgressBar(data) {
+    var scenes = data.scenes || [];
+    var imgDone = scenes.filter(function(s) { return s.has_image; }).length;
+    var vidDone = scenes.filter(function(s) { return s.has_video; }).length;
+    var hasAudio = data.has_audio;
+    var hasThumb = data.has_thumbnail;
+    var hasFinal = data.has_final_video;
+
+    var total = TOTAL_SCENES * 2 + 2;
+    var done = imgDone + vidDone + (hasAudio ? 1 : 0) + (hasThumb ? 1 : 0);
+
+    document.getElementById('progress-text').textContent = done + ' / ' + total + ' 完了';
+
+    var badges = '';
+    badges += '<span style="font-size:0.8rem;padding:4px 10px;border-radius:6px;background:' + (imgDone === TOTAL_SCENES ? 'var(--success)' : 'var(--bg-hover)') + ';color:' + (imgDone === TOTAL_SCENES ? '#fff' : 'var(--text-primary)') + ';border:1px solid var(--border)">画像 ' + imgDone + '/' + TOTAL_SCENES + '</span>';
+    badges += '<span style="font-size:0.8rem;padding:4px 10px;border-radius:6px;background:' + (vidDone === TOTAL_SCENES ? 'var(--success)' : 'var(--bg-hover)') + ';color:' + (vidDone === TOTAL_SCENES ? '#fff' : 'var(--text-primary)') + ';border:1px solid var(--border)">動画 ' + vidDone + '/' + TOTAL_SCENES + '</span>';
+    badges += '<span style="font-size:0.8rem;padding:4px 10px;border-radius:6px;background:' + (hasAudio ? 'var(--success)' : 'var(--bg-hover)') + ';color:' + (hasAudio ? '#fff' : 'var(--text-primary)') + ';border:1px solid var(--border)">音声 ' + (hasAudio ? '✓' : '✗') + '</span>';
+    badges += '<span style="font-size:0.8rem;padding:4px 10px;border-radius:6px;background:' + (hasThumb ? 'var(--success)' : 'var(--bg-hover)') + ';color:' + (hasThumb ? '#fff' : 'var(--text-primary)') + ';border:1px solid var(--border)">サムネイル ' + (hasThumb ? '✓' : '✗') + '</span>';
+    if (hasFinal) {
+        badges += '<span style="font-size:0.8rem;padding:4px 10px;border-radius:6px;background:var(--accent);color:#fff;border:1px solid var(--accent)">最終動画 ✓</span>';
+    }
+    document.getElementById('progress-badges').innerHTML = badges;
+}
+
+function updateSceneUI(sceneData) {
+    var sn = sceneData.scene_number;
+
+    var imgStatus = document.getElementById('img-status-' + sn);
+    var vidStatus = document.getElementById('vid-status-' + sn);
+    if (imgStatus) imgStatus.style.background = sceneData.has_image ? 'var(--success)' : (sceneData.image_generating ? 'var(--warning)' : 'var(--border)');
+    if (vidStatus) vidStatus.style.background = sceneData.has_video ? 'var(--success)' : (sceneData.video_generating ? 'var(--warning)' : 'var(--border)');
+
+    var imgPreview = document.getElementById('img-preview-' + sn);
+    if (imgPreview && sceneData.has_image && sceneData.image_url) {
+        imgPreview.innerHTML = '<img src="' + sceneData.image_url + '" style="width:100%;height:auto;border-radius:8px;max-height:200px;object-fit:cover">';
+    } else if (imgPreview && sceneData.image_generating) {
+        imgPreview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.8rem;color:var(--text-secondary)">生成中...</span></div>';
+    }
+    if (imgPreview && sceneData.image_error) {
+        imgPreview.innerHTML = '<span style="font-size:0.8rem;color:var(--error);padding:10px">' + sceneData.image_error + '</span>';
+    }
+
+    var vidPreview = document.getElementById('vid-preview-' + sn);
+    if (vidPreview && sceneData.has_video && sceneData.video_url) {
+        vidPreview.innerHTML = '<video src="' + sceneData.video_url + '" controls style="width:100%;border-radius:8px;max-height:200px"></video>';
+    } else if (vidPreview && sceneData.video_generating) {
+        vidPreview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.8rem;color:var(--text-secondary)">生成中 (数分かかります)...</span></div>';
+    }
+    if (vidPreview && sceneData.video_error) {
+        vidPreview.innerHTML = '<span style="font-size:0.8rem;color:var(--error);padding:10px">' + sceneData.video_error + '</span>';
+    }
+
+    var imgBtn = document.querySelector('.btn-gen-image[data-scene="' + sn + '"]');
+    var vidBtn = document.querySelector('.btn-gen-video[data-scene="' + sn + '"]');
+    if (imgBtn) {
+        imgBtn.disabled = sceneData.image_generating;
+        imgBtn.textContent = sceneData.image_generating ? '生成中...' : (sceneData.has_image ? '画像を再生成' : '画像を生成');
+    }
+    if (vidBtn) {
+        vidBtn.disabled = sceneData.video_generating;
+        vidBtn.textContent = sceneData.video_generating ? '生成中...' : (sceneData.has_video ? '動画を再生成' : '動画を生成');
+    }
+}
+
+function pollAssets() {
+    fetch('/api/production/' + DRAMA_ID + '/assets')
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.error) return;
+
+        updateProgressBar(data);
+
+        var scenes = data.scenes || [];
+        var anyRunning = false;
+        for (var i = 0; i < scenes.length; i++) {
+            updateSceneUI(scenes[i]);
+            if (scenes[i].image_generating || scenes[i].video_generating) anyRunning = true;
+        }
+
+        var audioPreview = document.getElementById('audio-preview');
+        var audioBadge = document.getElementById('audio-status-badge');
+        var audioBtn = document.getElementById('btn-gen-audio');
+        if (data.has_audio && data.audio_url) {
+            audioPreview.innerHTML = '<audio src="' + data.audio_url + '" controls style="width:100%;margin-bottom:8px"></audio>';
+            audioBadge.textContent = '生成済み';
+            audioBadge.style.background = 'var(--success)';
+            audioBadge.style.color = '#fff';
+            audioBtn.textContent = '音声を再生成';
+        }
+        if (data.audio_generating) {
+            anyRunning = true;
+            audioBtn.disabled = true;
+            audioBtn.textContent = '生成中...';
+            audioPreview.innerHTML = '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;margin-bottom:8px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.85rem;color:var(--text-secondary)">音声生成中...</span></div>';
+        } else {
+            audioBtn.disabled = false;
+        }
+        if (data.audio_error) {
+            audioPreview.innerHTML = '<div style="background:#fff0f0;border:1px solid var(--error);border-radius:8px;padding:12px;color:var(--error);font-size:0.85rem;margin-bottom:8px">' + data.audio_error + '</div>';
+        }
+
+        var thumbPreview = document.getElementById('thumb-preview');
+        var thumbBadge = document.getElementById('thumb-status-badge');
+        var thumbBtn = document.getElementById('btn-gen-thumb');
+        if (data.has_thumbnail && data.thumbnail_url) {
+            thumbPreview.innerHTML = '<img src="' + data.thumbnail_url + '" style="width:100%;border-radius:8px;max-height:200px;object-fit:contain;margin-bottom:8px">';
+            thumbBadge.textContent = '生成済み';
+            thumbBadge.style.background = 'var(--success)';
+            thumbBadge.style.color = '#fff';
+            thumbBtn.textContent = 'サムネイルを再生成';
+        }
+        if (data.thumbnail_generating) {
+            anyRunning = true;
+            thumbBtn.disabled = true;
+            thumbBtn.textContent = '生成中...';
+            thumbPreview.innerHTML = '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;margin-bottom:8px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.85rem;color:var(--text-secondary)">サムネイル生成中...</span></div>';
+        } else {
+            thumbBtn.disabled = false;
+        }
+        if (data.thumbnail_error) {
+            thumbPreview.innerHTML = '<div style="background:#fff0f0;border:1px solid var(--error);border-radius:8px;padding:12px;color:var(--error);font-size:0.85rem;margin-bottom:8px">' + data.thumbnail_error + '</div>';
+        }
+
+        var finalPreview = document.getElementById('final-video-preview');
+        var assembleBtn = document.getElementById('btn-assemble');
+        var assembleErr = document.getElementById('assemble-error');
+        if (data.has_final_video && data.final_video_url) {
+            finalPreview.innerHTML = '<video src="' + data.final_video_url + '" controls style="max-width:300px;border-radius:8px;margin:0 auto;display:block"></video>';
+            assembleBtn.textContent = '動画を再組み立て';
+        }
+        if (data.assemble_generating) {
+            anyRunning = true;
+            assembleBtn.disabled = true;
+            assembleBtn.textContent = '組み立て中...';
+        } else {
+            assembleBtn.disabled = false;
+        }
+        if (data.assemble_error) {
+            assembleErr.textContent = data.assemble_error;
+        }
+
+        if (anyRunning) {
+            startPolling();
+        } else {
+            stopPolling();
+        }
+    })
+    .catch(function() {});
+}
+
+function startPolling() {
+    if (isPolling) return;
+    isPolling = true;
+    pollTimer = setInterval(pollAssets, 3000);
+}
+
+function stopPolling() {
+    isPolling = false;
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+function showError(el, msg) {
+    el.innerHTML = '<div style="background:#fff0f0;border:1px solid var(--error);border-radius:8px;padding:10px;color:var(--error);font-size:0.8rem">' + (msg || 'エラーが発生しました') + '</div>';
+}
+
+function handleGenResponse(res) {
+    if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || d.detail || 'エラー (' + res.status + ')'); });
+    return res.json().then(function(d) {
+        if (d.error) throw new Error(d.error);
+        return d;
+    });
+}
+
+document.querySelectorAll('.btn-gen-image').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var sn = this.getAttribute('data-scene');
+        var preview = document.getElementById('img-preview-' + sn);
+        this.disabled = true;
+        this.textContent = '生成中...';
+        preview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.8rem;color:var(--text-secondary)">生成中...</span></div>';
+        fetch('/api/production/' + DRAMA_ID + '/scene-image/' + sn, { method: 'POST' })
+        .then(handleGenResponse)
+        .then(function() { startPolling(); })
+        .catch(function(e) { btn.disabled = false; btn.textContent = '画像を生成'; showError(preview, e.message); });
+    });
+});
+
+document.querySelectorAll('.btn-gen-video').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var sn = this.getAttribute('data-scene');
+        var preview = document.getElementById('vid-preview-' + sn);
+        this.disabled = true;
+        this.textContent = '生成中...';
+        preview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.8rem;color:var(--text-secondary)">生成中 (数分)...</span></div>';
+        fetch('/api/production/' + DRAMA_ID + '/scene-video/' + sn, { method: 'POST' })
+        .then(handleGenResponse)
+        .then(function() { startPolling(); })
+        .catch(function(e) { btn.disabled = false; btn.textContent = '動画を生成'; showError(preview, e.message); });
+    });
+});
+
+document.getElementById('btn-gen-audio').addEventListener('click', function() {
+    var btn = this;
+    var preview = document.getElementById('audio-preview');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    preview.innerHTML = '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;margin-bottom:8px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.85rem;color:var(--text-secondary)">音声生成中...</span></div>';
+    fetch('/api/production/' + DRAMA_ID + '/audio', { method: 'POST' })
+    .then(handleGenResponse)
+    .then(function() { startPolling(); })
+    .catch(function(e) { btn.disabled = false; btn.textContent = '音声を生成'; showError(preview, e.message); });
+});
+
+document.getElementById('btn-gen-thumb').addEventListener('click', function() {
+    var btn = this;
+    var preview = document.getElementById('thumb-preview');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    preview.innerHTML = '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;margin-bottom:8px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.85rem;color:var(--text-secondary)">サムネイル生成中...</span></div>';
+    fetch('/api/production/' + DRAMA_ID + '/thumbnail', { method: 'POST' })
+    .then(handleGenResponse)
+    .then(function() { startPolling(); })
+    .catch(function(e) { btn.disabled = false; btn.textContent = 'サムネイルを生成'; showError(preview, e.message); });
+});
+
+document.getElementById('btn-assemble').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = '組み立て中...';
+    document.getElementById('assemble-error').textContent = '';
+    fetch('/api/production/' + DRAMA_ID + '/assemble', { method: 'POST' })
+    .then(handleGenResponse)
+    .then(function() { startPolling(); })
+    .catch(function(e) {
+        document.getElementById('assemble-error').textContent = e.message;
+        btn.disabled = false;
+        btn.textContent = '動画を組み立てる';
+    });
+});
+
+document.getElementById('btn-save-script').addEventListener('click', function() {
+    var btn = this;
+    var scenes = [];
+    document.querySelectorAll('.scene-card').forEach(function(card) {
+        var sn = parseInt(card.getAttribute('data-scene'));
+        var narration = card.querySelector('.scene-narration') ? card.querySelector('.scene-narration').value : '';
+        var speaker = card.querySelector('.scene-speaker') ? card.querySelector('.scene-speaker').value : 'ナレーション';
+        var emotion = card.querySelector('.scene-emotion') ? card.querySelector('.scene-emotion').value : '';
+        var duration = card.querySelector('.scene-duration') ? parseInt(card.querySelector('.scene-duration').value) || 6 : 6;
+        var desc = card.querySelector('.scene-desc') ? card.querySelector('.scene-desc').value : '';
+        scenes.push({
+            scene_number: sn,
+            narration: narration,
+            speaker: speaker,
+            emotion: emotion,
+            duration: duration,
+            description: desc
+        });
+    });
+
+    var fullNarration = scenes.map(function(s) { return s.narration; }).filter(function(n) { return n; }).join('');
+
+    var scriptData = { narration: fullNarration, scenes: scenes };
+
+    fetch('/api/production/' + DRAMA_ID + '/save-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script_data: scriptData })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            btn.textContent = '保存しました ✓';
+            btn.style.background = 'var(--success)';
+            btn.style.color = '#fff';
+            setTimeout(function() {
+                btn.textContent = '脚本を保存';
+                btn.style.background = '';
+                btn.style.color = '';
+            }, 2000);
+        }
+    })
+    .catch(function() { alert('保存に失敗しました'); });
+});
+
+pollAssets();
+</script>
+{% endblock %}

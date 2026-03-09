@@ -115,6 +115,7 @@
 
             <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap">
                 <button id="btn-save-script" class="btn btn-secondary" data-testid="btn-save-script" onclick="saveScript()">脚本を保存</button>
+                <a id="btn-production" class="btn btn-primary" data-testid="btn-production" href="#" style="display:none;font-size:0.9rem">プロダクション →</a>
                 <button id="btn-continue-video" class="btn btn-primary btn-lg" data-testid="btn-continue-video" onclick="continueToVideo()">この脚本で動画を生成 →</button>
             </div>
         </div>
@@ -299,6 +300,12 @@ function showScriptEditor(result) {
     currentScriptData = result.script_data;
     scriptEditor.style.display = 'block';
     document.getElementById('script-drama-id').textContent = 'Drama #' + currentDramaId;
+
+    var prodBtn = document.getElementById('btn-production');
+    if (prodBtn && currentDramaId) {
+        prodBtn.href = '/production/' + currentDramaId;
+        prodBtn.style.display = 'inline-block';
+    }
 
     document.getElementById('edit-narration').value = currentScriptData.narration || '';
 
