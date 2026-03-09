@@ -909,12 +909,15 @@ async def production_page(request: Request, drama_id: int):
         sn = s.get("scene_number", 0)
         img_path = f"app/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png"
         vid_path = f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4"
+        saudio_path = f"app/static/audio/drama_{drama_id}_scene_{sn}.mp3"
         scene_assets.append({
             "scene_number": sn,
             "has_image": os.path.exists(img_path),
             "image_url": f"/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png" if os.path.exists(img_path) else None,
             "has_video": os.path.exists(vid_path),
             "video_url": f"/static/scenes/drama_{drama_id}_scene_{sn}.mp4" if os.path.exists(vid_path) else None,
+            "has_scene_audio": os.path.exists(saudio_path) and os.path.getsize(saudio_path) > 500,
+            "scene_audio_url": f"/static/audio/drama_{drama_id}_scene_{sn}.mp3" if os.path.exists(saudio_path) and os.path.getsize(saudio_path) > 500 else None,
         })
 
     audio_path = f"app/static/audio/drama_{drama_id}.mp3"
@@ -980,6 +983,10 @@ async def api_production_assets(request: Request, drama_id: int):
 
         task_img_key = _get_production_task_key(drama_id, "image", sn)
         task_vid_key = _get_production_task_key(drama_id, "video", sn)
+        task_saudio_key = _get_production_task_key(drama_id, "scene_audio", sn)
+
+        scene_audio_path = f"app/static/audio/drama_{drama_id}_scene_{sn}.mp3"
+        scene_audio_size = os.path.getsize(scene_audio_path) if os.path.exists(scene_audio_path) else 0
 
         scene_assets.append({
             "scene_number": sn,
@@ -987,10 +994,14 @@ async def api_production_assets(request: Request, drama_id: int):
             "image_url": f"/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png?t={int(os.path.getmtime(img_path))}" if os.path.exists(img_path) and img_size > 1000 else None,
             "has_video": os.path.exists(vid_path) and vid_size > 5000,
             "video_url": f"/static/scenes/drama_{drama_id}_scene_{sn}.mp4?t={int(os.path.getmtime(vid_path))}" if os.path.exists(vid_path) and vid_size > 5000 else None,
+            "has_scene_audio": os.path.exists(scene_audio_path) and scene_audio_size > 500,
+            "scene_audio_url": f"/static/audio/drama_{drama_id}_scene_{sn}.mp3?t={int(os.path.getmtime(scene_audio_path))}" if os.path.exists(scene_audio_path) and scene_audio_size > 500 else None,
             "image_generating": production_tasks.get(task_img_key, {}).get("status") == "running",
             "video_generating": production_tasks.get(task_vid_key, {}).get("status") == "running",
+            "scene_audio_generating": production_tasks.get(task_saudio_key, {}).get("status") == "running",
             "image_error": production_tasks.get(task_img_key, {}).get("error", ""),
             "video_error": production_tasks.get(task_vid_key, {}).get("error", ""),
+            "scene_audio_error": production_tasks.get(task_saudio_key, {}).get("error", ""),
         })
 
     audio_path = f"app/static/audio/drama_{drama_id}.mp3"
@@ -1051,13 +1062,21 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
     if production_tasks.get(task_key, {}).get("status") == "running":
         return JSONResponse({"error": "Already generating"}, status_code=409)
 
+    try:
+        body = await request.json()
+        custom_prompt = body.get("prompt", "").strip()
+    except Exception:
+        custom_prompt = ""
+
+    image_prompt = custom_prompt if custom_prompt else scene.get("description", "")
+
     production_tasks[task_key] = {"status": "running", "error": ""}
 
     def run_image_gen():
         try:
             from app.services.video.scene_generator import _generate_scene_specific_image
             result = _generate_scene_specific_image(
-                scene.get("description", ""),
+                image_prompt,
                 drama_id, scene_num
             )
             if result:
@@ -1105,6 +1124,14 @@ async def api_production_scene_video(request: Request, drama_id: int, scene_num:
     if production_tasks.get(task_key, {}).get("status") == "running":
         return JSONResponse({"error": "Already generating"}, status_code=409)
 
+    try:
+        body = await request.json()
+        custom_prompt = body.get("prompt", "").strip()
+    except Exception:
+        custom_prompt = ""
+
+    video_prompt = custom_prompt if custom_prompt else scene.get("description", "")
+
     production_tasks[task_key] = {"status": "running", "error": ""}
 
     def run_video_gen():
@@ -1114,7 +1141,7 @@ async def api_production_scene_video(request: Request, drama_id: int, scene_num:
             ref_image = img_path if os.path.exists(img_path) else None
 
             result = generate_scene_video(
-                scene_description=scene.get("description", ""),
+                scene_description=video_prompt,
                 scene_number=scene_num,
                 drama_id=drama_id,
                 reference_image=ref_image,
@@ -1175,6 +1202,66 @@ async def api_production_audio(request: Request, drama_id: int):
     thread.start()
 
     return JSONResponse({"message": "Audio generation started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/scene-audio/{scene_num}")
+async def api_production_scene_audio(request: Request, drama_id: int, scene_num: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+    scene = None
+    for s in scenes:
+        if s.get("scene_number") == scene_num:
+            scene = s
+            break
+
+    if not scene:
+        return JSONResponse({"error": f"Scene {scene_num} not found"}, status_code=404)
+
+    narration = scene.get("narration", "").strip()
+    if not narration:
+        return JSONResponse({"error": "このシーンにセリフがありません"}, status_code=400)
+
+    task_key = _get_production_task_key(drama_id, "scene_audio", scene_num)
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_scene_audio():
+        try:
+            from app.services.video.audio_generator import generate_scene_audio
+            result = generate_scene_audio(
+                narration=narration,
+                speaker=scene.get("speaker", "ナレーション"),
+                drama_id=drama_id,
+                scene_num=scene_num
+            )
+            if result and os.path.exists(result):
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "シーン音声生成に失敗しました"}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_scene_audio, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": f"Scene {scene_num} audio generation started", "status": "running"})
 
 
 @router.post("/api/production/{drama_id}/thumbnail")

@@ -310,3 +310,60 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
             if os.path.exists(sp):
                 os.remove(sp)
         raise
+
+
+def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num: int) -> str:
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    output_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_scene_{scene_num}.mp3")
+
+    api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("ELEVENLABS_API_KEY is not set")
+
+    client = ElevenLabs(api_key=api_key)
+
+    segments = _split_scene_narration(narration, speaker)
+    if not segments:
+        raise RuntimeError("音声セグメントが空です")
+
+    temp_files = []
+    final_paths = []
+    prev_role = None
+
+    try:
+        for i, segment in enumerate(segments):
+            role = segment["role"]
+            text = segment["text"].strip()
+            if not text:
+                continue
+
+            if prev_role is not None:
+                if role != prev_role:
+                    silence_dur = SILENCE_SPEAKER_CHANGE
+                else:
+                    silence_dur = SILENCE_SHORT
+                sil_path = os.path.join(AUDIO_DIR, f"scene_{drama_id}_{scene_num}_sil_{i}.mp3")
+                sil = _generate_silence(sil_path, silence_dur)
+                if sil:
+                    final_paths.append(sil)
+                    temp_files.append(sil_path)
+
+            seg_path = os.path.join(AUDIO_DIR, f"scene_{drama_id}_{scene_num}_seg_{i}.mp3")
+            _generate_segment_audio(client, role, text, seg_path)
+            final_paths.append(seg_path)
+            temp_files.append(seg_path)
+            prev_role = role
+
+        _concatenate_audio_segments(final_paths, output_path)
+
+        if os.path.getsize(output_path) < 500:
+            raise RuntimeError(f"Scene audio too small: {os.path.getsize(output_path)} bytes")
+
+        logger.info(f"Scene {scene_num} audio generated: {output_path}")
+        return output_path
+
+    except Exception as e:
+        for sp in temp_files:
+            if os.path.exists(sp):
+                os.remove(sp)
+        raise
