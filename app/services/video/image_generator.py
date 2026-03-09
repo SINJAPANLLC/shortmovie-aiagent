@@ -69,7 +69,7 @@ def generate_character_image(character_description: str, drama_id: int, progress
     return _create_placeholder_image(output_path, "Character", drama_id)
 
 
-def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None) -> str:
+def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None) -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -83,15 +83,38 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
         try:
             result = _generate_thumbnail_stability(title, genre, api_key, output_path)
             if result:
+                _compress_thumbnail(output_path)
                 progress_callback(3, "サムネイル生成完了 (Stability AI)")
                 return output_path
         except Exception as e:
             logger.warning(f"Stability thumbnail failed: {e}")
 
     resolved_char = _resolve_path(character_image) if character_image else None
-    result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, resolved_char)
+    result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, resolved_char, episode_number)
+    _compress_thumbnail(output_path)
     progress_callback(3, "サムネイル生成完了 (FFmpeg)")
     return result
+
+
+def _compress_thumbnail(path: str, max_bytes: int = 1_800_000):
+    if not os.path.exists(path):
+        return
+    size = os.path.getsize(path)
+    if size <= max_bytes:
+        return
+    jpg_path = path.replace(".png", "_compressed.jpg")
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", path,
+        "-q:v", "5",
+        "-frames:v", "1",
+        jpg_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    if result.returncode == 0 and os.path.exists(jpg_path):
+        os.remove(path)
+        os.rename(jpg_path, path)
+        logger.info(f"Thumbnail compressed: {size} -> {os.path.getsize(path)} bytes")
 
 
 def _generate_thumbnail_stability(title: str, genre: str, api_key: str, output_path: str) -> bool:
@@ -154,24 +177,29 @@ def _resolve_path(path: str) -> str:
     return None
 
 
-def _generate_thumbnail_ffmpeg(title: str, drama_id: int, output_path: str, character_image: str = None) -> str:
-    short_title = title
+def _generate_thumbnail_ffmpeg(title: str, drama_id: int, output_path: str, character_image: str = None, episode_number: int = None) -> str:
+    subtitle = title
     if "「" in title:
-        short_title = title.split("「")[-1].rstrip("」")
-    if len(short_title) > 12:
-        short_title = short_title[:12]
+        subtitle = title.split("「")[-1].rstrip("」")
+    if len(subtitle) > 10:
+        subtitle = subtitle[:10]
+
+    ep_num = episode_number or drama_id
+    ep_text = f"第{ep_num}話"
 
     font_arg = f"fontfile={FONT_PATH}:" if os.path.exists(FONT_PATH) else ""
 
     if character_image and os.path.exists(character_image):
         vf = (
-            f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[bg];"
-            f"[bg]colorbalance=bs=0.1:gs=-0.05:rs=-0.1[tinted];"
-            f"[tinted]drawbox=y=ih*0.75:w=iw:h=ih*0.25:color=black@0.7:t=fill[boxed];"
-            f"[boxed]drawtext={font_arg}text='{_escape_ffmpeg_text(short_title)}':"
-            f"fontsize=56:fontcolor=white:x=(w-text_w)/2:y=h*0.80:shadowcolor=black@0.8:shadowx=3:shadowy=3[titled];"
-            f"[titled]drawtext={font_arg}text='CEOの扉':"
-            f"fontsize=32:fontcolor=0x00897b:x=(w-text_w)/2:y=h*0.90"
+            f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+            f"eq=brightness=-0.08:contrast=1.3:saturation=1.2,"
+            f"drawbox=y=0:w=iw:h=ih*0.12:color=black@0.85:t=fill,"
+            f"drawbox=y=ih*0.72:w=iw:h=ih*0.28:color=black@0.80:t=fill,"
+            f"drawbox=y=ih*0.72:w=iw:h=6:color=0x00897b:t=fill,"
+            f"drawtext={font_arg}text='CEOの扉':fontsize=38:fontcolor=0x00E5A0:x=(w-text_w)/2:y=h*0.035:shadowcolor=black@0.9:shadowx=2:shadowy=2,"
+            f"drawtext={font_arg}text='{ep_text}':fontsize=30:fontcolor=0xB2DFDB:x=(w-text_w)/2:y=h*0.075:shadowcolor=black@0.8:shadowx=1:shadowy=1,"
+            f"drawtext={font_arg}text='{_escape_ffmpeg_text(subtitle)}':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=h*0.78:shadowcolor=black:shadowx=4:shadowy=4,"
+            f"drawtext={font_arg}text='▶ 続きが気になる...':fontsize=28:fontcolor=0xFFD700:x=(w-text_w)/2:y=h*0.90:shadowcolor=black@0.8:shadowx=2:shadowy=2"
         )
         cmd = [
             "ffmpeg", "-y",
@@ -182,43 +210,27 @@ def _generate_thumbnail_ffmpeg(title: str, drama_id: int, output_path: str, char
         ]
     else:
         vf = (
-            f"color=c=0x1a1a2e:s=1080x1920:d=1[bg];"
-            f"[bg]drawbox=y=0:w=iw:h=4:color=0x00897b:t=fill[line];"
-            f"[line]drawbox=y=ih-4:w=iw:h=4:color=0x00897b:t=fill[line2];"
-            f"[line2]drawtext={font_arg}text='{_escape_ffmpeg_text(short_title)}':"
-            f"fontsize=64:fontcolor=white:x=(w-text_w)/2:y=(h/2-80):shadowcolor=black@0.8:shadowx=3:shadowy=3[titled];"
-            f"[titled]drawtext={font_arg}text='CEOの扉':"
-            f"fontsize=42:fontcolor=0x00897b:x=(w-text_w)/2:y=(h/2+40)[branded];"
-            f"[branded]drawtext={font_arg}text='Episode {drama_id}':"
-            f"fontsize=28:fontcolor=0xB2DFDB:x=(w-text_w)/2:y=(h/2+100)"
+            f"drawbox=y=0:w=iw:h=ih*0.15:color=0x00897b:t=fill,"
+            f"drawbox=y=ih*0.70:w=iw:h=ih*0.30:color=0x004D40:t=fill,"
+            f"drawbox=y=ih*0.70:w=iw:h=6:color=0x00E5A0:t=fill,"
+            f"drawtext={font_arg}text='CEOの扉':fontsize=52:fontcolor=white:x=(w-text_w)/2:y=h*0.04:shadowcolor=black@0.5:shadowx=2:shadowy=2,"
+            f"drawtext={font_arg}text='{ep_text}':fontsize=36:fontcolor=0xB2DFDB:x=(w-text_w)/2:y=h*0.095,"
+            f"drawtext={font_arg}text='♦':fontsize=120:fontcolor=0x00897b@0.3:x=(w-text_w)/2:y=h*0.35,"
+            f"drawtext={font_arg}text='{_escape_ffmpeg_text(subtitle)}':fontsize=76:fontcolor=white:x=(w-text_w)/2:y=h*0.78:shadowcolor=black:shadowx=4:shadowy=4,"
+            f"drawtext={font_arg}text='▶ 続きが気になる...':fontsize=28:fontcolor=0xFFD700:x=(w-text_w)/2:y=h*0.90:shadowcolor=black@0.8:shadowx=2:shadowy=2"
         )
-        cmd = [
-            "ffmpeg", "-y",
-            "-f", "lavfi",
-            "-i", f"color=c=0x1a1a2e:s=1080x1920:d=1",
-            "-vf", vf.split(";", 1)[1] if ";" in vf else vf,
-            "-frames:v", "1",
-            output_path
-        ]
         cmd = [
             "ffmpeg", "-y",
             "-f", "lavfi",
             "-i", "color=c=0x1a1a2e:s=1080x1920:d=1",
             "-vframes", "1",
-            "-vf", (
-                f"drawtext={font_arg}text='{_escape_ffmpeg_text(short_title)}':"
-                f"fontsize=64:fontcolor=white:x=(w-text_w)/2:y=(h/2-80):shadowcolor=black@0.8:shadowx=3:shadowy=3,"
-                f"drawtext={font_arg}text='CEOの扉':"
-                f"fontsize=42:fontcolor=0x00897b:x=(w-text_w)/2:y=(h/2+40),"
-                f"drawtext={font_arg}text='Episode {drama_id}':"
-                f"fontsize=28:fontcolor=0xB2DFDB:x=(w-text_w)/2:y=(h/2+100)"
-            ),
+            "-vf", vf,
             output_path
         ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
-        logger.warning(f"FFmpeg thumbnail with text failed: {result.stderr[:200]}")
+        logger.warning(f"FFmpeg thumbnail failed: {result.stderr[:300]}")
         cmd_simple = [
             "ffmpeg", "-y",
             "-f", "lavfi",

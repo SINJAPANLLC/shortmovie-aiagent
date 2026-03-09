@@ -134,13 +134,18 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
             "scene_number": 1,
             "duration": 6,
             "description": "映像の詳細説明（英語。カメラワーク+ライティング+表情+場所を含む。40-60 words）",
-            "narration": "このシーンの対話/セリフ（話者名「セリフ」形式）",
-            "speaker": "話者名（例: 主人公, CEO, ナレーション）",
+            "narration": "このシーンの対話/セリフ（必ず 主人公「セリフ」CEO「セリフ」ナレーション「説明」 の形式。キャラの実名ではなく役割名を使う）",
+            "speaker": "このシーンのメイン話者。必ず次の3つのいずれか: 主人公 / CEO / ナレーション（キャラの実名は使わない）",
             "emotion": "このシーンの核心感情（例: 緊張、切なさ、衝撃、期待）"
         }},
         ...
     ]
-}}"""
+}}
+
+【重要ルール】
+- narration内のセリフ表記は必ず「主人公「セリフ」」「CEO「セリフ」」「ナレーション「説明文」」の形式にしてください
+- キャラクターの実名（美咲、涼介、翔子、蓮 など）はnarrationやspeakerには使わないでください
+- speakerフィールドは必ず「主人公」「CEO」「ナレーション」の3択です"""
 
     message = None
     for attempt in range(MAX_RETRIES):

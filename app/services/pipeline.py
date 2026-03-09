@@ -182,14 +182,17 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
             previous_script=last_script,
             emotional_arc=theme_data.get("emotional_arc", "")
         )
+        import json as json_mod
         narration = script_data.get("narration", "")
         scenes = script_data.get("scenes", [])
         if max_scenes and len(scenes) > max_scenes:
             scenes = scenes[:max_scenes]
+            script_data["scenes"] = scenes
             scene_narrations = [s.get("narration", "") for s in scenes]
             narration = "".join(scene_narrations)
+            script_data["narration"] = narration
             progress_callback(2, f"テストモード: {max_scenes}シーンに制限")
-        update_drama(drama_id, script=narration, scene_count=len(scenes))
+        update_drama(drama_id, script=json_mod.dumps(script_data, ensure_ascii=False), scene_count=len(scenes))
         progress_callback(2, f"脚本生成完了: {len(narration)}文字, {len(scenes)}シーン")
 
         progress_callback(3, "キャラクター・サムネイル画像を生成中 (Stable Diffusion)...")
