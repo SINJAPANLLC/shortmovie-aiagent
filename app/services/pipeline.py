@@ -14,7 +14,7 @@ from app.services.video.video_generator import edit_video, create_placeholder_vi
 from app.services.video.kling_service import generate_scene_video
 from app.services.video.subtitle_generator import generate_subtitle
 from app.services.youtube.youtube_service import upload_video, is_youtube_connected
-from app.services.tiktok.tiktok_service import upload_to_tiktok, is_tiktok_connected
+from app.services.tiktok.tiktok_rpa import upload_to_tiktok_rpa_sync, is_tiktok_rpa_connected
 from app.services.analytics_collector import collect_all_analytics
 
 logger = logging.getLogger(__name__)
@@ -231,18 +231,18 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         else:
             progress_callback(8, "YouTube未接続 — スキップ")
 
-        if is_tiktok_connected():
-            progress_callback(8, "TikTokにアップロード中...")
-            tiktok_id = upload_to_tiktok(
+        if is_tiktok_rpa_connected():
+            progress_callback(8, "TikTokにRPAアップロード中...")
+            tiktok_id = upload_to_tiktok_rpa_sync(
                 video_path=final_video,
                 title=title,
                 description=description,
                 tags=tags
             )
             if tiktok_id:
-                progress_callback(8, f"TikTok投稿完了: {tiktok_id}")
+                progress_callback(8, f"TikTok RPA投稿完了: {tiktok_id}")
             else:
-                progress_callback(8, "TikTok投稿失敗")
+                progress_callback(8, "TikTok RPA投稿失敗")
         else:
             progress_callback(8, "TikTok未接続 — スキップ")
 

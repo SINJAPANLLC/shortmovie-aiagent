@@ -14,7 +14,7 @@
 - **Video Generation**: Kling API (各シーン動画生成) + FFmpeg (編集・結合)
 - **Audio**: ElevenLabs API (ナレーション音声生成)
 - **YouTube**: YouTube Data API v3 (Shorts投稿/分析)
-- **TikTok**: TikTok Content Posting API v2 (動画投稿/分析)
+- **TikTok**: Playwright RPA (ブラウザ自動操作で動画投稿、Cookie認証)
 - **Auth**: PBKDF2-SHA256 + JWT
 - **Color Theme**: Turquoise (#00897b)
 - **Admin**: info@sinjapan.jp / Kazuya8008
@@ -76,7 +76,8 @@ app/
     youtube/
       youtube_service.py         # YouTube upload and analytics
     tiktok/
-      tiktok_service.py          # TikTok Content Posting API v2 upload + analytics
+      tiktok_rpa.py              # TikTok Playwright RPA upload (Cookie-based browser automation)
+      tiktok_service.py          # TikTok API service (legacy, replaced by RPA)
     analytics_collector.py       # YouTube analytics collection
   db/
     database.py                  # PostgreSQL (series, dramas, ai_logs, admin_users, settings)
@@ -110,7 +111,8 @@ app/
 - `ELEVENLABS_API_KEY` - ElevenLabs API key
 - `KLING_API_KEY` - Kling AI API key (scene video generation)
 - `STABILITY_API_KEY` - Stability AI API key (character images + thumbnails)
-- `TIKTOK_ACCESS_TOKEN` - TikTok Content Posting API access token
+- `TIKTOK_CLIENT_KEY` - TikTok Client Key (参考用、RPA方式では不要)
+- `TIKTOK_CLIENT_SECRET` - TikTok Client Secret (参考用、RPA方式では不要)
 - `YOUTUBE_OAUTH_CLIENT_ID` - Google OAuth Client ID
 - `YOUTUBE_OAUTH_CLIENT_SECRET` - Google OAuth Client Secret
 - `YOUTUBE_OAUTH_REFRESH_TOKEN` - OAuth refresh token

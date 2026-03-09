@@ -96,30 +96,27 @@
             <span class="badge badge-draft">未接続</span>
             {% endif %}
         </div>
-        <p class="setting-desc">TikTokに動画を自動投稿します。</p>
-
-        <div class="env-checklist">
-            <div class="env-item {{ 'env-ok' if tt_has_client_key else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if tt_has_client_key else '✗' }}</span>
-                <span>TIKTOK_CLIENT_KEY</span>
-            </div>
-            <div class="env-item {{ 'env-ok' if tt_has_client_secret else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if tt_has_client_secret else '✗' }}</span>
-                <span>TIKTOK_CLIENT_SECRET</span>
-            </div>
-            <div class="env-item {{ 'env-ok' if has_tiktok else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if has_tiktok else '✗' }}</span>
-                <span>アクセストークン（OAuth連携済み）</span>
-            </div>
-        </div>
+        <p class="setting-desc">TikTokにブラウザ自動操作（RPA）で動画を投稿します。</p>
+        <p class="setting-desc" style="font-size:12px;color:#888;margin-top:4px;">
+            ブラウザでTikTokにログイン → Cookie書き出し拡張機能（EditThisCookie等）で .tiktok.com のCookieをJSON形式でエクスポート → 下に貼り付けて保存。
+        </p>
 
         {% if has_tiktok %}
-        <a href="/auth/tiktok" class="btn btn-secondary" style="margin-top:8px">再連携する</a>
-        {% elif tt_has_client_key and tt_has_client_secret %}
-        <a href="/auth/tiktok" class="btn btn-primary" style="margin-top:8px" data-testid="btn-tiktok-connect">TikTok アカウントを連携</a>
-        {% else %}
-        <p class="setting-status">TIKTOK_CLIENT_KEY と TIKTOK_CLIENT_SECRET を環境変数に設定してください。</p>
+        <div class="env-checklist">
+            <div class="env-item env-ok">
+                <span class="env-icon">✓</span>
+                <span>TikTok Cookie（sessionid）保存済み</span>
+            </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:8px" data-testid="btn-tiktok-disconnect" onclick="disconnectTiktok()">連携を解除</button>
+        <button class="btn btn-primary" style="margin-top:8px;margin-left:8px" data-testid="btn-tiktok-update" onclick="document.getElementById('tiktok-cookie-form').style.display='block'">Cookieを更新</button>
         {% endif %}
+
+        <div id="tiktok-cookie-form" style="margin-top:12px;{% if has_tiktok %}display:none{% endif %}">
+            <textarea id="tiktok-cookies-input" data-testid="input-tiktok-cookies" rows="6" style="width:100%;font-size:12px;font-family:monospace;padding:8px;border:1px solid #ccc;border-radius:6px;resize:vertical;" placeholder='[{"name":"sessionid","value":"xxx","domain":".tiktok.com",...}, ...]'></textarea>
+            <button class="btn btn-primary" style="margin-top:8px" data-testid="btn-tiktok-save" onclick="saveTiktokCookies()">Cookie を保存して連携</button>
+            <span id="tiktok-save-status" style="margin-left:12px;font-size:13px;"></span>
+        </div>
     </div>
 
     <div class="setting-card">
@@ -179,6 +176,56 @@
 </div>
 
 <script>
+function saveTiktokCookies() {
+    var input = document.getElementById('tiktok-cookies-input');
+    var status = document.getElementById('tiktok-save-status');
+    var raw = input.value.trim();
+    if (!raw) {
+        status.textContent = 'Cookieデータを入力してください';
+        status.style.color = '#e53935';
+        return;
+    }
+    var cookies;
+    try {
+        cookies = JSON.parse(raw);
+    } catch(e) {
+        status.textContent = 'JSON形式が正しくありません';
+        status.style.color = '#e53935';
+        return;
+    }
+    status.textContent = '保存中...';
+    status.style.color = '#888';
+    fetch('/api/tiktok/cookies', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cookies: cookies})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            status.textContent = data.message;
+            status.style.color = '#00897b';
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            status.textContent = data.error || 'エラーが発生しました';
+            status.style.color = '#e53935';
+        }
+    })
+    .catch(function() {
+        status.textContent = '通信エラー';
+        status.style.color = '#e53935';
+    });
+}
+
+function disconnectTiktok() {
+    if (!confirm('TikTokの連携を解除しますか？')) return;
+    fetch('/api/tiktok/disconnect', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) location.reload();
+    });
+}
+
 document.getElementById('btn-refresh-usage').addEventListener('click', function() {
     this.disabled = true;
     this.textContent = '読み込み中...';

@@ -20,8 +20,8 @@ from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.youtube.youtube_service import (
     get_oauth_flow, save_credentials, is_youtube_connected
 )
-from app.services.tiktok.tiktok_service import (
-    is_tiktok_connected, get_tiktok_oauth_url, exchange_tiktok_code
+from app.services.tiktok.tiktok_rpa import (
+    is_tiktok_rpa_connected, save_tiktok_cookies, clear_tiktok_cookies
 )
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ async def dashboard(request: Request):
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
         "has_kling": bool(os.environ.get("KLING_ACCESS_KEY") and os.environ.get("KLING_SECRET_KEY")) or bool(os.environ.get("KLING_API_KEY")),
         "has_stability": bool(os.environ.get("STABILITY_API_KEY")),
-        "has_tiktok": is_tiktok_connected(),
+        "has_tiktok": is_tiktok_rpa_connected(),
         "ai_logs": get_ai_logs(limit=20),
         "active_series": active_series,
         "all_series": all_series,
@@ -215,9 +215,7 @@ async def settings_page(request: Request):
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
         "has_kling": bool(os.environ.get("KLING_ACCESS_KEY") and os.environ.get("KLING_SECRET_KEY")) or bool(os.environ.get("KLING_API_KEY")),
         "has_stability": bool(os.environ.get("STABILITY_API_KEY")),
-        "has_tiktok": is_tiktok_connected(),
-        "tt_has_client_key": bool(os.environ.get("TIKTOK_CLIENT_KEY")),
-        "tt_has_client_secret": bool(os.environ.get("TIKTOK_CLIENT_SECRET")),
+        "has_tiktok": is_tiktok_rpa_connected(),
         "yt_has_client_id": has_client_id,
         "yt_has_client_secret": has_client_secret,
         "yt_has_refresh_token": has_refresh_token,
@@ -245,8 +243,6 @@ async def youtube_auth_start(request: Request):
 
 @router.get("/auth/callback")
 async def auth_callback(request: Request, code: str = None, error: str = None, state: str = None):
-    if state == "tiktok_oauth":
-        return await _tiktok_auth_callback(request, code, error)
     return await _youtube_auth_callback(request, code, error)
 
 
@@ -275,40 +271,38 @@ async def _youtube_auth_callback(request: Request, code: str = None, error: str 
         return RedirectResponse(url="/settings?error=youtube_callback_failed", status_code=303)
 
 
-async def _tiktok_auth_callback(request: Request, code: str = None, error: str = None):
-    if error:
-        return RedirectResponse(url="/settings?error=tiktok_denied", status_code=303)
-    if not code:
-        return RedirectResponse(url="/settings?error=tiktok_no_code", status_code=303)
-
-    try:
-        replit_domains = os.environ.get("REPLIT_DOMAINS", "")
-        domain = replit_domains.split(",")[0].strip() if replit_domains else os.environ.get("REPLIT_DEV_DOMAIN", "")
-        redirect_uri = f"https://{domain}/auth/callback"
-
-        exchange_tiktok_code(code, redirect_uri)
-        return RedirectResponse(url="/settings?success=tiktok_connected", status_code=303)
-    except Exception as e:
-        logger.error(f"TikTok auth callback failed: {e}")
-        return RedirectResponse(url="/settings?error=tiktok_callback_failed", status_code=303)
-
-
-@router.get("/auth/tiktok")
-async def tiktok_auth_start(request: Request):
+@router.post("/api/tiktok/cookies")
+async def save_tiktok_cookies_api(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
 
     try:
-        replit_domains = os.environ.get("REPLIT_DOMAINS", "")
-        domain = replit_domains.split(",")[0].strip() if replit_domains else os.environ.get("REPLIT_DEV_DOMAIN", "")
-        redirect_uri = f"https://{domain}/auth/callback"
+        body = await request.json()
+        cookies_data = body.get("cookies", [])
+        if not cookies_data:
+            return JSONResponse({"error": "Cookieデータが空です"}, status_code=400)
 
-        oauth_url = get_tiktok_oauth_url(redirect_uri)
-        return RedirectResponse(url=oauth_url)
+        save_tiktok_cookies(cookies_data)
+        connected = is_tiktok_rpa_connected()
+        return JSONResponse({
+            "success": True,
+            "connected": connected,
+            "message": "TikTok Cookieを保存しました" if connected else "sessionidが見つかりません。TikTokにログインした状態でCookieをエクスポートしてください。"
+        })
     except Exception as e:
-        logger.error(f"TikTok auth start failed: {e}")
-        return RedirectResponse(url="/settings?error=tiktok_auth_failed", status_code=303)
+        logger.error(f"TikTok cookies save failed: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tiktok/disconnect")
+async def disconnect_tiktok(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    clear_tiktok_cookies()
+    return JSONResponse({"success": True, "message": "TikTok連携を解除しました"})
 
 
 @router.post("/api/generate")
