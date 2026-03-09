@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.db.database import init_db, create_admin_user
 from app.api.auth import hash_password
-from app.api.routes import router
+from app.api.routes import router, pipeline_lock
 from app.services.pipeline import run_full_pipeline
 from app.services.analytics_collector import collect_all_analytics
 
@@ -38,10 +38,21 @@ async def startup_event():
     create_admin_user(admin_username, password_hash)
     logger.info(f"Admin user '{admin_username}' ensured")
 
+    def scheduled_pipeline():
+        if not pipeline_lock.acquire(blocking=False):
+            logger.warning("Pipeline already running, skipping scheduled run")
+            return
+        try:
+            run_full_pipeline()
+        except Exception as e:
+            logger.error(f"Scheduled pipeline error: {e}")
+        finally:
+            pipeline_lock.release()
+
     scheduler = BackgroundScheduler(timezone=JST)
 
     scheduler.add_job(
-        run_full_pipeline,
+        scheduled_pipeline,
         trigger=CronTrigger(hour=10, minute=0, timezone=JST),
         id="morning_drama",
         name="朝の自動生成 (10:00 JST)",
@@ -49,7 +60,7 @@ async def startup_event():
     )
 
     scheduler.add_job(
-        run_full_pipeline,
+        scheduled_pipeline,
         trigger=CronTrigger(hour=15, minute=0, timezone=JST),
         id="afternoon_drama",
         name="昼の自動生成 (15:00 JST)",
@@ -57,7 +68,7 @@ async def startup_event():
     )
 
     scheduler.add_job(
-        run_full_pipeline,
+        scheduled_pipeline,
         trigger=CronTrigger(hour=21, minute=0, timezone=JST),
         id="evening_drama",
         name="夜の自動生成 (21:00 JST)",

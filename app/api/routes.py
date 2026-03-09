@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
+pipeline_lock = threading.Lock()
+
 pipeline_status = {
     "running": False,
     "last_result": None,
@@ -283,25 +285,30 @@ async def api_generate(request: Request):
     import datetime
 
     def run_pipeline():
-        pipeline_status["running"] = True
-        pipeline_status["last_result"] = None
-        pipeline_status["current_step"] = 0
-        pipeline_status["step_label"] = ""
-        pipeline_status["logs"] = []
-        pipeline_status["started_at"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        if not pipeline_lock.acquire(blocking=False):
+            logger.warning("Pipeline already running, skipping duplicate request")
+            return
         try:
-            result = run_full_pipeline(
-                progress_callback=pipeline_progress_callback,
-                custom_theme=custom_theme,
-                custom_genre=custom_genre
-            )
-            pipeline_status["last_result"] = result
-            pipeline_log("パイプライン完了", step=9)
-        except Exception as e:
-            pipeline_status["last_result"] = {"success": False, "error": str(e)}
-            pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
+            pipeline_status["running"] = True
+            pipeline_status["last_result"] = None
+            pipeline_status["current_step"] = 0
+            pipeline_status["step_label"] = ""
+            pipeline_status["logs"] = []
+            pipeline_status["started_at"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            try:
+                result = run_full_pipeline(
+                    progress_callback=pipeline_progress_callback,
+                    custom_theme=custom_theme,
+                    custom_genre=custom_genre
+                )
+                pipeline_status["last_result"] = result
+                pipeline_log("パイプライン完了", step=9)
+            except Exception as e:
+                pipeline_status["last_result"] = {"success": False, "error": str(e)}
+                pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
         finally:
             pipeline_status["running"] = False
+            pipeline_lock.release()
 
     thread = threading.Thread(target=run_pipeline, daemon=True)
     thread.start()

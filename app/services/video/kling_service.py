@@ -36,7 +36,7 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
 
     for attempt in range(MAX_RETRIES):
         try:
-            progress_callback(4, f"シーン{scene_number}を生成中 (Kling API)...")
+            progress_callback(5, f"シーン{scene_number}を生成中 (Kling API)...")
 
             with httpx.Client(timeout=300) as client:
                 response = client.post(
@@ -95,7 +95,7 @@ def _poll_task(api_key: str, task_id: str, progress_callback, scene_number: int,
                     elif status == "failed":
                         logger.error(f"Kling task failed for scene {scene_number}")
                         return None
-                    progress_callback(4, f"シーン{scene_number}生成中... ({status})")
+                    progress_callback(5, f"シーン{scene_number}生成中... ({status})")
         except Exception as e:
             logger.warning(f"Polling error: {e}")
         time.sleep(10)

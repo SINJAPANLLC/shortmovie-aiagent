@@ -31,7 +31,7 @@ def generate_voice(text: str, drama_id: int, progress_callback=None) -> str:
     client = ElevenLabs(api_key=api_key)
     voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "fUjY9K2nAIwlALOwSiwc")
 
-    progress_callback(5, f"音声生成中（{len(text)}文字）...")
+    progress_callback(6, f"音声生成中（{len(text)}文字）...")
 
     for attempt in range(MAX_RETRIES):
         try:
@@ -53,13 +53,13 @@ def generate_voice(text: str, drama_id: int, progress_callback=None) -> str:
             if os.path.getsize(output_path) < 1000:
                 raise RuntimeError(f"Generated audio file too small: {os.path.getsize(output_path)} bytes")
 
-            progress_callback(5, "音声生成完了")
+            progress_callback(6, "音声生成完了")
             logger.info(f"Audio generated: {output_path}")
             return output_path
         except Exception as e:
             if attempt < MAX_RETRIES - 1:
                 logger.warning(f"ElevenLabs error, retrying in {RETRY_DELAY}s (attempt {attempt+1}/{MAX_RETRIES}): {e}")
-                progress_callback(5, f"音声生成リトライ ({attempt+1}/{MAX_RETRIES})")
+                progress_callback(6, f"音声生成リトライ ({attempt+1}/{MAX_RETRIES})")
                 time.sleep(RETRY_DELAY)
             else:
                 raise

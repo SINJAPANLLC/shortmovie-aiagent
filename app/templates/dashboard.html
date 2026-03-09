@@ -480,9 +480,12 @@
                 var content = document.getElementById('analysis-content');
                 content.innerHTML =
                     '<div class="improvement-item"><h4>分析結果</h4><p>' + (data.analysis || 'N/A') + '</p></div>' +
-                    '<div class="improvement-item"><h4>最も成績の良いジャンル</h4><p>' + (data.best_genre || 'N/A') + '</p></div>' +
-                    '<div class="improvement-item"><h4>改善提案</h4><p>' + (data.improvement_suggestions || 'N/A') + '</p></div>' +
-                    '<div class="improvement-item"><h4>次のテーマ推奨</h4><p>' + (data.next_theme_recommendation || 'N/A') + '</p></div>';
+                    '<div class="improvement-item"><h4>高パフォーマンスの共通点</h4><p>' + (data.top_performing_pattern || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>フック改善</h4><p>' + (data.hook_improvement || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>ストーリー改善</h4><p>' + (data.story_improvement || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>タイトル改善</h4><p>' + (data.title_improvement || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>次のテーマ推奨</h4><p>' + (data.next_theme_recommendation || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>エンゲージメント施策</h4><p>' + (data.engagement_tips || 'N/A') + '</p></div>';
                 document.getElementById('analysis-result').style.display = 'block';
                 btnAnalysis.disabled = false;
                 btnAnalysis.textContent = 'AI分析を実行';
