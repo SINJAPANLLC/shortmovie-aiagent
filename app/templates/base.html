@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a73e8">
+    <title>{% block title %}Youtube AI AGENT SIN JAPAN{% endblock %}</title>
+    <style>html{background:#f5f7fb}body{background:#f5f7fb;color:#1a1a2e;margin:0;padding:0}</style>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% if user %}
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="nav-logo">▶</span>
+            <span class="nav-title">Youtube AI AGENT SIN JAPAN</span>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard" class="nav-link spa-link">ダッシュボード</a>
+            <a href="/logout" class="nav-link nav-logout">ログアウト</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="container" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if user %}
+    <script>
+    (function() {
+        var mainEl = document.getElementById('main-content');
+
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a.spa-link');
+            if (!link) return;
+
+            var href = link.getAttribute('href');
+            if (!href) return;
+
+            e.preventDefault();
+
+            mainEl.style.opacity = '0.4';
+            mainEl.style.transition = 'opacity 0.15s';
+
+            fetch(href, { credentials: 'same-origin' })
+                .then(function(res) { return res.text(); })
+                .then(function(html) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    var newContent = doc.getElementById('main-content');
+                    var newTitle = doc.querySelector('title');
+
+                    if (newContent) {
+                        mainEl.innerHTML = newContent.innerHTML;
+                    }
+                    if (newTitle) {
+                        document.title = newTitle.textContent;
+                    }
+
+                    history.pushState(null, '', href);
+
+                    var scripts = mainEl.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        var newScript = document.createElement('script');
+                        newScript.textContent = oldScript.textContent;
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+
+                    mainEl.style.opacity = '1';
+                    window.scrollTo(0, 0);
+                })
+                .catch(function() {
+                    window.location.href = href;
+                });
+        });
+
+        window.addEventListener('popstate', function() {
+            fetch(location.pathname, { credentials: 'same-origin' })
+                .then(function(res) { return res.text(); })
+                .then(function(html) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    var newContent = doc.getElementById('main-content');
+                    var newTitle = doc.querySelector('title');
+                    if (newContent) mainEl.innerHTML = newContent.innerHTML;
+                    if (newTitle) document.title = newTitle.textContent;
+
+                    var scripts = mainEl.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        var newScript = document.createElement('script');
+                        newScript.textContent = oldScript.textContent;
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                })
+                .catch(function() {
+                    location.reload();
+                });
+        });
+    })();
+    </script>
+    {% endif %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

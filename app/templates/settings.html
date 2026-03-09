@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}設定 - Youtube AI AGENT SIN JAPAN{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>設定</h1>
+    <p>API接続とサービス設定</p>
+</div>
+
+{% if request.query_params.get('success') == 'youtube_connected' %}
+<div class="alert alert-success">YouTube アカウントが正常に連携されました</div>
+{% endif %}
+{% if request.query_params.get('error') %}
+<div class="alert alert-error">
+    {% if request.query_params.get('error') == 'youtube_denied' %}
+        YouTube 認証が拒否されました。もう一度お試しください。
+    {% elif request.query_params.get('error') == 'youtube_auth_failed' %}
+        YouTube 認証の開始に失敗しました。OAuth設定を確認してください。
+    {% elif request.query_params.get('error') == 'youtube_callback_failed' %}
+        YouTube 認証のコールバック処理に失敗しました。
+    {% else %}
+        エラーが発生しました。
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="settings-grid">
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>YouTube 連携</h3>
+            {% if youtube_connected %}
+            <span class="badge badge-published">接続済み</span>
+            {% else %}
+            <span class="badge badge-draft">未接続</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">YouTube Data API v3 を使用して動画を自動投稿します。</p>
+
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if yt_has_client_id else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_client_id else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_CLIENT_ID</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_client_secret else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_client_secret else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_CLIENT_SECRET</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_refresh_token else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_refresh_token else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_REFRESH_TOKEN</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_channel_id else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_channel_id else '✗' }}</span>
+                <span>YOUTUBE_CHANNEL_ID</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_api_key else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_api_key else '✗' }}</span>
+                <span>YOUTUBE_API_KEY</span>
+            </div>
+        </div>
+
+        {% if youtube_connected %}
+        <p class="setting-status">YouTube アカウントと連携済みです。動画の自動投稿が有効です。</p>
+        <a href="/auth/youtube" class="btn btn-secondary">再連携する</a>
+        {% elif yt_has_client_id and yt_has_client_secret %}
+        <p class="setting-status">OAuth認証でYouTubeアカウントを連携してください。</p>
+        <a href="/auth/youtube" class="btn btn-primary">YouTube アカウントを連携</a>
+        {% else %}
+        <p class="setting-status">環境変数にYouTube OAuth設定を追加してください。</p>
+        {% endif %}
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Claude AI</h3>
+            {% if has_anthropic %}
+            <span class="badge badge-published">設定済み</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">テーマ生成、ストーリー生成、改善分析に使用します。</p>
+        <p class="setting-status">
+            {% if has_anthropic %}
+            ANTHROPIC_API_KEY が設定されています。
+            {% else %}
+            ANTHROPIC_API_KEY を環境変数に設定してください。
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>ElevenLabs 音声生成</h3>
+            {% if has_elevenlabs %}
+            <span class="badge badge-published">設定済み</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">ナレーション音声の生成に使用します。</p>
+        <p class="setting-status">
+            {% if has_elevenlabs %}
+            ELEVENLABS_API_KEY が設定されています。
+            {% else %}
+            ELEVENLABS_API_KEY を環境変数に設定してください。
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% endblock %}

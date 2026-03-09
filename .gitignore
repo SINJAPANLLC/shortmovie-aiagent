@@ -1,6 +1,4 @@
-node_modules
-dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+youtube_credentials.json
+attached_assets/
+.local/
+.replit

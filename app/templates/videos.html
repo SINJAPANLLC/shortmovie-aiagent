@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}動画一覧 - Youtube AI AGENT SIN JAPAN{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>動画一覧</h1>
+    <p>生成された全ての動画</p>
+</div>
+
+{% if videos %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>タイトル</th>
+                <th>テーマ</th>
+                <th>ステータス</th>
+                <th>YouTube ID</th>
+                <th>再生数</th>
+                <th>CTR</th>
+                <th>視聴時間</th>
+                <th>作成日</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for video in videos %}
+            <tr onclick="location.href='/videos/{{ video.id }}'" class="clickable-row">
+                <td>{{ video.id }}</td>
+                <td>{{ video.title or '-' }}</td>
+                <td>{{ video.theme or '-' }}</td>
+                <td>
+                    <span class="badge badge-{{ video.status or 'draft' }}">
+                        {{ video.status or 'draft' }}
+                    </span>
+                </td>
+                <td>
+                    {% if video.youtube_id %}
+                    <a href="https://youtube.com/watch?v={{ video.youtube_id }}" target="_blank" onclick="event.stopPropagation()">
+                        {{ video.youtube_id }}
+                    </a>
+                    {% else %}-{% endif %}
+                </td>
+                <td>{{ "{:,}".format(video.views or 0) }}</td>
+                <td>{{ video.ctr or 0 }}%</td>
+                <td>{{ video.watch_time or 0 }}分</td>
+                <td>{{ video.created_at.strftime('%Y/%m/%d %H:%M') if video.created_at else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>まだ動画がありません。</p>
+    <a href="/generate" class="btn btn-primary">動画を生成する</a>
+</div>
+{% endif %}
+{% endblock %}

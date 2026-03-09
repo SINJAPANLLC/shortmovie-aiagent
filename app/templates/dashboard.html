@@ -1,0 +1,769 @@
+{% extends "base.html" %}
+{% block title %}ダッシュボード - Youtube AI AGENT SIN JAPAN{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>ダッシュボード</h1>
+    <p>Youtube AI AGENT 管理画面</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_videos }}</div>
+        <div class="stat-label">総動画数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ published_count }}</div>
+        <div class="stat-label">公開済み</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "{:,}".format(total_views) }}</div>
+        <div class="stat-label">総再生数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ avg_ctr }}%</div>
+        <div class="stat-label">平均CTR</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ avg_watch_time }}分</div>
+        <div class="stat-label">平均視聴時間</div>
+    </div>
+</div>
+
+<div class="tab-nav">
+    <button class="tab-btn active" data-tab="tab-pipeline">パイプライン</button>
+    <button class="tab-btn" data-tab="tab-ai-logs">AI思考ログ</button>
+    <button class="tab-btn" data-tab="tab-videos">動画一覧</button>
+    <button class="tab-btn" data-tab="tab-generate">動画生成</button>
+    <button class="tab-btn" data-tab="tab-analytics">分析</button>
+    <button class="tab-btn" data-tab="tab-usage">API使用量</button>
+    <button class="tab-btn" data-tab="tab-settings">設定</button>
+</div>
+
+<div id="tab-pipeline" class="tab-content active">
+    <div class="section">
+        <div class="section-header">
+            <h2>パイプライン</h2>
+            <button id="btn-generate-test" class="btn btn-secondary" {% if pipeline_running %}disabled{% endif %} style="margin-right:8px">
+                テスト生成（1分）
+            </button>
+            <button id="btn-generate-dash" class="btn btn-primary" {% if pipeline_running %}disabled{% endif %}>
+                {% if pipeline_running %}生成中...{% else %}新しい動画を生成{% endif %}
+            </button>
+        </div>
+
+        <div id="pipeline-progress" style="{% if not pipeline_running %}display:none{% endif %}">
+            <div class="progress-header">
+                <span id="progress-title">パイプライン実行中...</span>
+                <span id="progress-time" style="font-size:0.8rem;color:var(--text-secondary)"></span>
+            </div>
+
+            <div class="pipeline-step-tracker" id="step-tracker">
+                <div class="step-item" data-step="0"><span class="step-dot"></span><span class="step-name">分析収集</span></div>
+                <div class="step-item" data-step="1"><span class="step-dot"></span><span class="step-name">AI分析</span></div>
+                <div class="step-item" data-step="2"><span class="step-dot"></span><span class="step-name">テーマ</span></div>
+                <div class="step-item" data-step="3"><span class="step-dot"></span><span class="step-name">ストーリー</span></div>
+                <div class="step-item" data-step="4"><span class="step-dot"></span><span class="step-name">音声</span></div>
+                <div class="step-item" data-step="5"><span class="step-dot"></span><span class="step-name">動画</span></div>
+                <div class="step-item" data-step="6"><span class="step-dot"></span><span class="step-name">投稿</span></div>
+            </div>
+
+            <div class="progress-bar-container" style="margin:16px 0">
+                <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+            </div>
+
+            <div class="pipeline-log-box" id="pipeline-log-box">
+                <div class="log-entries" id="log-entries"></div>
+            </div>
+        </div>
+
+        <div id="pipeline-result" style="{% if not last_result or pipeline_running %}display:none{% endif %}">
+            {% if last_result and not pipeline_running %}
+                {% if last_result.success %}
+                <div class="alert alert-success">
+                    動画を生成しました: {{ last_result.title }} (テーマ: {{ last_result.theme }})
+                </div>
+                {% else %}
+                <div class="alert alert-error">
+                    エラー: {{ last_result.error }}
+                </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <h2>最近の動画</h2>
+        </div>
+
+        {% if videos %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>タイトル</th>
+                        <th>テーマ</th>
+                        <th>ステータス</th>
+                        <th>再生数</th>
+                        <th>作成日</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in videos %}
+                    <tr onclick="location.href='/videos/{{ video.id }}'" class="clickable-row">
+                        <td>{{ video.id }}</td>
+                        <td>{{ video.title or '-' }}</td>
+                        <td>{{ video.theme or '-' }}</td>
+                        <td>
+                            <span class="badge badge-{{ video.status or 'draft' }}">
+                                {{ video.status or 'draft' }}
+                            </span>
+                        </td>
+                        <td>{{ "{:,}".format(video.views or 0) }}</td>
+                        <td>{{ video.created_at.strftime('%Y/%m/%d') if video.created_at else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>まだ動画がありません。「新しい動画を生成」ボタンで最初の動画を作成しましょう。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-ai-logs" class="tab-content">
+    <div class="section">
+        <h2>AI思考ログ</h2>
+        <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem">AIが各ステップで使用したプロンプトとレスポンスを確認できます。</p>
+
+        {% if ai_logs %}
+        {% for log in ai_logs %}
+        <div class="card" style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div>
+                    <span class="badge badge-published">{{ log.step }}</span>
+                    {% if log.video_id %}
+                    <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:8px">動画ID: {{ log.video_id }}</span>
+                    {% endif %}
+                </div>
+                <span style="font-size:0.8rem;color:var(--text-secondary)">{{ log.created_at.strftime('%Y/%m/%d %H:%M') if log.created_at else '' }}</span>
+            </div>
+
+            <details style="margin-bottom:8px">
+                <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--accent);padding:6px 0">プロンプト (入力)</summary>
+                <pre style="background:var(--bg-primary);padding:12px;border-radius:8px;font-size:0.8rem;white-space:pre-wrap;word-wrap:break-word;margin-top:8px;border:1px solid var(--border);max-height:300px;overflow-y:auto">{{ log.prompt }}</pre>
+            </details>
+
+            <details>
+                <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--success);padding:6px 0">レスポンス (出力)</summary>
+                <pre style="background:var(--bg-primary);padding:12px;border-radius:8px;font-size:0.8rem;white-space:pre-wrap;word-wrap:break-word;margin-top:8px;border:1px solid var(--border);max-height:300px;overflow-y:auto">{{ log.response }}</pre>
+            </details>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <p>まだAIログがありません。動画を生成するとAIの思考過程がここに記録されます。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-videos" class="tab-content">
+    <div class="section">
+        <h2>動画一覧</h2>
+        {% if all_videos %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>タイトル</th>
+                        <th>テーマ</th>
+                        <th>ステータス</th>
+                        <th>YouTube ID</th>
+                        <th>再生数</th>
+                        <th>CTR</th>
+                        <th>視聴時間</th>
+                        <th>作成日</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in all_videos %}
+                    <tr onclick="location.href='/videos/{{ video.id }}'" class="clickable-row">
+                        <td>{{ video.id }}</td>
+                        <td>{{ video.title or '-' }}</td>
+                        <td>{{ video.theme or '-' }}</td>
+                        <td>
+                            <span class="badge badge-{{ video.status or 'draft' }}">
+                                {{ video.status or 'draft' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if video.youtube_id %}
+                            <a href="https://youtube.com/watch?v={{ video.youtube_id }}" target="_blank" onclick="event.stopPropagation()">
+                                {{ video.youtube_id }}
+                            </a>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ "{:,}".format(video.views or 0) }}</td>
+                        <td>{{ video.ctr or 0 }}%</td>
+                        <td>{{ video.watch_time or 0 }}分</td>
+                        <td>{{ video.created_at.strftime('%Y/%m/%d %H:%M') if video.created_at else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>まだ動画がありません。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-generate" class="tab-content">
+    <div class="section">
+        <div class="pipeline-info">
+            <h3>自動生成フロー</h3>
+            <div class="pipeline-steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">YouTube分析収集</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">AI思考・改善分析</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">テーマ生成AI</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">ストーリー生成</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-text">音声生成</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <div class="step-text">動画生成</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">7</div>
+                    <div class="step-text">YouTube投稿</div>
+                </div>
+            </div>
+            <p style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary)">毎日21:00に自動実行 / 分析データは09:00・15:00に自動収集</p>
+        </div>
+
+        <div class="generate-actions">
+            <div class="theme-input-group" style="margin-bottom:16px;max-width:500px">
+                <label for="custom-theme" style="font-weight:600;font-size:0.9rem;display:block;margin-bottom:6px">テーマ（任意）</label>
+                <input type="text" id="custom-theme" placeholder="例: 雨の古民家、星空の温泉、雪の京都..." style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;background:var(--bg-primary)">
+                <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">空欄の場合はAIが自動でテーマを決めます</p>
+            </div>
+            <button id="btn-generate-tab" class="btn btn-primary btn-lg" {% if pipeline_running %}disabled{% endif %}>
+                {% if pipeline_running %}生成中...{% else %}自動生成を開始{% endif %}
+            </button>
+            <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary)">進捗はパイプラインタブで確認できます</p>
+        </div>
+    </div>
+</div>
+
+<div id="tab-analytics" class="tab-content">
+    {% if improvement %}
+    <div class="section">
+        <h2>AI改善分析</h2>
+        <div class="improvement-card">
+            <div class="improvement-item">
+                <h4>分析結果</h4>
+                <p>{{ improvement.analysis }}</p>
+            </div>
+            <div class="improvement-item">
+                <h4>最も成績の良いテーマ</h4>
+                <p>{{ improvement.best_performing_theme }}</p>
+            </div>
+            <div class="improvement-item">
+                <h4>改善提案</h4>
+                <p>{{ improvement.improvement_suggestions }}</p>
+            </div>
+            <div class="improvement-item">
+                <h4>次のテーマ推奨</h4>
+                <p>{{ improvement.next_theme_recommendation }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="section">
+        <h2>目標達成状況</h2>
+        <div class="goals-grid">
+            <div class="goal-card">
+                <h4>CTR目標: 6%以上</h4>
+                <div class="goal-bar">
+                    <div class="goal-fill" style="width: {% if analytics_videos %}{{ (analytics_videos | map(attribute='ctr') | list | sum / analytics_videos | length * 100 / 6) | round | int }}{% else %}0{% endif %}%"></div>
+                </div>
+            </div>
+            <div class="goal-card">
+                <h4>平均視聴時間目標: 15分以上</h4>
+                <div class="goal-bar">
+                    <div class="goal-fill" style="width: {% if analytics_videos %}{{ (analytics_videos | map(attribute='watch_time') | list | sum / analytics_videos | length * 100 / 15) | round | int }}{% else %}0{% endif %}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>動画別パフォーマンス</h2>
+        {% if analytics_videos %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>タイトル</th>
+                        <th>テーマ</th>
+                        <th>再生数</th>
+                        <th>CTR</th>
+                        <th>平均視聴時間</th>
+                        <th>投稿日</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in analytics_videos %}
+                    <tr>
+                        <td>
+                            {% if video.youtube_id %}
+                            <a href="https://youtube.com/watch?v={{ video.youtube_id }}" target="_blank">{{ video.title }}</a>
+                            {% else %}
+                            {{ video.title }}
+                            {% endif %}
+                        </td>
+                        <td>{{ video.theme or '-' }}</td>
+                        <td>{{ "{:,}".format(video.views or 0) }}</td>
+                        <td>{{ video.ctr or 0 }}%</td>
+                        <td>{{ video.watch_time or 0 }}分</td>
+                        <td>{{ video.created_at.strftime('%Y/%m/%d') if video.created_at else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>YouTube に投稿された動画がまだありません。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-usage" class="tab-content">
+    <div class="section">
+        <h2>API使用量モニター</h2>
+        <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem">Claude API と ElevenLabs API の現在の使用状況を確認できます。</p>
+        <button id="btn-refresh-usage" class="btn btn-primary" style="margin-bottom:20px">使用量を更新</button>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="usage-panels">
+            <div class="card" id="usage-elevenlabs">
+                <h3 style="margin-bottom:12px">ElevenLabs (音声生成)</h3>
+                <div id="el-usage-content">
+                    <p style="color:var(--text-secondary)">読み込み中...</p>
+                </div>
+            </div>
+            <div class="card" id="usage-claude">
+                <h3 style="margin-bottom:12px">Claude API (AI生成)</h3>
+                <div id="claude-usage-content">
+                    <p style="color:var(--text-secondary)">読み込み中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-settings" class="tab-content">
+    <div class="section">
+        <h2>設定</h2>
+        <div class="settings-grid">
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>YouTube 連携</h3>
+                    {% if youtube_connected %}
+                    <span class="badge badge-published">接続済み</span>
+                    {% else %}
+                    <span class="badge badge-draft">未接続</span>
+                    {% endif %}
+                </div>
+                <p class="setting-desc">YouTube Data API v3 を使用して動画を自動投稿します。</p>
+
+                <div class="env-checklist">
+                    <div class="env-item {{ 'env-ok' if yt_has_client_id else 'env-missing' }}">
+                        <span class="env-icon">{{ '✓' if yt_has_client_id else '✗' }}</span>
+                        <span>YOUTUBE_OAUTH_CLIENT_ID</span>
+                    </div>
+                    <div class="env-item {{ 'env-ok' if yt_has_client_secret else 'env-missing' }}">
+                        <span class="env-icon">{{ '✓' if yt_has_client_secret else '✗' }}</span>
+                        <span>YOUTUBE_OAUTH_CLIENT_SECRET</span>
+                    </div>
+                    <div class="env-item {{ 'env-ok' if yt_has_refresh_token else 'env-missing' }}">
+                        <span class="env-icon">{{ '✓' if yt_has_refresh_token else '✗' }}</span>
+                        <span>YOUTUBE_OAUTH_REFRESH_TOKEN</span>
+                    </div>
+                    <div class="env-item {{ 'env-ok' if yt_has_channel_id else 'env-missing' }}">
+                        <span class="env-icon">{{ '✓' if yt_has_channel_id else '✗' }}</span>
+                        <span>YOUTUBE_CHANNEL_ID</span>
+                    </div>
+                    <div class="env-item {{ 'env-ok' if yt_has_api_key else 'env-missing' }}">
+                        <span class="env-icon">{{ '✓' if yt_has_api_key else '✗' }}</span>
+                        <span>YOUTUBE_API_KEY</span>
+                    </div>
+                </div>
+
+                {% if youtube_connected %}
+                <p class="setting-status">YouTube アカウントと連携済みです。動画の自動投稿が有効です。</p>
+                <a href="/auth/youtube" class="btn btn-secondary">再連携する</a>
+                {% elif yt_has_client_id and yt_has_client_secret %}
+                <p class="setting-status">OAuth認証でYouTubeアカウントを連携してください。</p>
+                <a href="/auth/youtube" class="btn btn-primary">YouTube アカウントを連携</a>
+                {% else %}
+                <p class="setting-status">環境変数にYouTube OAuth設定を追加してください。</p>
+                {% endif %}
+            </div>
+
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>動画の長さ</h3>
+                    <span class="badge badge-published" id="video-min-badge">{{ video_minutes }}分</span>
+                </div>
+                <p class="setting-desc">生成される動画の目標時間を設定します（1〜120分）。</p>
+                <div style="display:flex;align-items:center;gap:12px;margin:12px 0">
+                    <input type="range" id="video-minutes-slider" min="1" max="120" value="{{ video_minutes }}" style="flex:1">
+                    <input type="number" id="video-minutes-input" min="1" max="120" value="{{ video_minutes }}" style="width:70px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;text-align:center">
+                    <span style="font-size:0.9rem">分</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-secondary);margin-bottom:12px">
+                    <span>約 <strong id="est-chars">{{ video_minutes * 350 }}</strong> 文字</span>
+                    <span>ElevenLabs月間 約 <strong id="est-videos">0</strong> 本可能</span>
+                </div>
+                <button id="btn-save-duration" class="btn btn-primary">保存</button>
+                <span id="duration-save-msg" style="margin-left:12px;font-size:0.85rem;color:var(--success);display:none">保存しました</span>
+            </div>
+
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>Claude AI</h3>
+                    {% if has_anthropic %}
+                    <span class="badge badge-published">設定済み</span>
+                    {% else %}
+                    <span class="badge badge-error">未設定</span>
+                    {% endif %}
+                </div>
+                <p class="setting-desc">テーマ生成、ストーリー生成、改善分析に使用します。</p>
+                <p class="setting-status">
+                    {% if has_anthropic %}
+                    ANTHROPIC_API_KEY が設定されています。
+                    {% else %}
+                    ANTHROPIC_API_KEY を環境変数に設定してください。
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>ElevenLabs 音声生成</h3>
+                    {% if has_elevenlabs %}
+                    <span class="badge badge-published">設定済み</span>
+                    {% else %}
+                    <span class="badge badge-error">未設定</span>
+                    {% endif %}
+                </div>
+                <p class="setting-desc">ナレーション音声の生成に使用します。</p>
+                <p class="setting-status">
+                    {% if has_elevenlabs %}
+                    ELEVENLABS_API_KEY が設定されています。
+                    {% else %}
+                    ELEVENLABS_API_KEY を環境変数に設定してください。
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var tabs = document.querySelectorAll('.tab-btn');
+    var contents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            contents.forEach(function(c) { c.classList.remove('active'); });
+            tab.classList.add('active');
+            document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
+        });
+    });
+
+    var btnDash = document.getElementById('btn-generate-dash');
+    var btnTab = document.getElementById('btn-generate-tab');
+    var btnTest = document.getElementById('btn-generate-test');
+    var allBtns = [btnDash, btnTab, btnTest];
+    var progressDiv = document.getElementById('pipeline-progress');
+    var resultDiv = document.getElementById('pipeline-result');
+    var progressBar = document.getElementById('progress-bar');
+    var stepTracker = document.getElementById('step-tracker');
+    var logEntries = document.getElementById('log-entries');
+    var progressTitle = document.getElementById('progress-title');
+    var progressTime = document.getElementById('progress-time');
+    var pollInterval = null;
+    var lastLogCount = 0;
+
+    var themeInput = document.getElementById('custom-theme');
+
+    function startGenerate(btn, apiUrl) {
+        if (btn.disabled) return;
+        allBtns.forEach(function(b) { if (b) { b.disabled = true; }});
+        if (btnDash) btnDash.textContent = '生成中...';
+        if (btnTest) btnTest.textContent = 'テスト中...';
+        progressDiv.style.display = 'block';
+        resultDiv.style.display = 'none';
+        logEntries.innerHTML = '';
+        lastLogCount = 0;
+        updateSteps(-1);
+
+        var fetchOpts = { method: 'POST' };
+        var customTheme = themeInput ? themeInput.value.trim() : '';
+        if (customTheme) {
+            fetchOpts.headers = { 'Content-Type': 'application/json' };
+            fetchOpts.body = JSON.stringify({ theme: customTheme });
+        }
+
+        fetch(apiUrl || '/api/generate', fetchOpts).then(function(res) {
+            return res.json();
+        }).then(function(data) {
+            if (data.error) {
+                resultDiv.innerHTML = '<div class="alert alert-error">' + data.error + '</div>';
+                resultDiv.style.display = 'block';
+                progressDiv.style.display = 'none';
+                resetButtons();
+                return;
+            }
+            startPolling();
+        }).catch(function() {
+            resultDiv.innerHTML = '<div class="alert alert-error">リクエストに失敗しました</div>';
+            resultDiv.style.display = 'block';
+            progressDiv.style.display = 'none';
+            resetButtons();
+        });
+    }
+
+    function resetButtons() {
+        if (btnDash) { btnDash.disabled = false; btnDash.textContent = '新しい動画を生成'; }
+        if (btnTab) { btnTab.disabled = false; btnTab.textContent = '自動生成を開始'; }
+        if (btnTest) { btnTest.disabled = false; btnTest.textContent = 'テスト生成（1分）'; }
+    }
+
+    function updateSteps(currentStep) {
+        var items = stepTracker.querySelectorAll('.step-item');
+        items.forEach(function(item) {
+            var s = parseInt(item.getAttribute('data-step'));
+            item.classList.remove('step-done', 'step-active', 'step-pending');
+            if (s < currentStep) item.classList.add('step-done');
+            else if (s === currentStep) item.classList.add('step-active');
+            else item.classList.add('step-pending');
+        });
+    }
+
+    function addLogEntry(entry) {
+        var div = document.createElement('div');
+        div.className = 'log-entry';
+        var timeSpan = document.createElement('span');
+        timeSpan.className = 'log-time';
+        timeSpan.textContent = entry.time;
+        var msgSpan = document.createElement('span');
+        msgSpan.className = 'log-msg';
+        msgSpan.textContent = entry.message;
+        div.appendChild(timeSpan);
+        div.appendChild(msgSpan);
+        logEntries.appendChild(div);
+        var box = document.getElementById('pipeline-log-box');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(function() {
+            fetch('/api/pipeline-status').then(function(res) {
+                return res.json();
+            }).then(function(data) {
+                var step = data.current_step || 0;
+                var total = data.total_steps || 7;
+                var pct = Math.min(Math.round((step / total) * 100), 100);
+                progressBar.style.width = pct + '%';
+                updateSteps(step);
+
+                if (data.step_label) {
+                    progressTitle.textContent = 'Step ' + (step + 1) + '/' + total + ': ' + data.step_label;
+                }
+                if (data.started_at) {
+                    progressTime.textContent = '開始: ' + data.started_at;
+                }
+
+                var logs = data.logs || [];
+                for (var i = lastLogCount; i < logs.length; i++) {
+                    addLogEntry(logs[i]);
+                }
+                lastLogCount = logs.length;
+
+                if (!data.running) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                    progressBar.style.width = '100%';
+                    resetButtons();
+
+                    if (data.last_result) {
+                        if (data.last_result.success) {
+                            progressTitle.textContent = '完了!';
+                            resultDiv.innerHTML = '<div class="alert alert-success" style="margin-top:16px">動画を生成しました: ' + data.last_result.title + ' (テーマ: ' + data.last_result.theme + ')</div>';
+                            resultDiv.style.display = 'block';
+                            setTimeout(function() { location.reload(); }, 3000);
+                        } else {
+                            progressTitle.textContent = 'エラーが発生しました';
+                            resultDiv.innerHTML = '<div class="alert alert-error" style="margin-top:16px">エラー: ' + data.last_result.error + '</div>';
+                            resultDiv.style.display = 'block';
+                        }
+                    }
+                }
+            }).catch(function() {});
+        }, 2000);
+    }
+
+    if (btnDash) btnDash.addEventListener('click', function() { startGenerate(btnDash, '/api/generate'); });
+    if (btnTest) btnTest.addEventListener('click', function() { startGenerate(btnTest, '/api/generate-test'); });
+    if (btnTab) btnTab.addEventListener('click', function() {
+        startGenerate(btnTab, '/api/generate');
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        contents.forEach(function(c) { c.classList.remove('active'); });
+        document.querySelector('[data-tab="tab-pipeline"]').classList.add('active');
+        document.getElementById('tab-pipeline').classList.add('active');
+    });
+
+    {% if pipeline_running %}
+    startPolling();
+    {% endif %}
+
+    function loadUsage() {
+        var elContent = document.getElementById('el-usage-content');
+        var claudeContent = document.getElementById('claude-usage-content');
+        if (elContent) elContent.innerHTML = '<p style="color:var(--text-secondary)">取得中...</p>';
+        if (claudeContent) claudeContent.innerHTML = '<p style="color:var(--text-secondary)">取得中...</p>';
+
+        fetch('/api/usage').then(function(r) { return r.json(); }).then(function(data) {
+            if (data.elevenlabs) {
+                var el = data.elevenlabs;
+                var pct = el.limit > 0 ? Math.round((el.used / el.limit) * 100) : 0;
+                var barColor = pct > 80 ? 'var(--error)' : pct > 50 ? '#f59e0b' : 'var(--success)';
+                elContent.innerHTML =
+                    '<div style="margin-bottom:12px"><span style="font-size:0.8rem;color:var(--text-secondary)">プラン: </span><strong>' + el.tier + '</strong></div>' +
+                    '<div style="margin-bottom:8px"><span style="font-size:0.8rem;color:var(--text-secondary)">使用量</span></div>' +
+                    '<div style="background:var(--bg-primary);border-radius:8px;height:24px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px">' +
+                    '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:8px;transition:width 0.5s;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;color:#fff;min-width:40px">' + pct + '%</div></div>' +
+                    '<div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:12px"><span>' + el.used.toLocaleString() + ' / ' + el.limit.toLocaleString() + ' 文字</span><span style="color:var(--text-secondary)">残り ' + el.remaining.toLocaleString() + '</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;font-size:0.85rem"><span>あと約 <strong>' + el.videos_possible + '本</strong> 生成可能</span><span style="color:var(--text-secondary)">リセット: ' + el.reset_date + '</span></div>';
+            } else {
+                elContent.innerHTML = '<p style="color:var(--error)">ElevenLabs APIの情報を取得できませんでした</p>';
+            }
+
+            if (data.claude) {
+                var c = data.claude;
+                claudeContent.innerHTML =
+                    '<table style="width:100%;font-size:0.85rem;border-collapse:collapse">' +
+                    '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 0;color:var(--text-secondary)">リクエスト上限</td><td style="padding:8px 0;text-align:right"><strong>' + c.requests_limit + '</strong> /分</td></tr>' +
+                    '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 0;color:var(--text-secondary)">リクエスト残り</td><td style="padding:8px 0;text-align:right"><strong>' + c.requests_remaining + '</strong> /分</td></tr>' +
+                    '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 0;color:var(--text-secondary)">入力トークン上限</td><td style="padding:8px 0;text-align:right"><strong>' + Number(c.input_tokens_limit).toLocaleString() + '</strong> /分</td></tr>' +
+                    '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 0;color:var(--text-secondary)">出力トークン上限</td><td style="padding:8px 0;text-align:right"><strong>' + Number(c.output_tokens_limit).toLocaleString() + '</strong> /分</td></tr>' +
+                    '<tr><td style="padding:8px 0;color:var(--text-secondary)">出力トークン残り</td><td style="padding:8px 0;text-align:right"><strong>' + Number(c.output_tokens_remaining).toLocaleString() + '</strong> /分</td></tr>' +
+                    '</table>' +
+                    '<p style="margin-top:12px;font-size:0.8rem;color:var(--text-secondary)">※レート制限は1分ごとにリセットされます。動画1本あたり約5リクエスト使用。</p>';
+            } else {
+                claudeContent.innerHTML = '<p style="color:var(--error)">Claude APIの情報を取得できませんでした</p>';
+            }
+        }).catch(function() {
+            if (elContent) elContent.innerHTML = '<p style="color:var(--error)">通信エラー</p>';
+            if (claudeContent) claudeContent.innerHTML = '<p style="color:var(--error)">通信エラー</p>';
+        });
+    }
+
+    var btnRefreshUsage = document.getElementById('btn-refresh-usage');
+    if (btnRefreshUsage) btnRefreshUsage.addEventListener('click', loadUsage);
+
+    document.querySelectorAll('.tab-btn').forEach(function(t) {
+        t.addEventListener('click', function() {
+            if (t.getAttribute('data-tab') === 'tab-usage') loadUsage();
+        });
+    });
+
+    var slider = document.getElementById('video-minutes-slider');
+    var numInput = document.getElementById('video-minutes-input');
+    var estChars = document.getElementById('est-chars');
+    var estVideos = document.getElementById('est-videos');
+    var badge = document.getElementById('video-min-badge');
+    var btnSave = document.getElementById('btn-save-duration');
+    var saveMsg = document.getElementById('duration-save-msg');
+    var elLimit = 108606;
+
+    function updateEstimates(val) {
+        var chars = val * 350;
+        estChars.textContent = chars.toLocaleString();
+        var perVideo = chars + 100;
+        estVideos.textContent = perVideo > 0 ? Math.floor(elLimit / perVideo) : 0;
+    }
+    updateEstimates(slider ? slider.value : {{ video_minutes }});
+
+    if (slider && numInput) {
+        slider.addEventListener('input', function() {
+            numInput.value = slider.value;
+            updateEstimates(slider.value);
+        });
+        numInput.addEventListener('input', function() {
+            var v = Math.max(1, Math.min(120, parseInt(numInput.value) || 1));
+            slider.value = v;
+            updateEstimates(v);
+        });
+    }
+
+    if (btnSave) {
+        btnSave.addEventListener('click', function() {
+            var val = parseInt(numInput.value) || 10;
+            val = Math.max(1, Math.min(120, val));
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_minutes: val })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.video_minutes) {
+                    badge.textContent = data.video_minutes + '分';
+                    saveMsg.style.display = 'inline';
+                    setTimeout(function() { saveMsg.style.display = 'none'; }, 3000);
+                }
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}
