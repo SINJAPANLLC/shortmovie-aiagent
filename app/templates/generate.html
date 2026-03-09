@@ -152,6 +152,8 @@ btnGenerate.addEventListener('click', function() {
     });
 });
 
+var STEP_NAMES = ['初期化','テーマ生成','脚本生成','画像生成','シーン分割','動画生成(Kling)','音声生成','動画編集','投稿','完了'];
+
 function pollStatus() {
     var interval = setInterval(function() {
         fetch('/api/pipeline-status')
@@ -163,20 +165,55 @@ function pollStatus() {
                 btnGenerate.textContent = 'エピソード生成を開始';
                 if (data.last_result) {
                     if (data.last_result.success) {
-                        statusDiv.innerHTML = '<div class="alert alert-success">エピソード生成完了: ' + (data.last_result.title || '') + '</div>';
+                        statusDiv.innerHTML = '<div class="alert alert-success">エピソード生成完了: ' + (data.last_result.title || '') + '<br><a href="/dramas" style="color:inherit;text-decoration:underline;margin-top:8px;display:inline-block">動画を確認する →</a></div>';
                     } else {
                         statusDiv.innerHTML = '<div class="alert alert-error">エラー: ' + (data.last_result.error || '') + '</div>';
                     }
                 }
             } else {
-                var stepLabel = data.step_label || '';
+                var step = data.current_step || 0;
+                var total = data.total_steps || 10;
+                var pct = Math.round((step / total) * 100);
                 var logs = data.logs || [];
-                var lastLog = logs.length > 0 ? logs[logs.length - 1].message : '';
-                statusDiv.innerHTML = '<div class="status-running"><div class="spinner"></div><span>' + stepLabel + ': ' + lastLog + '</span></div>';
+                var startedAt = data.started_at || '';
+
+                var html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+                html += '<span style="font-weight:600;font-size:1rem">生成中...</span>';
+                html += '<span style="font-size:0.8rem;color:var(--text-secondary)">' + startedAt + ' 開始</span>';
+                html += '</div>';
+
+                html += '<div style="background:var(--border);border-radius:8px;height:8px;overflow:hidden;margin-bottom:8px">';
+                html += '<div style="background:var(--primary);height:100%;width:' + pct + '%;border-radius:8px;transition:width 0.5s ease"></div>';
+                html += '</div>';
+
+                html += '<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">';
+                for (var i = 0; i < STEP_NAMES.length; i++) {
+                    var color = i < step ? 'var(--primary)' : (i === step ? 'var(--warning, #f59e0b)' : 'var(--border)');
+                    var textColor = i <= step ? '#fff' : 'var(--text-secondary)';
+                    var weight = i === step ? '600' : '400';
+                    html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:' + color + ';color:' + textColor + ';font-weight:' + weight + '">' + STEP_NAMES[i] + '</span>';
+                }
+                html += '</div>';
+
+                html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;font-family:monospace;font-size:0.75rem;line-height:1.6" id="pipeline-log-box">';
+                var showLogs = logs.slice(-15);
+                for (var j = 0; j < showLogs.length; j++) {
+                    var log = showLogs[j];
+                    var msgColor = log.message.indexOf('エラー') >= 0 || log.message.indexOf('失敗') >= 0 ? '#e53935' :
+                                   log.message.indexOf('完了') >= 0 || log.message.indexOf('成功') >= 0 ? 'var(--primary)' : 'var(--text)';
+                    html += '<div style="color:' + msgColor + '"><span style="color:var(--text-secondary)">[' + log.time + ']</span> ' + log.message + '</div>';
+                }
+                html += '</div>';
+                html += '</div>';
+
+                statusDiv.innerHTML = html;
+                var logBox = document.getElementById('pipeline-log-box');
+                if (logBox) logBox.scrollTop = logBox.scrollHeight;
             }
         })
         .catch(function() {});
-    }, 3000);
+    }, 2000);
 }
 
 {% if pipeline_running %}

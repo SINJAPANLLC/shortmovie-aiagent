@@ -29,6 +29,7 @@ def init_db():
             synopsis TEXT,
             total_episodes INTEGER DEFAULT 30,
             current_episode INTEGER DEFAULT 0,
+            character_image VARCHAR(500),
             status VARCHAR(50) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT NOW()
         );
@@ -82,6 +83,12 @@ def init_db():
                 WHERE table_name = 'dramas' AND column_name = 'series_episode'
             ) THEN
                 ALTER TABLE dramas ADD COLUMN series_episode INTEGER DEFAULT 1;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'series' AND column_name = 'character_image'
+            ) THEN
+                ALTER TABLE series ADD COLUMN character_image VARCHAR(500);
             END IF;
         END $$;
     """)

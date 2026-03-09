@@ -151,18 +151,31 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         progress_callback(2, f"脚本生成完了: {len(narration)}文字, {len(scenes)}シーン")
 
         progress_callback(3, "キャラクター・サムネイル画像を生成中 (Stable Diffusion)...")
-        first_scene_desc = scenes[0].get("description", "") if scenes else ""
-        character_desc = (
-            f"beautiful Japanese woman, 26 years old, modern professional look, "
-            f"emotional cinematic portrait, luxury office background with city skyline, "
-            f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
-            f"photorealistic, film grain, {first_scene_desc[:100]}"
-        )
-        character_image = generate_character_image(
-            character_description=character_desc,
-            drama_id=drama_id,
-            progress_callback=progress_callback
-        )
+
+        series_character = series.get("character_image", "")
+        if series_character and os.path.exists(series_character):
+            character_image = series_character
+            progress_callback(3, f"シリーズ固定キャラクター画像を使用: {os.path.basename(character_image)}")
+        else:
+            first_scene_desc = scenes[0].get("description", "") if scenes else ""
+            character_desc = (
+                f"beautiful Japanese woman, 26 years old, modern professional look, "
+                f"emotional cinematic portrait, luxury office background with city skyline, "
+                f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
+                f"photorealistic, film grain, {first_scene_desc[:100]}"
+            )
+            character_image = generate_character_image(
+                character_description=character_desc,
+                drama_id=drama_id,
+                progress_callback=progress_callback
+            )
+            import shutil
+            series_char_path = f"app/static/characters/series_{series['id']}_character.png"
+            shutil.copy2(character_image, series_char_path)
+            update_series(series["id"], character_image=series_char_path)
+            series["character_image"] = series_char_path
+            progress_callback(3, f"キャラクター画像を生成 → シリーズ固定化")
+
         thumbnail_path = generate_thumbnail(
             title=title,
             genre=genre,
