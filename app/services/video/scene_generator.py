@@ -5,6 +5,8 @@ import subprocess
 import urllib.parse
 import httpx
 
+from app.services.video.luma_service import generate_video_luma, generate_image_luma, is_luma_available
+
 logger = logging.getLogger(__name__)
 
 SCENES_DIR = "app/static/scenes"
@@ -120,8 +122,45 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     os.makedirs(SCENES_DIR, exist_ok=True)
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
 
-    progress_callback(5, f"シーン{scene_number}: 画像生成中 (Pollinations AI)...")
-    scene_image = _generate_scene_image(scene_description, drama_id, scene_number)
+    if is_luma_available():
+        progress_callback(5, f"シーン{scene_number}: AI動画生成中 (Luma Dream Machine)...")
+        luma_prompt = (
+            f"{scene_description}, cinematic, dramatic lighting, "
+            "photorealistic, vertical 9:16, film quality, emotional scene"
+        )
+        if emotion:
+            luma_prompt += f", {emotion} mood"
+
+        luma_success = generate_video_luma(
+            prompt=luma_prompt,
+            output_path=output_path,
+            aspect_ratio="9:16",
+        )
+        if luma_success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+            final = _ensure_duration(output_path, duration)
+            logger.info(f"Scene {scene_number} video created via Luma: {final}")
+            progress_callback(5, f"シーン{scene_number}: Luma動画生成完了")
+            return final
+
+        logger.warning(f"Scene {scene_number}: Luma video failed, falling back to image+Ken Burns")
+
+    progress_callback(5, f"シーン{scene_number}: 画像生成中...")
+    scene_image = None
+
+    if is_luma_available():
+        progress_callback(5, f"シーン{scene_number}: 画像生成中 (Luma Photon)...")
+        luma_img_path = os.path.join(SCENE_IMAGES_DIR, f"drama_{drama_id}_scene_{scene_number}_luma.png")
+        img_prompt = (
+            f"{scene_description}, photorealistic, cinematic lighting, "
+            "dramatic atmosphere, vertical composition 9:16"
+        )
+        if generate_image_luma(img_prompt, luma_img_path, aspect_ratio="9:16"):
+            scene_image = luma_img_path
+            logger.info(f"Scene {scene_number} image via Luma Photon")
+
+    if not scene_image:
+        progress_callback(5, f"シーン{scene_number}: 画像生成中 (Pollinations AI)...")
+        scene_image = _generate_scene_image(scene_description, drama_id, scene_number)
 
     if not scene_image:
         if reference_image and os.path.exists(reference_image):
@@ -137,14 +176,56 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     success = _apply_ken_burns(scene_image, output_path, duration, effect)
     if success:
         logger.info(f"Scene {scene_number} video created: {output_path} (effect: {effect})")
+        _cleanup_temp_image(scene_image, reference_image)
         return output_path
 
     if reference_image and os.path.exists(reference_image) and reference_image != scene_image:
         success = _apply_ken_burns(reference_image, output_path, duration, "zoom_in")
         if success:
+            _cleanup_temp_image(scene_image, reference_image)
             return output_path
 
     return _create_color_placeholder(output_path, duration)
+
+
+def _cleanup_temp_image(scene_image: str, reference_image: str = None):
+    if not scene_image or not os.path.exists(scene_image):
+        return
+    if scene_image == reference_image:
+        return
+    if SCENE_IMAGES_DIR in scene_image:
+        try:
+            os.remove(scene_image)
+            logger.debug(f"Cleaned up temp scene image: {scene_image}")
+        except Exception:
+            pass
+
+
+def _ensure_duration(video_path: str, target_duration: float) -> str:
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", video_path],
+            capture_output=True, text=True, timeout=10
+        )
+        actual = float(probe.stdout.strip())
+        if abs(actual - target_duration) < 1.0:
+            return video_path
+
+        trimmed = video_path.replace(".mp4", "_trimmed.mp4")
+        cmd = [
+            "ffmpeg", "-y", "-i", video_path,
+            "-t", str(target_duration),
+            "-c:v", "libx264", "-preset", "fast", "-pix_fmt", "yuv420p",
+            "-an", trimmed
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0 and os.path.exists(trimmed):
+            os.replace(trimmed, video_path)
+            logger.info(f"Video trimmed to {target_duration}s: {video_path}")
+    except Exception as e:
+        logger.warning(f"Duration adjustment failed: {e}")
+    return video_path
 
 
 def _create_color_placeholder(output_path: str, duration: float = 6) -> str:

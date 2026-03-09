@@ -257,7 +257,7 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         for i, scene in enumerate(scenes):
             progress_callback(4, f"  シーン{scene.get('scene_number', i+1)}: {scene.get('narration', '')[:30]}...")
 
-        progress_callback(5, "動画シーンを生成中 (Kling API)...")
+        progress_callback(5, "動画シーンを生成中 (Luma Dream Machine)...")
         scene_videos = []
         for i, scene in enumerate(scenes):
             progress_callback(5, f"シーン{i+1}/{len(scenes)}を生成中...")
@@ -581,7 +581,7 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
     for i, scene in enumerate(scenes):
         progress_callback(4, f"  シーン{scene.get('scene_number', i+1)}: {scene.get('narration', '')[:30]}...")
 
-    progress_callback(5, "動画シーンを生成中 (Kling API)...")
+    progress_callback(5, "動画シーンを生成中 (Luma Dream Machine)...")
     scene_videos = []
     for i, scene in enumerate(scenes):
         progress_callback(5, f"シーン{i+1}/{len(scenes)}を生成中...")

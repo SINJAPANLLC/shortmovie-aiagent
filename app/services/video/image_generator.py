@@ -4,6 +4,8 @@ import subprocess
 import urllib.parse
 import httpx
 
+from app.services.video.luma_service import generate_image_luma, is_luma_available
+
 logger = logging.getLogger(__name__)
 
 CHARACTER_DIR = "app/static/characters"
@@ -41,6 +43,19 @@ def generate_character_image(character_description: str, drama_id: int, progress
 
     os.makedirs(CHARACTER_DIR, exist_ok=True)
     output_path = os.path.join(CHARACTER_DIR, f"drama_{drama_id}_character.png")
+
+    if is_luma_available():
+        progress_callback(3, f"キャラクター画像を生成中 (Luma Photon)...")
+        luma_prompt = (
+            f"{character_description}, "
+            "photorealistic, beautiful character portrait, high quality, "
+            "dramatic lighting, detailed face, expressive eyes, "
+            "vertical composition 9:16, cinematic"
+        )
+        if generate_image_luma(luma_prompt, output_path, aspect_ratio="9:16"):
+            progress_callback(3, "キャラクター画像生成完了 (Luma Photon)")
+            return output_path
+        logger.warning("Luma Photon character image failed, trying fallbacks")
 
     api_key = os.environ.get("STABILITY_API_KEY", "")
     if api_key:
@@ -98,6 +113,29 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
     output_path = os.path.join(THUMBNAIL_DIR, f"drama_{drama_id}.png")
 
     progress_callback(3, f"サムネイル画像を生成中...")
+
+    if is_luma_available():
+        progress_callback(3, f"サムネイル画像を生成中 (Luma Photon)...")
+        genre_style = {
+            "CEOドラマ": "luxury penthouse office, city skyline at night, dramatic blue lighting",
+            "恋愛": "romantic sunset, cherry blossoms, warm golden light",
+            "復讐": "dramatic dark atmosphere, fire reflections, intense shadows",
+        }
+        style = genre_style.get(genre, "cinematic dramatic lighting, luxury setting")
+        luma_prompt = (
+            f"dramatic thumbnail for short drama '{title}', {style}, "
+            "beautiful Japanese woman emotional expression, "
+            "photorealistic, high contrast, eye-catching, vertical 9:16"
+        )
+        luma_bg_path = output_path.replace(".png", "_luma_bg.png")
+        if generate_image_luma(luma_prompt, luma_bg_path, aspect_ratio="9:16"):
+            result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, luma_bg_path, episode_number)
+            if os.path.exists(luma_bg_path) and luma_bg_path != output_path:
+                os.remove(luma_bg_path)
+            _compress_thumbnail(output_path)
+            progress_callback(3, "サムネイル生成完了 (Luma + FFmpeg)")
+            return result
+        logger.warning("Luma thumbnail failed, trying fallbacks")
 
     api_key = os.environ.get("STABILITY_API_KEY", "")
     if api_key:
