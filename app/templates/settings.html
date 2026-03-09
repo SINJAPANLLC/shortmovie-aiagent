@@ -97,10 +97,29 @@
             {% endif %}
         </div>
         <p class="setting-desc">TikTokに動画を自動投稿します。</p>
-        <p class="setting-status">
-            {% if has_tiktok %}TIKTOK_ACCESS_TOKEN が設定されています。
-            {% else %}TIKTOK_ACCESS_TOKEN を環境変数に設定してください。{% endif %}
-        </p>
+
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if tt_has_client_key else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if tt_has_client_key else '✗' }}</span>
+                <span>TIKTOK_CLIENT_KEY</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if tt_has_client_secret else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if tt_has_client_secret else '✗' }}</span>
+                <span>TIKTOK_CLIENT_SECRET</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if has_tiktok else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_tiktok else '✗' }}</span>
+                <span>アクセストークン（OAuth連携済み）</span>
+            </div>
+        </div>
+
+        {% if has_tiktok %}
+        <a href="/auth/tiktok" class="btn btn-secondary" style="margin-top:8px">再連携する</a>
+        {% elif tt_has_client_key and tt_has_client_secret %}
+        <a href="/auth/tiktok" class="btn btn-primary" style="margin-top:8px" data-testid="btn-tiktok-connect">TikTok アカウントを連携</a>
+        {% else %}
+        <p class="setting-status">TIKTOK_CLIENT_KEY と TIKTOK_CLIENT_SECRET を環境変数に設定してください。</p>
+        {% endif %}
     </div>
 
     <div class="setting-card">

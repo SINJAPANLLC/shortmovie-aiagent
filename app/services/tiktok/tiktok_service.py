@@ -1,16 +1,101 @@
 import os
+import json
 import logging
 import httpx
 
 logger = logging.getLogger(__name__)
 
+TIKTOK_CREDENTIALS_FILE = "tiktok_credentials.json"
+
+
+def _get_tiktok_client_key():
+    return os.environ.get("TIKTOK_CLIENT_KEY", "")
+
+
+def _get_tiktok_client_secret():
+    return os.environ.get("TIKTOK_CLIENT_SECRET", "")
+
+
+def _get_stored_access_token():
+    if os.path.exists(TIKTOK_CREDENTIALS_FILE):
+        try:
+            with open(TIKTOK_CREDENTIALS_FILE, "r") as f:
+                data = json.load(f)
+                return data.get("access_token", "")
+        except Exception:
+            pass
+    return ""
+
 
 def is_tiktok_connected() -> bool:
-    return bool(os.environ.get("TIKTOK_ACCESS_TOKEN"))
+    return bool(os.environ.get("TIKTOK_ACCESS_TOKEN") or _get_stored_access_token())
+
+
+def get_tiktok_access_token():
+    token = os.environ.get("TIKTOK_ACCESS_TOKEN", "")
+    if token:
+        return token
+    return _get_stored_access_token()
+
+
+def get_tiktok_oauth_url(redirect_uri: str) -> str:
+    client_key = _get_tiktok_client_key()
+    if not client_key:
+        raise RuntimeError("TIKTOK_CLIENT_KEY が設定されていません")
+
+    scopes = "video.upload,video.publish,video.list"
+    return (
+        f"https://www.tiktok.com/v2/auth/authorize/"
+        f"?client_key={client_key}"
+        f"&scope={scopes}"
+        f"&response_type=code"
+        f"&redirect_uri={redirect_uri}"
+        f"&state=tiktok_oauth"
+    )
+
+
+def exchange_tiktok_code(code: str, redirect_uri: str) -> dict:
+    client_key = _get_tiktok_client_key()
+    client_secret = _get_tiktok_client_secret()
+
+    if not client_key or not client_secret:
+        raise RuntimeError("TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET が設定されていません")
+
+    with httpx.Client(timeout=30) as client:
+        response = client.post(
+            "https://open.tiktokapis.com/v2/oauth/token/",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "client_key": client_key,
+                "client_secret": client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            }
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            access_token = data.get("access_token", "")
+            if access_token:
+                save_data = {
+                    "access_token": access_token,
+                    "refresh_token": data.get("refresh_token", ""),
+                    "open_id": data.get("open_id", ""),
+                    "expires_in": data.get("expires_in", 0),
+                }
+                with open(TIKTOK_CREDENTIALS_FILE, "w") as f:
+                    json.dump(save_data, f)
+                logger.info(f"TikTok OAuth success: open_id={save_data['open_id']}")
+                return save_data
+            else:
+                raise RuntimeError(f"TikTok token exchange failed: {data}")
+        else:
+            raise RuntimeError(f"TikTok OAuth error: {response.status_code} - {response.text[:300]}")
 
 
 def upload_to_tiktok(video_path: str, title: str, description: str, tags: list = None) -> str:
-    access_token = os.environ.get("TIKTOK_ACCESS_TOKEN", "")
+    access_token = get_tiktok_access_token()
     if not access_token:
         logger.warning("TIKTOK_ACCESS_TOKEN not set, skipping TikTok upload")
         return None
@@ -85,7 +170,7 @@ def upload_to_tiktok(video_path: str, title: str, description: str, tags: list =
 
 
 def get_tiktok_analytics(publish_id: str):
-    access_token = os.environ.get("TIKTOK_ACCESS_TOKEN", "")
+    access_token = get_tiktok_access_token()
     if not access_token:
         return {"views": 0, "likes": 0}
 
