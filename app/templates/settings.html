@@ -13,11 +13,9 @@
 {% if request.query_params.get('error') %}
 <div class="alert alert-error">
     {% if request.query_params.get('error') == 'youtube_denied' %}
-        YouTube 認証が拒否されました。もう一度お試しください。
+        YouTube 認証が拒否されました。
     {% elif request.query_params.get('error') == 'youtube_auth_failed' %}
-        YouTube 認証の開始に失敗しました。OAuth設定を確認してください。
-    {% elif request.query_params.get('error') == 'youtube_callback_failed' %}
-        YouTube 認証のコールバック処理に失敗しました。
+        YouTube 認証の開始に失敗しました。
     {% else %}
         エラーが発生しました。
     {% endif %}
@@ -27,51 +25,6 @@
 <div class="settings-grid">
     <div class="setting-card">
         <div class="setting-header">
-            <h3>YouTube 連携</h3>
-            {% if youtube_connected %}
-            <span class="badge badge-published">接続済み</span>
-            {% else %}
-            <span class="badge badge-draft">未接続</span>
-            {% endif %}
-        </div>
-        <p class="setting-desc">YouTube Data API v3 を使用して動画を自動投稿します。</p>
-
-        <div class="env-checklist">
-            <div class="env-item {{ 'env-ok' if yt_has_client_id else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if yt_has_client_id else '✗' }}</span>
-                <span>YOUTUBE_OAUTH_CLIENT_ID</span>
-            </div>
-            <div class="env-item {{ 'env-ok' if yt_has_client_secret else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if yt_has_client_secret else '✗' }}</span>
-                <span>YOUTUBE_OAUTH_CLIENT_SECRET</span>
-            </div>
-            <div class="env-item {{ 'env-ok' if yt_has_refresh_token else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if yt_has_refresh_token else '✗' }}</span>
-                <span>YOUTUBE_OAUTH_REFRESH_TOKEN</span>
-            </div>
-            <div class="env-item {{ 'env-ok' if yt_has_channel_id else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if yt_has_channel_id else '✗' }}</span>
-                <span>YOUTUBE_CHANNEL_ID</span>
-            </div>
-            <div class="env-item {{ 'env-ok' if yt_has_api_key else 'env-missing' }}">
-                <span class="env-icon">{{ '✓' if yt_has_api_key else '✗' }}</span>
-                <span>YOUTUBE_API_KEY</span>
-            </div>
-        </div>
-
-        {% if youtube_connected %}
-        <p class="setting-status">YouTube アカウントと連携済みです。動画の自動投稿が有効です。</p>
-        <a href="/auth/youtube" class="btn btn-secondary">再連携する</a>
-        {% elif yt_has_client_id and yt_has_client_secret %}
-        <p class="setting-status">OAuth認証でYouTubeアカウントを連携してください。</p>
-        <a href="/auth/youtube" class="btn btn-primary">YouTube アカウントを連携</a>
-        {% else %}
-        <p class="setting-status">環境変数にYouTube OAuth設定を追加してください。</p>
-        {% endif %}
-    </div>
-
-    <div class="setting-card">
-        <div class="setting-header">
             <h3>Claude AI</h3>
             {% if has_anthropic %}
             <span class="badge badge-published">設定済み</span>
@@ -79,13 +32,26 @@
             <span class="badge badge-error">未設定</span>
             {% endif %}
         </div>
-        <p class="setting-desc">テーマ生成、ストーリー生成、改善分析に使用します。</p>
+        <p class="setting-desc">テーマ生成、脚本生成に使用します。</p>
         <p class="setting-status">
-            {% if has_anthropic %}
-            ANTHROPIC_API_KEY が設定されています。
+            {% if has_anthropic %}ANTHROPIC_API_KEY が設定されています。
+            {% else %}ANTHROPIC_API_KEY を環境変数に設定してください。{% endif %}
+        </p>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Kling API</h3>
+            {% if has_kling %}
+            <span class="badge badge-published">設定済み</span>
             {% else %}
-            ANTHROPIC_API_KEY を環境変数に設定してください。
+            <span class="badge badge-error">未設定</span>
             {% endif %}
+        </div>
+        <p class="setting-desc">AIショートドラマの各シーン動画を生成します。</p>
+        <p class="setting-status">
+            {% if has_kling %}KLING_API_KEY が設定されています。
+            {% else %}KLING_API_KEY を環境変数に設定してください。{% endif %}
         </p>
     </div>
 
@@ -100,12 +66,95 @@
         </div>
         <p class="setting-desc">ナレーション音声の生成に使用します。</p>
         <p class="setting-status">
-            {% if has_elevenlabs %}
-            ELEVENLABS_API_KEY が設定されています。
-            {% else %}
-            ELEVENLABS_API_KEY を環境変数に設定してください。
-            {% endif %}
+            {% if has_elevenlabs %}ELEVENLABS_API_KEY が設定されています。
+            {% else %}ELEVENLABS_API_KEY を環境変数に設定してください。{% endif %}
         </p>
     </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>YouTube 連携</h3>
+            {% if youtube_connected %}
+            <span class="badge badge-published">接続済み</span>
+            {% else %}
+            <span class="badge badge-draft">未接続</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">YouTube Shorts に自動投稿します。</p>
+
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if yt_has_client_id else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_client_id else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_CLIENT_ID</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_client_secret else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_client_secret else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_CLIENT_SECRET</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_refresh_token else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_refresh_token else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_REFRESH_TOKEN</span>
+            </div>
+        </div>
+
+        {% if youtube_connected %}
+        <a href="/auth/youtube" class="btn btn-secondary" style="margin-top:8px">再連携する</a>
+        {% elif yt_has_client_id and yt_has_client_secret %}
+        <a href="/auth/youtube" class="btn btn-primary" style="margin-top:8px">YouTube アカウントを連携</a>
+        {% endif %}
+    </div>
 </div>
+
+<div class="section" style="margin-top:24px">
+    <h2>投稿スケジュール</h2>
+    <div class="card">
+        <p style="margin-bottom:12px;font-weight:600">1日3本の自動生成</p>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div style="padding:8px 16px;background:var(--bg-primary);border-radius:8px;font-weight:600;color:var(--accent)">10:00</div>
+            <div style="padding:8px 16px;background:var(--bg-primary);border-radius:8px;font-weight:600;color:var(--accent)">15:00</div>
+            <div style="padding:8px 16px;background:var(--bg-primary);border-radius:8px;font-weight:600;color:var(--accent)">21:00</div>
+        </div>
+    </div>
+</div>
+
+<div class="section" style="margin-top:24px">
+    <h2>API使用量</h2>
+    <button id="btn-refresh-usage" class="btn btn-primary btn-sm" style="margin-bottom:16px">使用量を更新</button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="usage-panels">
+        <div class="card" id="usage-el"><h3 style="margin-bottom:8px">ElevenLabs</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
+        <div class="card" id="usage-claude"><h3 style="margin-bottom:8px">Claude API</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
+        <div class="card" id="usage-kling"><h3 style="margin-bottom:8px">Kling API</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
+    </div>
+</div>
+
+<script>
+document.getElementById('btn-refresh-usage').addEventListener('click', function() {
+    this.disabled = true;
+    this.textContent = '読み込み中...';
+    fetch('/api/usage')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.elevenlabs) {
+            document.getElementById('usage-el').innerHTML = '<h3 style="margin-bottom:8px">ElevenLabs</h3>' +
+                '<p>プラン: ' + data.elevenlabs.tier + '</p>' +
+                '<p>使用: ' + data.elevenlabs.used.toLocaleString() + ' / ' + data.elevenlabs.limit.toLocaleString() + ' 文字</p>' +
+                '<p>残り: ' + data.elevenlabs.remaining.toLocaleString() + ' 文字</p>';
+        }
+        if (data.claude) {
+            document.getElementById('usage-claude').innerHTML = '<h3 style="margin-bottom:8px">Claude API</h3>' +
+                '<p>リクエスト残り: ' + data.claude.requests_remaining + '</p>';
+        }
+        if (data.kling) {
+            document.getElementById('usage-kling').innerHTML = '<h3 style="margin-bottom:8px">Kling API</h3>' +
+                '<p>設定: ' + (data.kling.configured ? '設定済み' : '未設定') + '</p>';
+        }
+        document.getElementById('btn-refresh-usage').disabled = false;
+        document.getElementById('btn-refresh-usage').textContent = '使用量を更新';
+    })
+    .catch(function() {
+        document.getElementById('btn-refresh-usage').disabled = false;
+        document.getElementById('btn-refresh-usage').textContent = '使用量を更新';
+    });
+});
+</script>
 {% endblock %}

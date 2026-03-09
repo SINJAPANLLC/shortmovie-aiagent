@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}ドラマ一覧 - Short Movie AI AGENT SIN JAPAN{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>ドラマ一覧</h1>
+    <p>生成された全てのAIショートドラマ</p>
+</div>
+
+{% if dramas %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>タイトル</th>
+                <th>ジャンル</th>
+                <th>シーン数</th>
+                <th>ステータス</th>
+                <th>YouTube</th>
+                <th>再生数</th>
+                <th>いいね</th>
+                <th>作成日</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for drama in dramas %}
+            <tr onclick="location.href='/dramas/{{ drama.id }}'" class="clickable-row">
+                <td>{{ drama.id }}</td>
+                <td>{{ drama.title or '-' }}</td>
+                <td><span class="badge badge-draft">{{ drama.genre or '-' }}</span></td>
+                <td>{{ drama.scene_count or 0 }}</td>
+                <td>
+                    <span class="badge badge-{{ drama.status or 'draft' }}">
+                        {{ drama.status or 'draft' }}
+                    </span>
+                </td>
+                <td>
+                    {% if drama.youtube_id %}
+                    <a href="https://youtube.com/shorts/{{ drama.youtube_id }}" target="_blank" onclick="event.stopPropagation()">
+                        {{ drama.youtube_id[:8] }}...
+                    </a>
+                    {% else %}-{% endif %}
+                </td>
+                <td>{{ "{:,}".format(drama.views or 0) }}</td>
+                <td>{{ "{:,}".format(drama.likes or 0) }}</td>
+                <td>{{ drama.created_at.strftime('%Y/%m/%d %H:%M') if drama.created_at else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>まだドラマがありません。</p>
+    <a href="/generate" class="btn btn-primary spa-link">ドラマを生成する</a>
+</div>
+{% endif %}
+{% endblock %}

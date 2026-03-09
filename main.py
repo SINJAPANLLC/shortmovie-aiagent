@@ -39,9 +39,25 @@ async def startup_event():
 
     scheduler.add_job(
         run_full_pipeline,
+        trigger=CronTrigger(hour=10, minute=0),
+        id="morning_drama",
+        name="Morning Drama Generation",
+        replace_existing=True
+    )
+
+    scheduler.add_job(
+        run_full_pipeline,
+        trigger=CronTrigger(hour=15, minute=0),
+        id="afternoon_drama",
+        name="Afternoon Drama Generation",
+        replace_existing=True
+    )
+
+    scheduler.add_job(
+        run_full_pipeline,
         trigger=CronTrigger(hour=21, minute=0),
-        id="daily_video_pipeline",
-        name="Daily Video Generation Pipeline",
+        id="evening_drama",
+        name="Evening Drama Generation",
         replace_existing=True
     )
 
@@ -53,16 +69,8 @@ async def startup_event():
         replace_existing=True
     )
 
-    scheduler.add_job(
-        collect_all_analytics,
-        trigger=CronTrigger(hour=15, minute=0),
-        id="afternoon_analytics",
-        name="Afternoon Analytics Collection",
-        replace_existing=True
-    )
-
     scheduler.start()
-    logger.info("Scheduler started - pipeline at 21:00, analytics at 09:00 & 15:00")
+    logger.info("Scheduler started - dramas at 10:00, 15:00, 21:00 | analytics at 09:00")
 
 
 if __name__ == "__main__":

@@ -303,9 +303,14 @@ a:hover {
     color: var(--error);
 }
 
-.badge-processing {
+.badge-processing, .badge-generating {
     background: #fef7e0;
     color: var(--warning);
+}
+
+.badge-ready {
+    background: #e0f2f1;
+    color: var(--accent);
 }
 
 .alert {

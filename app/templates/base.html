@@ -13,10 +13,13 @@
     <nav class="navbar">
         <div class="nav-brand">
             <span class="nav-logo">▶</span>
-            <span class="nav-title">Short Movie AI AGENT SIN JAPAN</span>
+            <span class="nav-title">Short Movie AI AGENT</span>
         </div>
         <div class="nav-links">
             <a href="/dashboard" class="nav-link spa-link">ダッシュボード</a>
+            <a href="/dramas" class="nav-link spa-link">ドラマ一覧</a>
+            <a href="/generate" class="nav-link spa-link">生成</a>
+            <a href="/settings" class="nav-link spa-link">設定</a>
             <a href="/logout" class="nav-link nav-logout">ログアウト</a>
         </div>
     </nav>
@@ -30,19 +33,23 @@
     <script>
     (function() {
         var mainEl = document.getElementById('main-content');
+        function setActiveNav() {
+            var path = location.pathname;
+            document.querySelectorAll('.nav-link').forEach(function(l) {
+                l.classList.remove('active');
+                if (l.getAttribute('href') === path) l.classList.add('active');
+            });
+        }
+        setActiveNav();
 
         document.addEventListener('click', function(e) {
             var link = e.target.closest('a.spa-link');
             if (!link) return;
-
             var href = link.getAttribute('href');
             if (!href) return;
-
             e.preventDefault();
-
             mainEl.style.opacity = '0.4';
             mainEl.style.transition = 'opacity 0.15s';
-
             fetch(href, { credentials: 'same-origin' })
                 .then(function(res) { return res.text(); })
                 .then(function(html) {
@@ -50,29 +57,20 @@
                     var doc = parser.parseFromString(html, 'text/html');
                     var newContent = doc.getElementById('main-content');
                     var newTitle = doc.querySelector('title');
-
-                    if (newContent) {
-                        mainEl.innerHTML = newContent.innerHTML;
-                    }
-                    if (newTitle) {
-                        document.title = newTitle.textContent;
-                    }
-
+                    if (newContent) mainEl.innerHTML = newContent.innerHTML;
+                    if (newTitle) document.title = newTitle.textContent;
                     history.pushState(null, '', href);
-
                     var scripts = mainEl.querySelectorAll('script');
                     scripts.forEach(function(oldScript) {
                         var newScript = document.createElement('script');
                         newScript.textContent = oldScript.textContent;
                         oldScript.parentNode.replaceChild(newScript, oldScript);
                     });
-
                     mainEl.style.opacity = '1';
                     window.scrollTo(0, 0);
+                    setActiveNav();
                 })
-                .catch(function() {
-                    window.location.href = href;
-                });
+                .catch(function() { window.location.href = href; });
         });
 
         window.addEventListener('popstate', function() {
@@ -85,17 +83,15 @@
                     var newTitle = doc.querySelector('title');
                     if (newContent) mainEl.innerHTML = newContent.innerHTML;
                     if (newTitle) document.title = newTitle.textContent;
-
                     var scripts = mainEl.querySelectorAll('script');
                     scripts.forEach(function(oldScript) {
                         var newScript = document.createElement('script');
                         newScript.textContent = oldScript.textContent;
                         oldScript.parentNode.replaceChild(newScript, oldScript);
                     });
+                    setActiveNav();
                 })
-                .catch(function() {
-                    location.reload();
-                });
+                .catch(function() { location.reload(); });
         });
     })();
     </script>

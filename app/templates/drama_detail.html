@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ drama.title or 'ドラマ詳細' }} - Short Movie AI AGENT SIN JAPAN{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="/dramas" class="btn btn-secondary btn-sm spa-link" style="margin-bottom:12px;display:inline-block">← 戻る</a>
+    <h1>{{ drama.title or '無題' }}</h1>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-card">
+        <h3>基本情報</h3>
+        <div class="detail-row">
+            <span class="detail-label">ID</span>
+            <span class="detail-value">{{ drama.id }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">ジャンル</span>
+            <span class="detail-value"><span class="badge badge-draft">{{ drama.genre or '-' }}</span></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">テーマ</span>
+            <span class="detail-value">{{ drama.theme or '-' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">シーン数</span>
+            <span class="detail-value">{{ drama.scene_count or 0 }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">エピソード</span>
+            <span class="detail-value">第{{ drama.episode_number or 1 }}話</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">ステータス</span>
+            <span class="detail-value">
+                <span class="badge badge-{{ drama.status or 'draft' }}">{{ drama.status or 'draft' }}</span>
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">作成日</span>
+            <span class="detail-value">{{ drama.created_at.strftime('%Y/%m/%d %H:%M') if drama.created_at else '-' }}</span>
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <h3>パフォーマンス</h3>
+        <div class="detail-row">
+            <span class="detail-label">再生数</span>
+            <span class="detail-value">{{ "{:,}".format(drama.views or 0) }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">いいね</span>
+            <span class="detail-value">{{ "{:,}".format(drama.likes or 0) }}</span>
+        </div>
+        {% if drama.youtube_id %}
+        <div class="detail-row">
+            <span class="detail-label">YouTube</span>
+            <span class="detail-value">
+                <a href="https://youtube.com/shorts/{{ drama.youtube_id }}" target="_blank">{{ drama.youtube_id }}</a>
+            </span>
+        </div>
+        {% endif %}
+        {% if drama.tiktok_id %}
+        <div class="detail-row">
+            <span class="detail-label">TikTok</span>
+            <span class="detail-value">{{ drama.tiktok_id }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if drama.script %}
+<div class="section">
+    <h2>脚本 / ナレーション</h2>
+    <div class="story-content">
+        {{ drama.script | replace('\n', '<br>') | safe }}
+    </div>
+</div>
+{% endif %}
+
+{% if drama.video_url %}
+<div class="section">
+    <h2>動画プレビュー</h2>
+    <video controls style="max-width:300px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+        <source src="/{{ drama.video_url | replace('app/static/', 'static/') }}" type="video/mp4">
+    </video>
+</div>
+{% endif %}
+
+{% if ai_logs %}
+<div class="section">
+    <h2>AI思考ログ</h2>
+    {% for log in ai_logs %}
+    <div class="card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span class="badge badge-published">{{ log.step }}</span>
+            <span style="font-size:0.8rem;color:var(--text-secondary)">{{ log.created_at.strftime('%H:%M:%S') if log.created_at else '' }}</span>
+        </div>
+        <details>
+            <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--accent);padding:4px 0">プロンプト</summary>
+            <pre style="background:var(--bg-primary);padding:12px;border-radius:8px;font-size:0.78rem;white-space:pre-wrap;word-wrap:break-word;margin-top:6px;border:1px solid var(--border);max-height:200px;overflow-y:auto">{{ log.prompt }}</pre>
+        </details>
+        <details>
+            <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--success);padding:4px 0">レスポンス</summary>
+            <pre style="background:var(--bg-primary);padding:12px;border-radius:8px;font-size:0.78rem;white-space:pre-wrap;word-wrap:break-word;margin-top:6px;border:1px solid var(--border);max-height:200px;overflow-y:auto">{{ log.response }}</pre>
+        </details>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

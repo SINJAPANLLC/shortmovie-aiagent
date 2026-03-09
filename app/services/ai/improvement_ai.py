@@ -8,29 +8,24 @@ from app.db.database import save_ai_log
 logger = logging.getLogger(__name__)
 
 
-def analyze_and_improve(videos_data: list, video_id=None):
+def analyze_and_improve(dramas_data, drama_id=None):
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""), timeout=120.0)
 
-    videos_summary = ""
-    for v in videos_data:
-        videos_summary += f"- タイトル: {v.get('title', 'N/A')}, テーマ: {v.get('theme', 'N/A')}, "
-        videos_summary += f"再生数: {v.get('views', 0)}, CTR: {v.get('ctr', 0)}%, "
-        videos_summary += f"平均視聴時間: {v.get('watch_time', 0)}分\n"
+    dramas_summary = ""
+    for d in dramas_data[:20]:
+        dramas_summary += f"- {d.get('title', 'N/A')} | ジャンル: {d.get('genre', 'N/A')} | 再生数: {d.get('views', 0)} | いいね: {d.get('likes', 0)}\n"
 
-    prompt = f"""あなたはYouTube睡眠用朗読チャンネルの分析AIです。
+    prompt = f"""あなたはYouTube Shorts / TikTokのAIショートドラマチャンネルのアナリストです。
 
-以下の動画パフォーマンスデータを分析し、改善提案をしてください：
+以下の投稿データを分析し、改善提案をしてください。
 
-{videos_summary if videos_summary else "まだ動画データがありません。"}
-
-目標指標:
-- CTR: 6%以上
-- 平均視聴時間: 15分以上
+【投稿データ】
+{dramas_summary if dramas_summary else "まだ動画データがありません。"}
 
 以下のJSON形式で回答してください:
 {{
     "analysis": "分析結果の要約",
-    "best_performing_theme": "最も成績の良いテーマ",
+    "best_genre": "最も成績の良いジャンル",
     "improvement_suggestions": "改善提案",
     "next_theme_recommendation": "次の動画テーマの推奨方向性"
 }}"""
@@ -54,8 +49,8 @@ def analyze_and_improve(videos_data: list, video_id=None):
 
     response_text = message.content[0].text
 
-    if video_id:
-        save_ai_log(video_id, "AI改善分析", prompt, response_text)
+    if drama_id:
+        save_ai_log(drama_id, "AI改善分析", prompt, response_text)
 
     try:
         start = response_text.find("{")
@@ -66,7 +61,7 @@ def analyze_and_improve(videos_data: list, video_id=None):
         pass
     return {
         "analysis": "データ不足のため分析できません",
-        "best_performing_theme": "N/A",
+        "best_genre": "N/A",
         "improvement_suggestions": "より多くの動画を投稿してデータを蓄積してください",
-        "next_theme_recommendation": "自然をテーマにした穏やかなストーリー"
+        "next_theme_recommendation": "恋愛系のドラマチックなストーリー"
     }

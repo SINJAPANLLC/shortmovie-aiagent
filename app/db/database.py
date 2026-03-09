@@ -14,21 +14,6 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS videos (
-            id SERIAL PRIMARY KEY,
-            title VARCHAR(255),
-            theme VARCHAR(255),
-            story TEXT,
-            audio_url VARCHAR(500),
-            video_url VARCHAR(500),
-            youtube_id VARCHAR(100),
-            views INTEGER DEFAULT 0,
-            ctr DECIMAL(5,2) DEFAULT 0,
-            watch_time DECIMAL(10,2) DEFAULT 0,
-            status VARCHAR(50) DEFAULT 'draft',
-            created_at TIMESTAMP DEFAULT NOW()
-        );
-
         CREATE TABLE IF NOT EXISTS admin_users (
             id SERIAL PRIMARY KEY,
             username VARCHAR(100) UNIQUE NOT NULL,
@@ -36,9 +21,27 @@ def init_db():
             created_at TIMESTAMP DEFAULT NOW()
         );
 
+        CREATE TABLE IF NOT EXISTS dramas (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(255),
+            genre VARCHAR(100),
+            theme TEXT,
+            script TEXT,
+            scene_count INTEGER DEFAULT 0,
+            video_url VARCHAR(500),
+            thumbnail_url VARCHAR(500),
+            youtube_id VARCHAR(100),
+            tiktok_id VARCHAR(100),
+            views INTEGER DEFAULT 0,
+            likes INTEGER DEFAULT 0,
+            status VARCHAR(50) DEFAULT 'draft',
+            episode_number INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+
         CREATE TABLE IF NOT EXISTS ai_logs (
             id SERIAL PRIMARY KEY,
-            video_id INTEGER,
+            drama_id INTEGER,
             step VARCHAR(100),
             prompt TEXT,
             response TEXT,
@@ -55,41 +58,41 @@ def init_db():
     conn.close()
 
 
-def get_all_videos():
+def get_all_dramas():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM videos ORDER BY created_at DESC")
+    cur.execute("SELECT * FROM dramas ORDER BY created_at DESC")
     rows = cur.fetchall()
     cur.close()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def get_video_by_id(video_id: int):
+def get_drama_by_id(drama_id: int):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM videos WHERE id = %s", (video_id,))
+    cur.execute("SELECT * FROM dramas WHERE id = %s", (drama_id,))
     row = cur.fetchone()
     cur.close()
     conn.close()
     return dict(row) if row else None
 
 
-def create_video(title, theme, story, status="draft"):
+def create_drama(title, genre, theme, script="", status="draft", episode_number=1):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO videos (title, theme, story, status) VALUES (%s, %s, %s, %s) RETURNING id",
-        (title, theme, story, status)
+        "INSERT INTO dramas (title, genre, theme, script, status, episode_number) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (title, genre, theme, script, status, episode_number)
     )
-    video_id = cur.fetchone()["id"]
+    drama_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
     conn.close()
-    return video_id
+    return drama_id
 
 
-def update_video(video_id: int, **kwargs):
+def update_drama(drama_id: int, **kwargs):
     conn = get_connection()
     cur = conn.cursor()
     sets = []
@@ -97,17 +100,20 @@ def update_video(video_id: int, **kwargs):
     for k, v in kwargs.items():
         sets.append(f"{k} = %s")
         vals.append(v)
-    vals.append(video_id)
-    cur.execute(f"UPDATE videos SET {', '.join(sets)} WHERE id = %s", vals)
+    vals.append(drama_id)
+    cur.execute(f"UPDATE dramas SET {', '.join(sets)} WHERE id = %s", vals)
     conn.commit()
     cur.close()
     conn.close()
 
 
-def get_next_video_number():
+def get_next_episode_number(genre=None):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) as cnt FROM videos")
+    if genre:
+        cur.execute("SELECT COUNT(*) as cnt FROM dramas WHERE genre = %s", (genre,))
+    else:
+        cur.execute("SELECT COUNT(*) as cnt FROM dramas")
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -136,13 +142,12 @@ def create_admin_user(username: str, password_hash: str):
     conn.close()
 
 
-def get_videos_with_analytics():
+def get_published_dramas():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, title, theme, views, ctr, watch_time, youtube_id, created_at
-        FROM videos
-        WHERE youtube_id IS NOT NULL
+        SELECT id, youtube_id, tiktok_id FROM dramas
+        WHERE (youtube_id IS NOT NULL OR tiktok_id IS NOT NULL) AND status = 'published'
         ORDER BY created_at DESC
     """)
     rows = cur.fetchall()
@@ -151,25 +156,25 @@ def get_videos_with_analytics():
     return [dict(r) for r in rows]
 
 
-def save_ai_log(video_id, step, prompt, response):
+def save_ai_log(drama_id, step, prompt, response):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO ai_logs (video_id, step, prompt, response) VALUES (%s, %s, %s, %s)",
-        (video_id, step, prompt, response)
+        "INSERT INTO ai_logs (drama_id, step, prompt, response) VALUES (%s, %s, %s, %s)",
+        (drama_id, step, prompt[:5000] if prompt else "", response[:10000] if response else "")
     )
     conn.commit()
     cur.close()
     conn.close()
 
 
-def get_ai_logs(video_id=None, limit=50):
+def get_ai_logs(drama_id=None, limit=30):
     conn = get_connection()
     cur = conn.cursor()
-    if video_id:
+    if drama_id:
         cur.execute(
-            "SELECT * FROM ai_logs WHERE video_id = %s ORDER BY created_at DESC LIMIT %s",
-            (video_id, limit)
+            "SELECT * FROM ai_logs WHERE drama_id = %s ORDER BY created_at DESC LIMIT %s",
+            (drama_id, limit)
         )
     else:
         cur.execute(
@@ -182,12 +187,13 @@ def get_ai_logs(video_id=None, limit=50):
     return [dict(r) for r in rows]
 
 
-def get_published_videos():
+def get_dramas_with_analytics():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, youtube_id FROM videos
-        WHERE youtube_id IS NOT NULL AND status = 'published'
+        SELECT id, title, genre, theme, views, likes, youtube_id, tiktok_id, created_at
+        FROM dramas
+        WHERE youtube_id IS NOT NULL OR tiktok_id IS NOT NULL
         ORDER BY created_at DESC
     """)
     rows = cur.fetchall()

@@ -10,13 +10,11 @@ from app.api.auth import (
     get_current_user, require_auth
 )
 from app.db.database import (
-    get_admin_user, create_admin_user, get_all_videos,
-    get_video_by_id, get_videos_with_analytics, update_video,
+    get_admin_user, create_admin_user, get_all_dramas,
+    get_drama_by_id, get_dramas_with_analytics, update_drama,
     get_ai_logs, get_setting, set_setting
 )
-from app.services.pipeline import (
-    run_full_pipeline, run_test_pipeline, generate_theme_only, generate_story_only
-)
+from app.services.pipeline import run_full_pipeline, generate_theme_only
 from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.youtube.youtube_service import (
     get_oauth_flow, save_credentials, is_youtube_connected
@@ -31,20 +29,22 @@ pipeline_status = {
     "running": False,
     "last_result": None,
     "current_step": 0,
-    "total_steps": 7,
+    "total_steps": 9,
     "step_label": "",
     "logs": [],
     "started_at": None,
 }
 
 PIPELINE_STEPS = {
-    0: "YouTube分析収集",
-    1: "AI改善分析",
-    2: "テーマ生成",
-    3: "ストーリー生成（3部構成）",
-    4: "音声生成",
-    5: "動画生成",
-    6: "YouTube投稿",
+    0: "初期化",
+    1: "テーマ生成",
+    2: "脚本生成",
+    3: "シーン分割",
+    4: "動画シーン生成",
+    5: "音声生成",
+    6: "動画編集",
+    7: "投稿",
+    8: "完了",
 }
 
 
@@ -104,101 +104,66 @@ async def dashboard(request: Request):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    videos = get_all_videos()
-    total_views = sum(v.get("views", 0) for v in videos)
-    published_count = sum(1 for v in videos if v.get("youtube_id"))
-    avg_ctr = 0
-    avg_watch = 0
-    published_vids = [v for v in videos if v.get("ctr", 0) > 0]
-    if published_vids:
-        avg_ctr = sum(float(v.get("ctr", 0)) for v in published_vids) / len(published_vids)
-        avg_watch = sum(float(v.get("watch_time", 0)) for v in published_vids) / len(published_vids)
+    dramas = get_all_dramas()
+    total_views = sum(d.get("views", 0) for d in dramas)
+    total_likes = sum(d.get("likes", 0) for d in dramas)
+    published_count = sum(1 for d in dramas if d.get("youtube_id") or d.get("tiktok_id"))
 
-    analytics_videos = get_videos_with_analytics()
-    improvement = None
-    if analytics_videos:
-        improvement = analyze_and_improve(analytics_videos)
-
-    has_client_id = bool(os.environ.get("YOUTUBE_OAUTH_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID"))
-    has_client_secret = bool(os.environ.get("YOUTUBE_OAUTH_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET"))
-    has_refresh_token = bool(os.environ.get("YOUTUBE_OAUTH_REFRESH_TOKEN"))
-    has_channel_id = bool(os.environ.get("YOUTUBE_CHANNEL_ID"))
-    has_api_key = bool(os.environ.get("YOUTUBE_API_KEY"))
+    genre_counts = {}
+    for d in dramas:
+        g = d.get("genre", "不明")
+        genre_counts[g] = genre_counts.get(g, 0) + 1
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": user,
-        "videos": videos[:10],
-        "all_videos": videos,
-        "total_videos": len(videos),
+        "dramas": dramas[:10],
+        "all_dramas": dramas,
+        "total_dramas": len(dramas),
         "published_count": published_count,
         "total_views": total_views,
-        "avg_ctr": round(avg_ctr, 2),
-        "avg_watch_time": round(avg_watch, 1),
+        "total_likes": total_likes,
+        "genre_counts": genre_counts,
         "pipeline_running": pipeline_status["running"],
         "last_result": pipeline_status.get("last_result"),
         "youtube_connected": is_youtube_connected(),
-        "analytics_videos": analytics_videos,
-        "improvement": improvement,
         "has_anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
-        "yt_has_client_id": has_client_id,
-        "yt_has_client_secret": has_client_secret,
-        "yt_has_refresh_token": has_refresh_token,
-        "yt_has_channel_id": has_channel_id,
-        "yt_has_api_key": has_api_key,
+        "has_kling": bool(os.environ.get("KLING_API_KEY")),
         "ai_logs": get_ai_logs(limit=20),
-        "video_minutes": int(get_setting("video_minutes", "10")),
     })
 
 
-@router.get("/videos", response_class=HTMLResponse)
-async def videos_list(request: Request):
+@router.get("/dramas", response_class=HTMLResponse)
+async def dramas_list(request: Request):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    videos = get_all_videos()
-    return templates.TemplateResponse("videos.html", {
+    dramas = get_all_dramas()
+    return templates.TemplateResponse("dramas.html", {
         "request": request,
         "user": user,
-        "videos": videos,
+        "dramas": dramas,
     })
 
 
-@router.get("/videos/{video_id}", response_class=HTMLResponse)
-async def video_detail(request: Request, video_id: int):
+@router.get("/dramas/{drama_id}", response_class=HTMLResponse)
+async def drama_detail(request: Request, drama_id: int):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    video = get_video_by_id(video_id)
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        raise HTTPException(status_code=404, detail="Drama not found")
 
-    return templates.TemplateResponse("video_detail.html", {
+    ai_logs = get_ai_logs(drama_id=drama_id)
+    return templates.TemplateResponse("drama_detail.html", {
         "request": request,
         "user": user,
-        "video": video,
-    })
-
-
-@router.get("/analytics", response_class=HTMLResponse)
-async def analytics_page(request: Request):
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=303)
-
-    videos = get_videos_with_analytics()
-    improvement = None
-    if videos:
-        improvement = analyze_and_improve(videos)
-
-    return templates.TemplateResponse("analytics.html", {
-        "request": request,
-        "user": user,
-        "videos": videos,
-        "improvement": improvement,
+        "drama": drama,
+        "ai_logs": ai_logs,
     })
 
 
@@ -226,8 +191,6 @@ async def settings_page(request: Request):
     has_client_id = bool(os.environ.get("YOUTUBE_OAUTH_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID"))
     has_client_secret = bool(os.environ.get("YOUTUBE_OAUTH_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET"))
     has_refresh_token = bool(os.environ.get("YOUTUBE_OAUTH_REFRESH_TOKEN"))
-    has_channel_id = bool(os.environ.get("YOUTUBE_CHANNEL_ID"))
-    has_api_key = bool(os.environ.get("YOUTUBE_API_KEY"))
 
     return templates.TemplateResponse("settings.html", {
         "request": request,
@@ -235,11 +198,10 @@ async def settings_page(request: Request):
         "youtube_connected": is_youtube_connected(),
         "has_anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
+        "has_kling": bool(os.environ.get("KLING_API_KEY")),
         "yt_has_client_id": has_client_id,
         "yt_has_client_secret": has_client_secret,
         "yt_has_refresh_token": has_refresh_token,
-        "yt_has_channel_id": has_channel_id,
-        "yt_has_api_key": has_api_key,
     })
 
 
@@ -265,9 +227,7 @@ async def youtube_auth_start(request: Request):
 @router.get("/auth/callback")
 async def youtube_auth_callback(request: Request, code: str = None, error: str = None):
     if error:
-        logger.error(f"YouTube auth error: {error}")
         return RedirectResponse(url="/settings?error=youtube_denied", status_code=303)
-
     if not code:
         return RedirectResponse(url="/settings?error=no_code", status_code=303)
 
@@ -284,7 +244,6 @@ async def youtube_auth_callback(request: Request, code: str = None, error: str =
             "client_secret": credentials.client_secret,
         })
 
-        logger.info("YouTube connected successfully")
         return RedirectResponse(url="/settings?success=youtube_connected", status_code=303)
     except Exception as e:
         logger.error(f"YouTube auth callback failed: {e}")
@@ -306,6 +265,7 @@ async def api_generate(request: Request):
     except Exception:
         pass
     custom_theme = body.get("theme", "").strip() or None
+    custom_genre = body.get("genre", "").strip() or None
 
     import datetime
 
@@ -317,9 +277,13 @@ async def api_generate(request: Request):
         pipeline_status["logs"] = []
         pipeline_status["started_at"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         try:
-            result = run_full_pipeline(progress_callback=pipeline_progress_callback, custom_theme=custom_theme)
+            result = run_full_pipeline(
+                progress_callback=pipeline_progress_callback,
+                custom_theme=custom_theme,
+                custom_genre=custom_genre
+            )
             pipeline_status["last_result"] = result
-            pipeline_log("パイプライン完了", step=7)
+            pipeline_log("パイプライン完了", step=8)
         except Exception as e:
             pipeline_status["last_result"] = {"success": False, "error": str(e)}
             pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
@@ -330,47 +294,6 @@ async def api_generate(request: Request):
     thread.start()
 
     return JSONResponse({"message": "パイプラインを開始しました", "status": "running"})
-
-
-@router.post("/api/generate-test")
-async def api_generate_test(request: Request):
-    user = get_current_user(request)
-    if not user:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    if pipeline_status["running"]:
-        return JSONResponse({"error": "パイプラインが実行中です"}, status_code=409)
-
-    body = {}
-    try:
-        body = await request.json()
-    except Exception:
-        pass
-    custom_theme = body.get("theme", "").strip() or None
-
-    import datetime
-
-    def run_pipeline():
-        pipeline_status["running"] = True
-        pipeline_status["last_result"] = None
-        pipeline_status["current_step"] = 0
-        pipeline_status["step_label"] = ""
-        pipeline_status["logs"] = []
-        pipeline_status["started_at"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        try:
-            result = run_test_pipeline(progress_callback=pipeline_progress_callback, custom_theme=custom_theme)
-            pipeline_status["last_result"] = result
-            pipeline_log("テストパイプライン完了", step=7)
-        except Exception as e:
-            pipeline_status["last_result"] = {"success": False, "error": str(e)}
-            pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
-        finally:
-            pipeline_status["running"] = False
-
-    thread = threading.Thread(target=run_pipeline, daemon=True)
-    thread.start()
-
-    return JSONResponse({"message": "テストパイプラインを開始しました", "status": "running"})
 
 
 def pipeline_progress_callback(step: int, message: str):
@@ -402,21 +325,28 @@ async def api_generate_theme(request: Request):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    theme = generate_theme_only()
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    genre = body.get("genre", "").strip() or None
+
+    theme = generate_theme_only(genre=genre)
     return JSONResponse(theme)
 
 
-@router.get("/api/videos")
-async def api_videos(request: Request):
+@router.get("/api/dramas")
+async def api_dramas(request: Request):
     user = get_current_user(request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    videos = get_all_videos()
-    for v in videos:
-        if v.get("created_at"):
-            v["created_at"] = v["created_at"].isoformat()
-    return JSONResponse(videos)
+    dramas = get_all_dramas()
+    for d in dramas:
+        if d.get("created_at"):
+            d["created_at"] = d["created_at"].isoformat()
+    return JSONResponse(dramas)
 
 
 @router.get("/api/usage")
@@ -428,7 +358,7 @@ async def api_usage(request: Request):
     import requests as req
     import datetime
 
-    result = {"elevenlabs": None, "claude": None}
+    result = {"elevenlabs": None, "claude": None, "kling": None}
 
     try:
         el_key = os.environ.get("ELEVENLABS_API_KEY", "")
@@ -447,7 +377,6 @@ async def api_usage(request: Request):
                     "limit": data.get("character_limit", 0),
                     "remaining": data.get("character_limit", 0) - data.get("character_count", 0),
                     "reset_date": reset_date,
-                    "videos_possible": max(0, (data.get("character_limit", 0) - data.get("character_count", 0)) // (int(get_setting("video_minutes", "10")) * 350 + 100)),
                 }
     except Exception as e:
         logger.warning(f"Failed to fetch ElevenLabs usage: {e}")
@@ -472,40 +401,10 @@ async def api_usage(request: Request):
             result["claude"] = {
                 "requests_limit": headers.get("anthropic-ratelimit-requests-limit", "N/A"),
                 "requests_remaining": headers.get("anthropic-ratelimit-requests-remaining", "N/A"),
-                "input_tokens_limit": headers.get("anthropic-ratelimit-input-tokens-limit", "N/A"),
-                "output_tokens_limit": headers.get("anthropic-ratelimit-output-tokens-limit", "N/A"),
-                "output_tokens_remaining": headers.get("anthropic-ratelimit-output-tokens-remaining", "N/A"),
             }
     except Exception as e:
         logger.warning(f"Failed to fetch Claude usage: {e}")
 
+    result["kling"] = {"configured": bool(os.environ.get("KLING_API_KEY"))}
+
     return JSONResponse(result)
-
-
-@router.get("/api/settings")
-async def api_get_settings(request: Request):
-    user = get_current_user(request)
-    if not user:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    return JSONResponse({
-        "video_minutes": int(get_setting("video_minutes", "10")),
-    })
-
-
-@router.post("/api/settings")
-async def api_save_settings(request: Request):
-    user = get_current_user(request)
-    if not user:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    body = await request.json()
-    video_minutes = body.get("video_minutes")
-    if video_minutes is not None:
-        try:
-            video_minutes = max(1, min(120, int(video_minutes)))
-        except (ValueError, TypeError):
-            return JSONResponse({"error": "無効な値です"}, status_code=400)
-        set_setting("video_minutes", str(video_minutes))
-
-    return JSONResponse({"message": "設定を保存しました", "video_minutes": int(get_setting("video_minutes", "10"))})

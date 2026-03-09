@@ -1,36 +1,45 @@
 import os
 import json
 import time
+import random
 import logging
 import anthropic
 from app.db.database import save_ai_log
 
 logger = logging.getLogger(__name__)
 
+GENRES = ["恋愛", "浮気", "復讐", "CEOドラマ", "怖い話"]
 
-def generate_theme(previous_themes=None, analytics_feedback=None, video_id=None):
+
+def generate_theme(previous_themes=None, genre=None, drama_id=None):
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""), timeout=120.0)
+
+    if not genre:
+        genre = random.choice(GENRES)
 
     context = ""
     if previous_themes:
-        context += f"\n過去に使用したテーマ（重複しないでください）:\n{', '.join(previous_themes)}"
-    if analytics_feedback:
-        context += f"\n\n分析フィードバック:\n{analytics_feedback}"
+        context += f"\n過去に使用したテーマ（重複しないでください）:\n{', '.join(previous_themes[-20:])}"
 
-    prompt = f"""あなたは睡眠用朗読動画のテーマ生成AIです。
+    prompt = f"""あなたはAIショートドラマの企画プロデューサーです。
 
-以下の条件でテーマを1つ生成してください：
+ジャンル: {genre}
 
-- 睡眠に適した穏やかなテーマ
-- 自然や静かな場所に関連するもの
-- リラックスできる雰囲気
-- 日本語で短いフレーズ（2〜5語）
+以下の条件で45秒ショートドラマのテーマを1つ生成してください：
 
-例: 夜の森、月の丘、静かな海、星空の村、雨の夜
+- YouTube Shorts / TikTok向けの縦動画ドラマ
+- 衝撃的なフックで始まり、どんでん返しで終わる
+- 視聴者が続きを見たくなる構成
+- 日本語で短いフレーズのタイトル
 {context}
 
+タイトル例:
+- 社長と秘密の恋
+- 彼氏の浮気
+- AI彼女の秘密
+
 以下のJSON形式で返してください:
-{{"theme": "テーマ名", "description": "テーマの簡単な説明"}}"""
+{{"theme": "テーマの概要", "title_base": "タイトルのベース部分", "hook": "冒頭2秒の衝撃フック内容", "twist": "最後のどんでん返し内容"}}"""
 
     message = None
     for attempt in range(3):
@@ -51,14 +60,16 @@ def generate_theme(previous_themes=None, analytics_feedback=None, video_id=None)
 
     response_text = message.content[0].text
 
-    if video_id:
-        save_ai_log(video_id, "テーマ生成", prompt, response_text)
+    if drama_id:
+        save_ai_log(drama_id, "テーマ生成", prompt, response_text)
 
     try:
         start = response_text.find("{")
         end = response_text.rfind("}") + 1
         if start >= 0 and end > start:
-            return json.loads(response_text[start:end])
+            result = json.loads(response_text[start:end])
+            result["genre"] = genre
+            return result
     except (json.JSONDecodeError, IndexError):
         pass
-    return {"theme": "静かな夜の湖", "description": "月明かりに照らされた静かな湖畔の物語"}
+    return {"theme": "秘密の恋", "title_base": "秘密の恋", "hook": "突然の告白", "twist": "衝撃の真実", "genre": genre}

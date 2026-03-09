@@ -1,130 +1,159 @@
 {% extends "base.html" %}
-{% block title %}動画生成 - Short Movie AI AGENT SIN JAPAN{% endblock %}
+{% block title %}ドラマ生成 - Short Movie AI AGENT SIN JAPAN{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>動画生成</h1>
-    <p>AIによる自動動画生成パイプライン</p>
+    <h1>AIショートドラマ生成</h1>
+    <p>45秒のショートドラマを自動生成します</p>
 </div>
 
-<div class="generate-container">
+<div class="section">
     <div class="pipeline-info">
         <h3>自動生成フロー</h3>
         <div class="pipeline-steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <div class="step-text">YouTube分析収集</div>
-            </div>
+            <div class="step"><div class="step-number">1</div><div class="step-text">テーマ生成</div></div>
             <div class="step-arrow">→</div>
-            <div class="step">
-                <div class="step-number">2</div>
-                <div class="step-text">AI思考・改善分析</div>
-            </div>
+            <div class="step"><div class="step-number">2</div><div class="step-text">脚本生成</div></div>
             <div class="step-arrow">→</div>
-            <div class="step">
-                <div class="step-number">3</div>
-                <div class="step-text">テーマ生成AI</div>
-            </div>
+            <div class="step"><div class="step-number">3</div><div class="step-text">シーン分割</div></div>
             <div class="step-arrow">→</div>
-            <div class="step">
-                <div class="step-number">4</div>
-                <div class="step-text">ストーリー生成AI</div>
-            </div>
+            <div class="step"><div class="step-number">4</div><div class="step-text">動画生成</div></div>
             <div class="step-arrow">→</div>
-            <div class="step">
-                <div class="step-number">5</div>
-                <div class="step-text">音声生成</div>
-            </div>
+            <div class="step"><div class="step-number">5</div><div class="step-text">音声生成</div></div>
             <div class="step-arrow">→</div>
-            <div class="step">
-                <div class="step-number">6</div>
-                <div class="step-text">動画生成</div>
-            </div>
+            <div class="step"><div class="step-number">6</div><div class="step-text">動画編集</div></div>
             <div class="step-arrow">→</div>
-            <div class="step">
-                <div class="step-number">7</div>
-                <div class="step-text">YouTube投稿</div>
-            </div>
+            <div class="step"><div class="step-number">7</div><div class="step-text">投稿</div></div>
         </div>
-        <p style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary)">毎日21:00に自動実行 / 分析データは09:00・15:00に自動収集</p>
+        <p style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary)">毎日3本自動生成: 10:00 / 15:00 / 21:00</p>
     </div>
 
-    <div class="generate-actions">
-        <button id="btn-generate" class="btn btn-primary btn-lg" {% if pipeline_running %}disabled{% endif %}>
-            {% if pipeline_running %}生成中...{% else %}自動生成を開始{% endif %}
-        </button>
+    <div class="card" style="max-width:600px;margin:20px auto">
+        <h3 style="margin-bottom:16px">手動生成</h3>
+
+        <div class="form-group">
+            <label for="genre-select">ジャンル（任意）</label>
+            <select id="genre-select" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;background:var(--bg-card)">
+                <option value="">ランダム</option>
+                <option value="恋愛">恋愛</option>
+                <option value="浮気">浮気</option>
+                <option value="復讐">復讐</option>
+                <option value="CEOドラマ">CEOドラマ</option>
+                <option value="怖い話">怖い話</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="custom-theme">テーマ（任意）</label>
+            <input type="text" id="custom-theme" placeholder="例: 社長と秘密の恋、彼氏の浮気..." style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+            <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">空欄の場合はAIが自動でテーマを決めます</p>
+        </div>
+
+        <div class="generate-actions" style="text-align:center;margin-top:20px">
+            <button id="btn-generate" class="btn btn-primary btn-lg" {% if pipeline_running %}disabled{% endif %}>
+                {% if pipeline_running %}生成中...{% else %}ドラマ生成を開始{% endif %}
+            </button>
+        </div>
     </div>
 
-    <div id="pipeline-status" class="pipeline-status" style="{% if not pipeline_running and not last_result %}display:none{% endif %}">
+    <div id="pipeline-status" style="{% if not pipeline_running and not last_result %}display:none{% endif %};margin-top:20px">
         {% if pipeline_running %}
         <div class="status-running">
             <div class="spinner"></div>
-            <span>動画生成パイプラインを実行中です。しばらくお待ちください...</span>
+            <span>AIショートドラマを生成中です。しばらくお待ちください...</span>
         </div>
         {% elif last_result %}
             {% if last_result.success %}
-            <div class="alert alert-success">
-                動画を生成しました: {{ last_result.title }} (テーマ: {{ last_result.theme }})
-            </div>
+            <div class="alert alert-success">ドラマを生成しました: {{ last_result.title }}</div>
             {% else %}
-            <div class="alert alert-error">
-                エラー: {{ last_result.error }}
-            </div>
+            <div class="alert alert-error">エラー: {{ last_result.error }}</div>
             {% endif %}
         {% endif %}
     </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
+<div class="section">
+    <h3>動画仕様</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+        <div class="card" style="text-align:center">
+            <div class="stat-value" style="font-size:1.2rem">9:16</div>
+            <div class="stat-label">アスペクト比</div>
+        </div>
+        <div class="card" style="text-align:center">
+            <div class="stat-value" style="font-size:1.2rem">1080x1920</div>
+            <div class="stat-label">解像度</div>
+        </div>
+        <div class="card" style="text-align:center">
+            <div class="stat-value" style="font-size:1.2rem">45秒</div>
+            <div class="stat-label">動画長さ</div>
+        </div>
+        <div class="card" style="text-align:center">
+            <div class="stat-value" style="font-size:1.2rem">6-8</div>
+            <div class="stat-label">シーン数</div>
+        </div>
+    </div>
+</div>
 <script>
-const btnGenerate = document.getElementById('btn-generate');
-const statusDiv = document.getElementById('pipeline-status');
+var btnGenerate = document.getElementById('btn-generate');
+var statusDiv = document.getElementById('pipeline-status');
 
-btnGenerate.addEventListener('click', async () => {
+btnGenerate.addEventListener('click', function() {
     if (btnGenerate.disabled) return;
     btnGenerate.disabled = true;
     btnGenerate.textContent = '生成中...';
     statusDiv.style.display = 'block';
-    statusDiv.innerHTML = '<div class="status-running"><div class="spinner"></div><span>動画生成パイプラインを実行中です。しばらくお待ちください...</span></div>';
+    statusDiv.innerHTML = '<div class="status-running"><div class="spinner"></div><span>AIショートドラマを生成中です...</span></div>';
 
-    try {
-        const res = await fetch('/api/generate', { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) {
-            statusDiv.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+    var genre = document.getElementById('genre-select').value;
+    var theme = document.getElementById('custom-theme').value.trim();
+
+    fetch('/api/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({theme: theme, genre: genre})
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.error) {
+            statusDiv.innerHTML = '<div class="alert alert-error">' + data.error + '</div>';
             btnGenerate.disabled = false;
-            btnGenerate.textContent = '自動生成を開始';
+            btnGenerate.textContent = 'ドラマ生成を開始';
             return;
         }
         pollStatus();
-    } catch (e) {
-        statusDiv.innerHTML = `<div class="alert alert-error">リクエストに失敗しました</div>`;
+    })
+    .catch(function() {
+        statusDiv.innerHTML = '<div class="alert alert-error">リクエストに失敗しました</div>';
         btnGenerate.disabled = false;
-        btnGenerate.textContent = '自動生成を開始';
-    }
+        btnGenerate.textContent = 'ドラマ生成を開始';
+    });
 });
 
 function pollStatus() {
-    const interval = setInterval(async () => {
-        try {
-            const res = await fetch('/api/pipeline-status');
-            const data = await res.json();
+    var interval = setInterval(function() {
+        fetch('/api/pipeline-status')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
             if (!data.running) {
                 clearInterval(interval);
                 btnGenerate.disabled = false;
-                btnGenerate.textContent = '自動生成を開始';
+                btnGenerate.textContent = 'ドラマ生成を開始';
                 if (data.last_result) {
                     if (data.last_result.success) {
-                        statusDiv.innerHTML = `<div class="alert alert-success">動画を生成しました: ${data.last_result.title}</div>`;
+                        statusDiv.innerHTML = '<div class="alert alert-success">ドラマを生成しました: ' + (data.last_result.title || '') + '</div>';
                     } else {
-                        statusDiv.innerHTML = `<div class="alert alert-error">エラー: ${data.last_result.error}</div>`;
+                        statusDiv.innerHTML = '<div class="alert alert-error">エラー: ' + (data.last_result.error || '') + '</div>';
                     }
                 }
+            } else {
+                var stepLabel = data.step_label || '';
+                var logs = data.logs || [];
+                var lastLog = logs.length > 0 ? logs[logs.length - 1].message : '';
+                statusDiv.innerHTML = '<div class="status-running"><div class="spinner"></div><span>' + stepLabel + ': ' + lastLog + '</span></div>';
             }
-        } catch (e) {}
-    }, 5000);
+        })
+        .catch(function() {});
+    }, 3000);
 }
 
 {% if pipeline_running %}
