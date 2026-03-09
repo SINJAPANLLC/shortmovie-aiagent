@@ -761,6 +761,74 @@ async def api_delete_character(request: Request, character_id: int):
     return JSONResponse({"success": True})
 
 
+@router.post("/api/characters/generate-image")
+async def api_generate_character_image(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    body = await request.json()
+    prompt = body.get("prompt", "").strip()
+    char_name = body.get("char_name", "character").strip()
+    shot_type = body.get("shot_type", "bust").strip()
+
+    if not prompt:
+        return JSONResponse({"error": "プロンプトを入力してください"}, status_code=400)
+
+    import uuid
+    import httpx
+
+    api_key = os.environ.get("STABILITY_API_KEY", "")
+    if not api_key:
+        return JSONResponse({"error": "STABILITY_API_KEYが設定されていません"}, status_code=500)
+
+    aspect_map = {"face": "1:1", "bust": "3:4", "fullbody": "9:16"}
+    aspect = aspect_map.get(shot_type, "3:4")
+
+    full_prompt = (
+        f"{prompt}, photorealistic, high resolution, professional photography, "
+        "natural lighting, shallow depth of field, Canon EOS R5, 85mm lens"
+    )
+    negative = "anime, cartoon, illustration, CGI, artificial, plastic skin, overly smooth, watermark, text, blurry, deformed"
+
+    try:
+        with httpx.Client(timeout=120) as client:
+            response = client.post(
+                "https://api.stability.ai/v2beta/stable-image/generate/sd3",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Accept": "image/*"
+                },
+                data={
+                    "prompt": full_prompt,
+                    "negative_prompt": negative,
+                    "aspect_ratio": aspect,
+                    "output_format": "png",
+                    "model": "sd3-medium"
+                }
+            )
+        if response.status_code == 200:
+            os.makedirs("app/static/characters", exist_ok=True)
+            uid = uuid.uuid4().hex[:8]
+            safe_name = char_name.replace(" ", "_").replace("/", "_")[:20]
+            filename = f"gen_{safe_name}_{shot_type}_{uid}.png"
+            filepath = f"app/static/characters/{filename}"
+            with open(filepath, "wb") as f:
+                f.write(response.content)
+            return JSONResponse({
+                "success": True,
+                "filename": filename,
+                "url": f"/static/characters/{filename}"
+            })
+        else:
+            error_msg = response.text[:200]
+            logger.error(f"Stability API error: {response.status_code} {error_msg}")
+            return JSONResponse({"error": f"画像生成に失敗しました ({response.status_code})"}, status_code=500)
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}")
+        return JSONResponse({"error": f"画像生成エラー: {str(e)}"}, status_code=500)
+
+
 @router.post("/api/characters/upload-image")
 async def api_upload_character_image(request: Request):
     user = get_current_user(request)

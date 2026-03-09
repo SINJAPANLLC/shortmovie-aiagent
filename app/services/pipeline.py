@@ -23,33 +23,39 @@ CHANNEL_NAME = "CEOの扉"
 EPISODES_PER_SERIES = 30
 
 
+def _resolve_image_path(path):
+    if not path:
+        return None
+    if os.path.exists(path):
+        return path
+    if path.startswith("/static/"):
+        alt = "app" + path
+        if os.path.exists(alt):
+            return alt
+    if path.startswith("app/static/"):
+        alt = path.replace("app/static/", "/static/", 1)
+    return None
+
+
 def _pick_character_image_for_scene(character, scene_description=""):
     desc_lower = scene_description.lower()
     face_keywords = ["クローズアップ", "表情", "顔", "目", "涙", "close-up", "closeup", "face", "eyes"]
     fullbody_keywords = ["全身", "歩く", "走る", "立つ", "振り返", "エレベーター", "ロビー", "full body", "walking", "standing", "elevator", "lobby"]
 
     if any(kw in desc_lower for kw in face_keywords):
-        img = character.get("image_face", "")
-        if img and os.path.exists(img):
-            return img
+        resolved = _resolve_image_path(character.get("image_face", ""))
+        if resolved:
+            return resolved
 
     if any(kw in desc_lower for kw in fullbody_keywords):
-        img = character.get("image_fullbody", "")
-        if img and os.path.exists(img):
-            return img
+        resolved = _resolve_image_path(character.get("image_fullbody", ""))
+        if resolved:
+            return resolved
 
-    img = character.get("image_bust", "")
-    if img and os.path.exists(img):
-        return img
-
-    img = character.get("image_path", "")
-    if img and os.path.exists(img):
-        return img
-
-    for key in ["image_face", "image_fullbody", "image_bust"]:
-        img = character.get(key, "")
-        if img and os.path.exists(img):
-            return img
+    for key in ["image_bust", "image_path", "image_face", "image_fullbody"]:
+        resolved = _resolve_image_path(character.get(key, ""))
+        if resolved:
+            return resolved
 
     return None
 
@@ -198,7 +204,7 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         protagonist = None
         any_char = None
         for c in characters_list:
-            has_img = any(c.get(k) and os.path.exists(c[k]) for k in ["image_path", "image_face", "image_bust", "image_fullbody"])
+            has_img = any(_resolve_image_path(c.get(k, "")) for k in ["image_path", "image_face", "image_bust", "image_fullbody"])
             if has_img:
                 any_char = c
                 if c.get("role") == "主人公":
@@ -211,7 +217,7 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
             progress_callback(3, f"キャラクター「{main_character['name']}」の画像を使用（複数バリエーション対応）")
         else:
             series_character = series.get("character_image", "")
-            if series_character and os.path.exists(series_character):
+            if series_character and _resolve_image_path(series_character):
                 character_image = series_character
                 progress_callback(3, f"シリーズ固定キャラクター画像を使用: {os.path.basename(character_image)}")
             else:
@@ -518,7 +524,7 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
     protagonist = None
     any_character = None
     for c in characters_list:
-        has_any_image = any(c.get(k) and os.path.exists(c[k]) for k in ["image_path", "image_face", "image_bust", "image_fullbody"])
+        has_any_image = any(_resolve_image_path(c.get(k, "")) for k in ["image_path", "image_face", "image_bust", "image_fullbody"])
         if has_any_image:
             any_character = c
             if c.get("role") == "主人公":
@@ -532,7 +538,7 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
         progress_callback(3, f"キャラクター「{main_character['name']}」の画像を使用（複数バリエーション対応）")
     else:
         series_character = series.get("character_image", "")
-        if series_character and os.path.exists(series_character):
+        if series_character and (_resolve_image_path(series_character)):
             character_image = series_character
             progress_callback(3, f"シリーズ固定キャラクター画像を使用")
         else:
