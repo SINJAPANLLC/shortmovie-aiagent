@@ -319,6 +319,36 @@ async def api_pipeline_status(request: Request):
     })
 
 
+@router.post("/api/analyze")
+async def api_analyze(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    dramas = get_all_dramas()
+    dramas_data = [
+        {
+            "title": d.get("title", ""),
+            "genre": d.get("genre", ""),
+            "views": d.get("views", 0),
+            "likes": d.get("likes", 0),
+        }
+        for d in dramas
+    ]
+
+    try:
+        result = analyze_and_improve(dramas_data)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        return JSONResponse({
+            "analysis": f"分析エラー: {str(e)}",
+            "best_genre": "N/A",
+            "improvement_suggestions": "APIキーを確認してください",
+            "next_theme_recommendation": "N/A"
+        })
+
+
 @router.post("/api/generate-theme")
 async def api_generate_theme(request: Request):
     user = get_current_user(request)
