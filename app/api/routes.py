@@ -871,6 +871,19 @@ def _get_production_task_key(drama_id, task_type, scene_num=None):
     return f"{drama_id}_{task_type}"
 
 
+@router.get("/production", response_class=HTMLResponse)
+async def production_index(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    dramas = get_all_dramas()
+    ready = [d for d in dramas if d.get("status") in ("script_ready", "generating", "ready", "published")]
+    ready.sort(key=lambda d: d.get("id", 0), reverse=True)
+    if ready:
+        return RedirectResponse(url=f"/production/{ready[0]['id']}", status_code=302)
+    return RedirectResponse(url="/dramas", status_code=302)
+
+
 @router.get("/production/{drama_id}", response_class=HTMLResponse)
 async def production_page(request: Request, drama_id: int):
     user = get_current_user(request)

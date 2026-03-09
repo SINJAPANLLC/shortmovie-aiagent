@@ -19,6 +19,7 @@
             <a href="/dashboard" class="nav-link spa-link">ダッシュボード</a>
             <a href="/dramas" class="nav-link spa-link">ドラマ一覧</a>
             <a href="/generate" class="nav-link spa-link">生成</a>
+            <a href="/production" class="nav-link spa-link" id="nav-production">プロダクション</a>
             <a href="/characters" class="nav-link spa-link">キャラクター</a>
             <a href="/settings" class="nav-link spa-link">設定</a>
             <a href="/logout" class="nav-link nav-logout">ログアウト</a>
@@ -40,6 +41,12 @@
                 l.classList.remove('active');
                 if (l.getAttribute('href') === path) l.classList.add('active');
             });
+            var prodNav = document.getElementById('nav-production');
+            if (prodNav) {
+                if (path.indexOf('/production') === 0) {
+                    prodNav.classList.add('active');
+                }
+            }
         }
         setActiveNav();
 
@@ -52,15 +59,20 @@
             mainEl.style.opacity = '0.4';
             mainEl.style.transition = 'opacity 0.15s';
             fetch(href, { credentials: 'same-origin' })
-                .then(function(res) { return res.text(); })
-                .then(function(html) {
+                .then(function(res) {
+                    var finalUrl = new URL(res.url).pathname;
+                    return res.text().then(function(t) { return { html: t, finalUrl: finalUrl }; });
+                })
+                .then(function(r) {
+                    var html = r.html;
+                    var navTo = r.finalUrl || href;
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(html, 'text/html');
                     var newContent = doc.getElementById('main-content');
                     var newTitle = doc.querySelector('title');
                     if (newContent) mainEl.innerHTML = newContent.innerHTML;
                     if (newTitle) document.title = newTitle.textContent;
-                    history.pushState(null, '', href);
+                    history.pushState(null, '', navTo);
                     var scripts = mainEl.querySelectorAll('script');
                     scripts.forEach(function(oldScript) {
                         var newScript = document.createElement('script');
