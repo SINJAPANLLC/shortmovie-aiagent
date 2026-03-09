@@ -5,7 +5,15 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
     <div>
         <h1 data-testid="text-production-title" style="font-size:1.3rem">プロダクションスタジオ</h1>
-        <p style="color:var(--text-secondary);font-size:0.9rem" data-testid="text-drama-title">{{ drama.title or 'Untitled' }}</p>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <select id="drama-selector" data-testid="select-drama" onchange="if(this.value) window.location.href='/production/'+this.value" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-card);color:var(--text-primary);min-width:200px">
+                {% for d in available_dramas %}
+                <option value="{{ d.id }}" {% if d.id == drama.id %}selected{% endif %}>
+                    #{{ d.id }} {{ d.title or '無題' }} ({{ d.status }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
         <a href="/dramas/{{ drama.id }}" class="btn btn-secondary spa-link" data-testid="link-back-drama" style="font-size:0.85rem">← ドラマ詳細</a>
@@ -19,6 +27,13 @@
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap" id="progress-badges"></div>
 </div>
+
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <button id="btn-batch-images" class="btn btn-primary" data-testid="btn-batch-images" style="font-size:0.85rem">全画像を一括生成</button>
+    <button id="btn-batch-videos" class="btn btn-primary" data-testid="btn-batch-videos" style="font-size:0.85rem">全動画を一括生成</button>
+    <button id="btn-batch-all" class="btn" data-testid="btn-batch-all" style="font-size:0.85rem;background:var(--accent-dark);color:#fff">全工程を自動実行</button>
+</div>
+<div id="batch-status" data-testid="batch-status" style="display:none;background:var(--bg-card);border:1px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.85rem;color:var(--text-primary)"></div>
 
 <div id="scenes-container" data-testid="scenes-container">
     {% for scene in scenes %}
@@ -445,6 +460,175 @@ document.getElementById('btn-save-script').addEventListener('click', function() 
         }
     })
     .catch(function() { alert('保存に失敗しました'); });
+});
+
+var batchStatus = document.getElementById('batch-status');
+
+function showBatchStatus(msg) {
+    batchStatus.style.display = 'block';
+    batchStatus.textContent = msg;
+}
+
+function hideBatchStatus() {
+    batchStatus.style.display = 'none';
+}
+
+function getSceneNumbers() {
+    var nums = [];
+    document.querySelectorAll('.scene-card').forEach(function(card) {
+        nums.push(parseInt(card.getAttribute('data-scene')));
+    });
+    return nums;
+}
+
+function batchGenerate(type, sceneNums, idx, onComplete) {
+    if (idx >= sceneNums.length) {
+        if (onComplete) onComplete();
+        return;
+    }
+    var sn = sceneNums[idx];
+    var url = '/api/production/' + DRAMA_ID + '/scene-' + type + '/' + sn;
+    showBatchStatus(type === 'image' ? '画像生成中: シーン ' + sn + ' (' + (idx+1) + '/' + sceneNums.length + ')...' : '動画生成中: シーン ' + sn + ' (' + (idx+1) + '/' + sceneNums.length + ')...');
+
+    fetch(url, { method: 'POST' })
+    .then(handleGenResponse)
+    .then(function() {
+        startPolling();
+        waitForTask(DRAMA_ID, type, sn, function() {
+            batchGenerate(type, sceneNums, idx + 1, onComplete);
+        });
+    })
+    .catch(function(e) {
+        if (e.message && e.message.indexOf('Already') >= 0) {
+            waitForTask(DRAMA_ID, type, sn, function() {
+                batchGenerate(type, sceneNums, idx + 1, onComplete);
+            });
+        } else {
+            showBatchStatus('シーン ' + sn + ' エラー: ' + e.message + ' — 次のシーンに進みます...');
+            setTimeout(function() {
+                batchGenerate(type, sceneNums, idx + 1, onComplete);
+            }, 2000);
+        }
+    });
+}
+
+function waitForTask(dramaId, type, sceneNum, callback) {
+    var check = setInterval(function() {
+        fetch('/api/production/' + dramaId + '/assets')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            var scenes = data.scenes || [];
+            for (var i = 0; i < scenes.length; i++) {
+                if (scenes[i].scene_number === sceneNum) {
+                    var running = type === 'image' ? scenes[i].image_generating : scenes[i].video_generating;
+                    if (!running) {
+                        clearInterval(check);
+                        updateProgressBar(data);
+                        for (var j = 0; j < scenes.length; j++) updateSceneUI(scenes[j]);
+                        callback();
+                    }
+                    break;
+                }
+            }
+        });
+    }, 4000);
+}
+
+function waitForGlobalTask(taskType, callback) {
+    var check = setInterval(function() {
+        fetch('/api/production/' + DRAMA_ID + '/assets')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            var running = false;
+            if (taskType === 'audio') running = data.audio_generating;
+            else if (taskType === 'thumbnail') running = data.thumbnail_generating;
+            else if (taskType === 'assemble') running = data.assemble_generating;
+            if (!running) {
+                clearInterval(check);
+                updateProgressBar(data);
+                var scenes = data.scenes || [];
+                for (var j = 0; j < scenes.length; j++) updateSceneUI(scenes[j]);
+                pollAssets();
+                callback(data);
+            }
+        });
+    }, 4000);
+}
+
+document.getElementById('btn-batch-images').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = '画像一括生成中...';
+    var sceneNums = getSceneNumbers();
+    batchGenerate('image', sceneNums, 0, function() {
+        showBatchStatus('全シーン画像の生成が完了しました ✓');
+        btn.disabled = false;
+        btn.textContent = '全画像を一括生成';
+        pollAssets();
+        setTimeout(hideBatchStatus, 3000);
+    });
+});
+
+document.getElementById('btn-batch-videos').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = '動画一括生成中...';
+    var sceneNums = getSceneNumbers();
+    batchGenerate('video', sceneNums, 0, function() {
+        showBatchStatus('全シーン動画の生成が完了しました ✓');
+        btn.disabled = false;
+        btn.textContent = '全動画を一括生成';
+        pollAssets();
+        setTimeout(hideBatchStatus, 3000);
+    });
+});
+
+document.getElementById('btn-batch-all').addEventListener('click', function() {
+    var btn = this;
+    if (!confirm('全工程（画像→動画→音声→サムネイル→組み立て）を自動で実行します。数十分かかる場合があります。続行しますか？')) return;
+
+    btn.disabled = true;
+    btn.textContent = '自動実行中...';
+    var sceneNums = getSceneNumbers();
+
+    showBatchStatus('ステップ 1/5: 全シーン画像を生成中...');
+    batchGenerate('image', sceneNums, 0, function() {
+        showBatchStatus('ステップ 2/5: 全シーン動画を生成中...');
+        batchGenerate('video', sceneNums, 0, function() {
+            showBatchStatus('ステップ 3/5: 音声を生成中...');
+            fetch('/api/production/' + DRAMA_ID + '/audio', { method: 'POST' })
+            .then(handleGenResponse)
+            .then(function() {
+                startPolling();
+                waitForGlobalTask('audio', function() {
+                    showBatchStatus('ステップ 4/5: サムネイルを生成中...');
+                    fetch('/api/production/' + DRAMA_ID + '/thumbnail', { method: 'POST' })
+                    .then(handleGenResponse)
+                    .then(function() {
+                        startPolling();
+                        waitForGlobalTask('thumbnail', function() {
+                            showBatchStatus('ステップ 5/5: 最終動画を組み立て中...');
+                            fetch('/api/production/' + DRAMA_ID + '/assemble', { method: 'POST' })
+                            .then(handleGenResponse)
+                            .then(function() {
+                                startPolling();
+                                waitForGlobalTask('assemble', function() {
+                                    showBatchStatus('全工程が完了しました ✓');
+                                    btn.disabled = false;
+                                    btn.textContent = '全工程を自動実行';
+                                    pollAssets();
+                                    setTimeout(hideBatchStatus, 5000);
+                                });
+                            })
+                            .catch(function(e) { showBatchStatus('組み立てエラー: ' + e.message); btn.disabled = false; btn.textContent = '全工程を自動実行'; });
+                        });
+                    })
+                    .catch(function(e) { showBatchStatus('サムネイルエラー: ' + e.message); btn.disabled = false; btn.textContent = '全工程を自動実行'; });
+                });
+            })
+            .catch(function(e) { showBatchStatus('音声エラー: ' + e.message); btn.disabled = false; btn.textContent = '全工程を自動実行'; });
+        });
+    });
 });
 
 pollAssets();

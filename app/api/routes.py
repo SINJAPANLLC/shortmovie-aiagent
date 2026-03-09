@@ -921,10 +921,15 @@ async def production_page(request: Request, drama_id: int):
     thumb_path = f"app/static/thumbnail/drama_{drama_id}.png"
     video_path = f"app/static/videos/drama_{drama_id}.mp4"
 
+    all_dramas = get_all_dramas()
+    available_dramas = [d for d in all_dramas if d.get("status") in ("script_ready", "generating", "ready", "published")]
+    available_dramas.sort(key=lambda d: d.get("id", 0), reverse=True)
+
     return templates.TemplateResponse("production.html", {
         "request": request,
         "user": user,
         "drama": drama,
+        "available_dramas": available_dramas,
         "script_data": script_data,
         "scenes": scenes,
         "scene_assets": scene_assets,

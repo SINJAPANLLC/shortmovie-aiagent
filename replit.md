@@ -28,9 +28,17 @@
 - タイトル形式: `CEOの扉 | {シリーズ名} 第{話数}話「{サブタイトル}」`
 - 投稿説明文: チャンネル名 + シリーズ名 + サブタイトル + CTA + ハッシュタグ
 
-## Pipeline (2-Step Mode + Full Auto)
+## Pipeline (2-Step Mode + Full Auto + Production Studio)
 - **脚本だけ生成**: テーマ+脚本生成 → 脚本編集(手動) → 動画生成
 - **全自動生成**: テーマ→脚本→画像→Kling→音声→FFmpeg→投稿 の全自動
+- **プロダクションスタジオ** (/production/{drama_id}): シーンごとに個別制御
+  - シーン画像の個別/一括生成 (Luma Photon → Pollinations)
+  - シーン動画の個別/一括生成 (画像→Kling AI → Luma → Ken Burns)
+  - 音声生成 (ElevenLabs マルチボイス)
+  - サムネイル生成
+  - 最終動画の組み立て (FFmpeg + 字幕 + BGM)
+  - 「全工程を自動実行」ボタンで画像→動画→音声→サムネイル→組み立てを一括実行
+  - ドラマ切り替えセレクタ、脚本編集、リアルタイム進捗ポーリング
 - 新API: POST /api/generate-script (脚本のみ), POST /api/generate-video/{id} (動画のみ), PUT /api/dramas/{id}/script (脚本編集)
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
 - 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Serif CJK JP明朝体, FontSize=18, 半透明黒背景, MarginV=80, max 18文字/チャンク）
