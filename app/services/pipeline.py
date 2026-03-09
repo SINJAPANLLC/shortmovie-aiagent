@@ -80,7 +80,12 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         series_episode = series["current_episode"] + 1
 
         existing_dramas = get_all_dramas()
-        previous_themes = [d["theme"] for d in existing_dramas if d.get("theme") and d.get("series_id") == series["id"]]
+        series_dramas = sorted(
+            [d for d in existing_dramas if d.get("series_id") == series["id"]],
+            key=lambda x: x.get("series_episode", 0)
+        )
+        previous_themes = [d["theme"] for d in series_dramas if d.get("theme")]
+        previous_scripts = [d["script"] for d in series_dramas if d.get("script")]
 
         if custom_theme:
             theme_data = {
@@ -88,11 +93,20 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
                 "title_base": custom_theme,
                 "hook": "",
                 "twist": "",
-                "genre": "CEOドラマ"
+                "genre": "CEOドラマ",
+                "emotional_arc": ""
             }
             progress_callback(1, f"手動テーマ: 「{custom_theme}」")
         else:
-            theme_data = generate_theme(previous_themes, genre="CEOドラマ", series_info=series)
+            previous_episodes_data = [
+                {"episode": d.get("series_episode", 0), "title": d.get("title", ""), "theme": d.get("theme", "")}
+                for d in series_dramas
+            ]
+            theme_data = generate_theme(
+                previous_themes, genre="CEOドラマ", series_info=series,
+                previous_scripts=previous_scripts,
+                previous_episodes=previous_episodes_data
+            )
             progress_callback(1, f"テーマ決定: 「{theme_data.get('title_base', '')}」")
 
         genre = "CEOドラマ"
@@ -113,6 +127,7 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         progress_callback(1, f"第{series_episode}話 作成開始: 「{title}」")
 
         progress_callback(2, "脚本を生成中...")
+        last_script = previous_scripts[-1] if previous_scripts else None
         script_data = generate_script(
             theme=theme_data.get("theme", ""),
             genre=genre,
@@ -120,7 +135,9 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
             twist=theme_data.get("twist", ""),
             drama_id=drama_id,
             progress_callback=progress_callback,
-            series_info=series
+            series_info=series,
+            previous_script=last_script,
+            emotional_arc=theme_data.get("emotional_arc", "")
         )
         narration = script_data.get("narration", "")
         scenes = script_data.get("scenes", [])
@@ -128,7 +145,13 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         progress_callback(2, f"脚本生成完了: {len(narration)}文字, {len(scenes)}シーン")
 
         progress_callback(3, "キャラクター・サムネイル画像を生成中 (Stable Diffusion)...")
-        character_desc = "beautiful Japanese woman in modern office setting, CEO drama, cinematic, emotional expression, luxury background"
+        first_scene_desc = scenes[0].get("description", "") if scenes else ""
+        character_desc = (
+            f"beautiful Japanese woman, 26 years old, modern professional look, "
+            f"emotional cinematic portrait, luxury office background with city skyline, "
+            f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
+            f"photorealistic, film grain, {first_scene_desc[:100]}"
+        )
         character_image = generate_character_image(
             character_description=character_desc,
             drama_id=drama_id,
@@ -174,16 +197,24 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         youtube_id = None
         tiktok_id = None
 
-        hashtags = "#CEOの扉 #ショートドラマ #社長ドラマ #恋愛ドラマ #Shorts"
+        subtitle = theme_data.get('title_base', '')
+        theme_summary = theme_data.get('theme', '')[:80]
+
         description = (
-            f"【CEOの扉】{series_name} 第{series_episode}話\n\n"
-            f"「{theme_data.get('title_base', '')}」\n\n"
-            f"普通の女性が謎のCEOと出会い、\n"
-            f"仕事、恋愛、成長、そして運命が動き出す。\n\n"
-            f"続きはフォローして待っててください!\n\n"
-            f"{hashtags}"
+            f"【CEOの扉】{series_name} 第{series_episode}話「{subtitle}」\n\n"
+            f"{theme_summary}\n\n"
+            f"45秒で描く、運命のCEOドラマ。\n"
+            f"全{series.get('total_episodes', 30)}話のシリーズ、毎日更新中。\n\n"
+            f"次の話が気になる人はフォロー!\n"
+            f"コメントで展開を予想してね\n\n"
+            f"#CEOの扉 #ショートドラマ #社長ドラマ #恋愛 #CEOドラマ "
+            f"#胸キュン #ドラマチック #Shorts #TikTok"
         )
-        tags = ["CEOの扉", "ショートドラマ", "社長ドラマ", "恋愛ドラマ", "CEOドラマ", "Shorts", "TikTok", series_name]
+        tags = [
+            "CEOの扉", "ショートドラマ", "社長ドラマ", "恋愛ドラマ",
+            "CEOドラマ", "胸キュン", "ドラマチック", "恋愛",
+            "Shorts", "TikTok", series_name, subtitle
+        ]
 
         if is_youtube_connected():
             progress_callback(8, "YouTubeにアップロード中...")
