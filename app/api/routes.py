@@ -656,6 +656,29 @@ async def api_usage(request: Request):
     return JSONResponse(result)
 
 
+@router.get("/character-images", response_class=HTMLResponse)
+async def character_images_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    import glob
+    char_dir = "app/static/characters"
+    images = []
+    for f in sorted(glob.glob(os.path.join(char_dir, "*.png")) + glob.glob(os.path.join(char_dir, "*.jpg")) + glob.glob(os.path.join(char_dir, "*.webp"))):
+        fname = os.path.basename(f)
+        images.append({
+            "filename": fname,
+            "url": f"/static/characters/{fname}",
+        })
+
+    return templates.TemplateResponse("character_images.html", {
+        "request": request,
+        "user": user,
+        "images": images,
+    })
+
+
 @router.get("/characters", response_class=HTMLResponse)
 async def characters_page(request: Request):
     user = get_current_user(request)

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}キャラクター画像選択 - CEOの扉{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>キャラクター画像候補</h1>
+    <p style="color:#546e7a; margin-top:8px;">使いたい画像を選んでキャラクターに設定してください</p>
+</div>
+
+<div style="margin-bottom:24px;">
+    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:16px;">美咲（主人公・26歳OL）</h2>
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        {% for img in images %}
+            {% if 'misaki' in img.filename %}
+            <div style="background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; max-width:320px;">
+                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; max-width:300px; border-radius:8px; margin-bottom:12px;" data-testid="img-{{ img.filename }}">
+                <div style="font-size:0.9rem; color:#37474f; margin-bottom:8px;">{{ img.filename }}</div>
+                <button class="btn btn-primary select-btn" data-filename="{{ img.filename }}" data-url="{{ img.url }}" data-character="美咲" data-testid="btn-select-{{ img.filename }}" style="width:100%;">この画像を美咲に設定</button>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div style="margin-bottom:24px;">
+    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:16px;">涼介（CEO・32歳）</h2>
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        {% for img in images %}
+            {% if 'ryosuke' in img.filename %}
+            <div style="background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; max-width:320px;">
+                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; max-width:300px; border-radius:8px; margin-bottom:12px;" data-testid="img-{{ img.filename }}">
+                <div style="font-size:0.9rem; color:#37474f; margin-bottom:8px;">{{ img.filename }}</div>
+                <button class="btn btn-primary select-btn" data-filename="{{ img.filename }}" data-url="{{ img.url }}" data-character="涼介" data-testid="btn-select-{{ img.filename }}" style="width:100%;">この画像を涼介に設定</button>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div style="margin-bottom:24px;">
+    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:16px;">その他の画像</h2>
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        {% for img in images %}
+            {% if 'misaki' not in img.filename and 'ryosuke' not in img.filename %}
+            <div style="background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; max-width:320px;">
+                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; max-width:300px; border-radius:8px; margin-bottom:12px;" data-testid="img-{{ img.filename }}">
+                <div style="font-size:0.9rem; color:#37474f;">{{ img.filename }}</div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div style="margin-top:24px;">
+    <a href="/characters" class="btn btn-secondary" data-testid="link-back-characters">← キャラクター管理に戻る</a>
+</div>
+
+<div id="toast" style="display:none; position:fixed; bottom:24px; right:24px; background:#00897b; color:white; padding:16px 24px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.2); z-index:9999; font-weight:600;"></div>
+
+<script>
+document.querySelectorAll('.select-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const filename = this.dataset.filename;
+        const character = this.dataset.character;
+        const charId = character === '美咲' ? 1 : 2;
+        const imagePath = '/static/characters/' + filename;
+
+        try {
+            const resp = await fetch('/api/characters/' + charId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ image_path: imagePath })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                const toast = document.getElementById('toast');
+                toast.textContent = character + 'の画像を設定しました！';
+                toast.style.display = 'block';
+                this.textContent = '✓ 設定済み';
+                this.style.background = '#2e7d32';
+                setTimeout(() => { toast.style.display = 'none'; }, 3000);
+            } else {
+                alert('エラー: ' + (data.error || '設定に失敗しました'));
+            }
+        } catch(e) {
+            alert('通信エラー: ' + e.message);
+        }
+    });
+});
+</script>
+{% endblock %}
