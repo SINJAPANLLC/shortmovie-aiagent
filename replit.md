@@ -12,7 +12,7 @@
 - **AI Script**: Claude API (シリーズテーマ生成, エピソードテーマ生成, 脚本生成, 改善分析)
 - **Image Generation**: Stability AI / Stable Diffusion SD3 (キャラクター画像 + サムネイル)
 - **Video Generation**: Kling API (各シーン動画生成) + FFmpeg (編集・結合)
-- **Audio**: ElevenLabs API (ナレーション音声生成)
+- **Audio**: ElevenLabs API (マルチボイス音声生成 - 話者別声+感情表現)
 - **YouTube**: YouTube Data API v3 (Shorts投稿/分析)
 - **TikTok**: Playwright RPA (ブラウザ自動操作で動画投稿、Cookie認証)
 - **Auth**: PBKDF2-SHA256 + JWT
@@ -33,7 +33,8 @@
 - **全自動生成**: テーマ→脚本→画像→Kling→音声→FFmpeg→投稿 の全自動
 - 新API: POST /api/generate-script (脚本のみ), POST /api/generate-video/{id} (動画のみ), PUT /api/dramas/{id}/script (脚本編集)
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
-- 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Sans CJK JP, FontSize=16, MarginV=60, MarginL/R=40, max 18文字/チャンク）
+- 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Serif CJK JP明朝体, FontSize=18, 半透明黒背景, MarginV=80, max 18文字/チャンク）
+- BGM: ambient_sleep.mp3 をナレーションと15%ボリュームでミックス（ループ再生）
 - Kling API: キャラクター画像がある場合は `image2video` エンドポイントにbase64画像を送信。失敗時は `text2video` にフォールバック
 
 ## Script Format
@@ -78,7 +79,7 @@ app/
       improvement_ai.py          # Claude AI analytics improvement
     video/
       kling_service.py           # Kling API scene video generation
-      audio_generator.py         # ElevenLabs narration generation
+      audio_generator.py         # ElevenLabs multi-voice generation (美咲=Lily/涼介=George/ナレーション=Sarah)
       video_generator.py         # FFmpeg video editing/concat
       image_generator.py         # Stability AI SD3 character + thumbnail generation
     youtube/
