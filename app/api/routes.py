@@ -188,12 +188,14 @@ async def generate_page(request: Request):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
+    active_series = get_active_series()
     return templates.TemplateResponse("generate.html", {
         "request": request,
         "user": user,
         "pipeline_running": pipeline_status["running"],
         "last_result": pipeline_status.get("last_result"),
         "youtube_connected": is_youtube_connected(),
+        "active_series": active_series,
     })
 
 
@@ -327,6 +329,12 @@ async def api_generate(request: Request):
             max_scenes = int(max_scenes)
         except (ValueError, TypeError):
             max_scenes = None
+    target_episode = body.get("target_episode")
+    if target_episode:
+        try:
+            target_episode = int(target_episode)
+        except (ValueError, TypeError):
+            target_episode = None
 
     import datetime
 
@@ -346,7 +354,8 @@ async def api_generate(request: Request):
                     progress_callback=pipeline_progress_callback,
                     custom_theme=custom_theme,
                     custom_genre=custom_genre,
-                    max_scenes=max_scenes
+                    max_scenes=max_scenes,
+                    target_episode=target_episode
                 )
                 pipeline_status["last_result"] = result
                 pipeline_log("パイプライン完了", step=9)

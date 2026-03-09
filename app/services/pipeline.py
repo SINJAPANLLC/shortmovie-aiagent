@@ -68,7 +68,7 @@ def _ensure_active_series(progress_callback=None):
     }
 
 
-def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=None, max_scenes=None):
+def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=None, max_scenes=None, target_episode=None):
     if progress_callback is None:
         progress_callback = _noop_progress
 
@@ -78,7 +78,12 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
     try:
         progress_callback(1, "シリーズ・テーマを確認中...")
         series = _ensure_active_series(progress_callback)
-        series_episode = series["current_episode"] + 1
+
+        if target_episode and 1 <= target_episode <= series["total_episodes"]:
+            series_episode = target_episode
+            progress_callback(1, f"手動指定: 第{series_episode}話を生成")
+        else:
+            series_episode = series["current_episode"] + 1
 
         existing_dramas = get_all_dramas()
         series_dramas = sorted(

@@ -40,6 +40,19 @@
         </div>
 
         <div class="form-group" style="margin-top:12px">
+            <label for="target-episode">話数を指定（任意）</label>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input type="number" id="target-episode" data-testid="input-target-episode" min="1" max="{{ active_series.total_episodes if active_series else 30 }}" placeholder="自動（次: 第{{ (active_series.current_episode + 1) if active_series else 1 }}話）" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+                <span style="font-size:0.85rem;color:var(--text-secondary);white-space:nowrap">/ {{ active_series.total_episodes if active_series else 30 }}話</span>
+            </div>
+            {% if active_series %}
+            <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">
+                現在のシリーズ: 「{{ active_series.name }}」 — 第{{ active_series.current_episode }}話まで生成済み。空欄で次の話（第{{ active_series.current_episode + 1 }}話）を自動生成。
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="form-group" style="margin-top:12px">
             <label for="max-scenes">シーン数制限（テスト用）</label>
             <select id="max-scenes" data-testid="select-max-scenes" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
                 <option value="">通常（6〜8シーン）</option>
@@ -127,8 +140,10 @@ btnGenerate.addEventListener('click', function() {
 
     var theme = document.getElementById('custom-theme').value.trim();
     var maxScenes = document.getElementById('max-scenes').value;
+    var targetEp = document.getElementById('target-episode').value;
     var payload = {theme: theme, genre: 'CEOドラマ'};
     if (maxScenes) payload.max_scenes = parseInt(maxScenes);
+    if (targetEp) payload.target_episode = parseInt(targetEp);
 
     fetch('/api/generate', {
         method: 'POST',
