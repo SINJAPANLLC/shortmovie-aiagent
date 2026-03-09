@@ -14,7 +14,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 15
 
 VOICE_PROFILES = {
-    "美咲": {
+    "female": {
         "voice_id": "pFZP5JQG7iQjIQuC4Bku",
         "label": "Lily (女性・表現力豊か)",
         "settings": {
@@ -24,7 +24,7 @@ VOICE_PROFILES = {
             "speed": 0.95
         }
     },
-    "涼介": {
+    "male": {
         "voice_id": "JBFqnCBsd6RMkjVDRZzb",
         "label": "George (男性・魅力的)",
         "settings": {
@@ -34,7 +34,7 @@ VOICE_PROFILES = {
             "speed": 0.90
         }
     },
-    "ナレーション": {
+    "narrator": {
         "voice_id": "EXAVITQu4vr4xnSDxMaL",
         "label": "Sarah (ナレーター・落ち着き)",
         "settings": {
@@ -46,68 +46,106 @@ VOICE_PROFILES = {
     },
 }
 
-SPEAKER_ALIASES = {
-    "主人公": "美咲",
-    "CEO": "涼介",
-    "社長": "涼介",
+SPEAKER_ROLE_MAP = {
+    "主人公": "female",
+    "ヒロイン": "female",
+    "CEO": "male",
+    "社長": "male",
+    "上司": "male",
+    "ナレーション": "narrator",
+    "ナレーター": "narrator",
 }
-
-DEFAULT_SPEAKER = "ナレーション"
 
 
 def _noop(step, msg):
     pass
 
 
-def _parse_speaker_segments(text: str) -> list:
-    pattern = re.compile(r'((?:CEO|主人公|ナレーション|美咲|涼介|社長|[ぁ-んァ-ヶー]{1,10}))「([^」]+)」')
+def _classify_speaker_role(speaker: str) -> str:
+    if speaker in SPEAKER_ROLE_MAP:
+        return SPEAKER_ROLE_MAP[speaker]
+    return "narrator"
+
+
+def _strip_speaker_names(text: str) -> str:
+    cleaned = re.sub(r'[^\s「」、。！？…]+「', '「', text)
+    cleaned = re.sub(r'「([^」]*)」', r'\1', cleaned)
+    return cleaned.strip()
+
+
+def _split_scene_narration(narration: str, scene_speaker: str) -> list:
+    pattern = re.compile(r'([^「」\s、。！？…]+?)「([^」]+)」')
+
+    speakers_found = []
+    for match in pattern.finditer(narration):
+        speakers_found.append(match.group(1).strip())
+
+    known_speakers = [s for s in speakers_found if _classify_speaker_role(s) != "narrator"]
+    unknown_speakers = [s for s in speakers_found if _classify_speaker_role(s) == "narrator" and s != "ナレーション" and s != "ナレーター"]
+
+    name_to_role = {}
+    for s in known_speakers:
+        name_to_role[s] = _classify_speaker_role(s)
+
+    if unknown_speakers:
+        unique_unknowns = list(dict.fromkeys(unknown_speakers))
+        scene_role = _classify_speaker_role(scene_speaker)
+        if scene_role == "narrator":
+            scene_role = "female"
+        opposite = "male" if scene_role == "female" else "female"
+
+        if len(unique_unknowns) == 1:
+            name_to_role[unique_unknowns[0]] = scene_role
+        elif len(unique_unknowns) >= 2:
+            name_to_role[unique_unknowns[0]] = scene_role
+            for u in unique_unknowns[1:]:
+                name_to_role[u] = opposite
+
     segments = []
     last_end = 0
 
-    for match in pattern.finditer(text):
+    for match in pattern.finditer(narration):
         start = match.start()
         if start > last_end:
-            between = text[last_end:start].strip()
+            between = narration[last_end:start].strip()
             if between:
-                segments.append({"speaker": DEFAULT_SPEAKER, "text": between})
+                segments.append({"role": "narrator", "text": between})
 
         raw_speaker = match.group(1).strip()
         dialogue = match.group(2).strip()
 
-        speaker = SPEAKER_ALIASES.get(raw_speaker, raw_speaker)
-        if speaker not in VOICE_PROFILES:
-            speaker = DEFAULT_SPEAKER
+        if raw_speaker in name_to_role:
+            role = name_to_role[raw_speaker]
+        else:
+            role = _classify_speaker_role(raw_speaker)
+            if role == "narrator" and raw_speaker not in ("ナレーション", "ナレーター"):
+                role = _classify_speaker_role(scene_speaker)
 
-        segments.append({"speaker": speaker, "text": dialogue})
+        segments.append({"role": role, "text": dialogue})
         last_end = match.end()
 
-    if last_end < len(text):
-        remaining = text[last_end:].strip()
+    if last_end < len(narration):
+        remaining = narration[last_end:].strip()
         if remaining:
-            segments.append({"speaker": DEFAULT_SPEAKER, "text": remaining})
+            segments.append({"role": "narrator", "text": remaining})
 
-    if not segments and text.strip():
-        segments.append({"speaker": DEFAULT_SPEAKER, "text": text.strip()})
+    if not segments and narration.strip():
+        role = _classify_speaker_role(scene_speaker)
+        segments.append({"role": role, "text": narration.strip()})
 
     return segments
 
 
-def _generate_segment_audio(client, segment: dict, segment_path: str, default_voice_id: str) -> str:
-    speaker = segment["speaker"]
-    text = segment["text"]
-
-    profile = VOICE_PROFILES.get(speaker, VOICE_PROFILES[DEFAULT_SPEAKER])
-    voice_id = profile["voice_id"] or default_voice_id
-
-    voice_settings = profile["settings"]
+def _generate_segment_audio(client, role: str, text: str, segment_path: str) -> str:
+    profile = VOICE_PROFILES.get(role, VOICE_PROFILES["narrator"])
 
     for attempt in range(MAX_RETRIES):
         try:
             audio_gen = client.text_to_speech.convert(
-                voice_id=voice_id,
+                voice_id=profile["voice_id"],
                 text=text,
                 model_id="eleven_v3",
-                voice_settings=voice_settings
+                voice_settings=profile["settings"]
             )
             with open(segment_path, "wb") as f:
                 for chunk in audio_gen:
@@ -158,7 +196,7 @@ def _concatenate_audio_segments(segment_paths: list, output_path: str) -> str:
     return output_path
 
 
-def generate_voice(text: str, drama_id: int, progress_callback=None) -> str:
+def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes: list = None) -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -170,26 +208,41 @@ def generate_voice(text: str, drama_id: int, progress_callback=None) -> str:
         raise RuntimeError("ELEVENLABS_API_KEY is not set")
 
     client = ElevenLabs(api_key=api_key)
-    default_voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "fUjY9K2nAIwlALOwSiwc")
 
-    segments = _parse_speaker_segments(text)
-    speaker_counts = {}
-    for seg in segments:
-        speaker_counts[seg["speaker"]] = speaker_counts.get(seg["speaker"], 0) + 1
+    all_segments = []
 
-    speaker_summary = ", ".join(f"{k}:{v}回" for k, v in speaker_counts.items())
-    logger.info(f"Multi-voice TTS: {len(segments)} segments ({speaker_summary})")
-    progress_callback(6, f"音声生成中（{len(segments)}セグメント: {speaker_summary}）...")
+    if scenes:
+        for scene in scenes:
+            scene_narration = scene.get("narration", "").strip()
+            if not scene_narration:
+                continue
+            scene_speaker = scene.get("speaker", "ナレーション")
+            scene_segments = _split_scene_narration(scene_narration, scene_speaker)
+            all_segments.extend(scene_segments)
+    else:
+        all_segments = _split_scene_narration(narration, "ナレーション")
+
+    if not all_segments:
+        all_segments = [{"role": "narrator", "text": narration.strip() or "..."}]
+
+    role_counts = {}
+    for seg in all_segments:
+        role_counts[seg["role"]] = role_counts.get(seg["role"], 0) + 1
+
+    role_labels = {"female": "女性", "male": "男性", "narrator": "ナレーション"}
+    summary = ", ".join(f"{role_labels.get(k, k)}:{v}回" for k, v in role_counts.items())
+    logger.info(f"Multi-voice TTS: {len(all_segments)} segments ({summary})")
+    progress_callback(6, f"音声生成中（{len(all_segments)}セグメント: {summary}）...")
 
     segment_paths = []
     try:
-        for i, segment in enumerate(segments):
+        for i, segment in enumerate(all_segments):
             seg_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_seg{i:03d}.mp3")
-            profile = VOICE_PROFILES.get(segment["speaker"], VOICE_PROFILES[DEFAULT_SPEAKER])
-            logger.info(f"  Seg {i+1}/{len(segments)}: {segment['speaker']} ({profile['label']}) - {segment['text'][:30]}...")
-            progress_callback(6, f"音声 {i+1}/{len(segments)}: {segment['speaker']}")
+            profile = VOICE_PROFILES.get(segment["role"], VOICE_PROFILES["narrator"])
+            logger.info(f"  Seg {i+1}/{len(all_segments)}: {segment['role']} ({profile['label']}) - \"{segment['text'][:40]}...\"")
+            progress_callback(6, f"音声 {i+1}/{len(all_segments)}: {role_labels.get(segment['role'], segment['role'])}")
 
-            _generate_segment_audio(client, segment, seg_path, default_voice_id)
+            _generate_segment_audio(client, segment["role"], segment["text"], seg_path)
             segment_paths.append(seg_path)
 
         progress_callback(6, "音声セグメント結合中...")

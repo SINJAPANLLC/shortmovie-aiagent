@@ -275,8 +275,8 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
             scene_videos.append(scene_path)
             progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
 
-        progress_callback(6, "音声を生成中 (ElevenLabs)...")
-        audio_path = generate_voice(narration, drama_id, progress_callback=progress_callback)
+        progress_callback(6, "音声を生成中 (ElevenLabs マルチボイス)...")
+        audio_path = generate_voice(narration, drama_id, progress_callback=progress_callback, scenes=scenes)
         progress_callback(6, f"音声生成完了")
 
         progress_callback(7, "字幕・動画を編集中（FFmpeg）...")
@@ -595,8 +595,8 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
         scene_videos.append(scene_path)
         progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
 
-    progress_callback(6, "音声を生成中 (ElevenLabs)...")
-    audio_path = generate_voice(narration, drama_id, progress_callback=progress_callback)
+    progress_callback(6, "音声を生成中 (ElevenLabs マルチボイス)...")
+    audio_path = generate_voice(narration, drama_id, progress_callback=progress_callback, scenes=scenes)
     progress_callback(6, f"音声生成完了")
 
     progress_callback(7, "字幕・動画を編集中（FFmpeg）...")
