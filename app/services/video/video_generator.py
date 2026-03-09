@@ -5,7 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = "app/static/videos"
+BGM_DIR = "app/static/bgm"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+BGM_PATH = os.path.join(BGM_DIR, "ambient_sleep.mp3")
 
 
 def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path: str = None) -> str:
@@ -33,10 +36,44 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         logger.error(f"FFmpeg concat error: {result.stderr}")
         raise RuntimeError(f"Video concat failed: {result.stderr[:500]}")
 
+    has_narration = audio_path and os.path.exists(audio_path)
+    has_bgm = os.path.exists(BGM_PATH)
+
+    if has_narration and has_bgm:
+        mixed_audio = os.path.join(OUTPUT_DIR, f"mixed_audio_{drama_id}.mp3")
+        cmd_mix = [
+            "ffmpeg", "-y",
+            "-i", audio_path,
+            "-stream_loop", "-1", "-i", BGM_PATH,
+            "-filter_complex",
+            "[0:a]volume=1.0[narration];[1:a]volume=0.15[bgm];[narration][bgm]amix=inputs=2:duration=first:dropout_transition=3[out]",
+            "-map", "[out]",
+            "-ac", "2",
+            "-ar", "44100",
+            mixed_audio
+        ]
+        mix_result = subprocess.run(cmd_mix, capture_output=True, text=True, timeout=120)
+        if mix_result.returncode == 0:
+            logger.info("BGM mixed with narration successfully")
+            final_audio = mixed_audio
+        else:
+            logger.warning(f"BGM mix failed, using narration only: {mix_result.stderr[:200]}")
+            final_audio = audio_path
+            mixed_audio = None
+    elif has_narration:
+        final_audio = audio_path
+        mixed_audio = None
+    elif has_bgm:
+        final_audio = BGM_PATH
+        mixed_audio = None
+    else:
+        final_audio = None
+        mixed_audio = None
+
     inputs = ["-i", concat_output]
     map_args = []
-    if audio_path and os.path.exists(audio_path):
-        inputs += ["-i", audio_path]
+    if final_audio:
+        inputs += ["-i", final_audio]
         map_args = ["-map", "0:v", "-map", "1:a", "-shortest"]
 
     vf_filters = ["scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"]
@@ -44,19 +81,19 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
     if subtitle_path and os.path.exists(subtitle_path):
         safe_sub_path = os.path.abspath(subtitle_path).replace("\\", "/").replace(":", "\\:")
         sub_style = (
-            "FontName=Noto Sans CJK JP,"
-            "FontSize=16,"
+            "FontName=Noto Serif CJK JP,"
+            "FontSize=18,"
             "PrimaryColour=&H00FFFFFF,"
-            "OutlineColour=&H00000000,"
-            "BackColour=&H80000000,"
-            "BorderStyle=3,"
-            "Outline=1,"
-            "Shadow=1,"
-            "MarginV=60,"
-            "MarginL=40,"
-            "MarginR=40,"
+            "OutlineColour=&H40000000,"
+            "BackColour=&HA0000000,"
+            "BorderStyle=4,"
+            "Outline=0,"
+            "Shadow=2,"
+            "MarginV=80,"
+            "MarginL=60,"
+            "MarginR=60,"
             "Alignment=2,"
-            "Bold=1"
+            "Bold=0"
         )
         vf_filters.append(f"subtitles='{safe_sub_path}':force_style='{sub_style}'")
         logger.info(f"Burning subtitles from: {subtitle_path}")
@@ -78,9 +115,11 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         logger.error(f"FFmpeg final edit error: {result.stderr}")
         raise RuntimeError(f"Final video edit failed: {result.stderr[:500]}")
 
-    for f in [concat_list, concat_output]:
-        if os.path.exists(f):
-            os.remove(f)
+    for f_path in [concat_list, concat_output]:
+        if os.path.exists(f_path):
+            os.remove(f_path)
+    if mixed_audio and os.path.exists(mixed_audio):
+        os.remove(mixed_audio)
 
     logger.info(f"Final video generated: {output_path}")
     return output_path

@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 import subprocess
@@ -17,6 +18,14 @@ def _noop(step, msg):
     pass
 
 
+def _clean_narration_for_tts(text: str) -> str:
+    cleaned = re.sub(r'(CEO|主人公|ナレーション|美咲|涼介|[ぁ-んァ-ヶー一-龥a-zA-Z]+)「', '「', text)
+    cleaned = re.sub(r'「([^」]*)」', r'\1。', cleaned)
+    cleaned = re.sub(r'[。。]{2,}', '。', cleaned)
+    cleaned = cleaned.strip()
+    return cleaned
+
+
 def generate_voice(text: str, drama_id: int, progress_callback=None) -> str:
     if progress_callback is None:
         progress_callback = _noop
@@ -31,13 +40,16 @@ def generate_voice(text: str, drama_id: int, progress_callback=None) -> str:
     client = ElevenLabs(api_key=api_key)
     voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "fUjY9K2nAIwlALOwSiwc")
 
-    progress_callback(6, f"音声生成中（{len(text)}文字）...")
+    clean_text = _clean_narration_for_tts(text)
+    logger.info(f"TTS original ({len(text)} chars) -> cleaned ({len(clean_text)} chars)")
+
+    progress_callback(6, f"音声生成中（{len(clean_text)}文字）...")
 
     for attempt in range(MAX_RETRIES):
         try:
             audio_generator = client.text_to_speech.convert(
                 voice_id=voice_id,
-                text=text,
+                text=clean_text,
                 model_id="eleven_v3",
                 voice_settings={
                     "stability": 0.75,

@@ -8,6 +8,12 @@ SUBTITLE_DIR = "app/static/subtitle"
 os.makedirs(SUBTITLE_DIR, exist_ok=True)
 
 
+def _clean_subtitle_text(text: str) -> str:
+    cleaned = re.sub(r'(CEO|主人公|ナレーション|美咲|涼介|[ぁ-んァ-ヶー一-龥a-zA-Z]+)「', '「', text)
+    cleaned = re.sub(r'「([^」]*)」', r'\1', cleaned)
+    return cleaned.strip()
+
+
 def generate_subtitle(scenes: list, drama_id: int, progress_callback=None) -> str:
     if progress_callback is None:
         progress_callback = lambda s, m: None
@@ -26,6 +32,7 @@ def generate_subtitle(scenes: list, drama_id: int, progress_callback=None) -> st
             narration = scene.get("description", "").strip()
         if not narration:
             continue
+        narration = _clean_subtitle_text(narration)
 
         try:
             duration = float(scene.get("duration", 5))

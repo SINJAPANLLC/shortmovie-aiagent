@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["ffmpeg", "gitFull", "noto-fonts-cjk-sans", "playwright-driver"]
+packages = ["ffmpeg", "gitFull", "noto-fonts-cjk-sans", "playwright-driver", "noto-fonts-cjk-serif"]
 
 [[ports]]
 localPort = 5000
