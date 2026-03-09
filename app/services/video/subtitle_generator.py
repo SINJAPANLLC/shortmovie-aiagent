@@ -69,39 +69,46 @@ def generate_subtitle(scenes: list, drama_id: int, progress_callback=None) -> st
     return output_path
 
 
-def _split_narration(text: str, duration: float, max_chars_per_line: int = 18) -> list:
+def _split_narration(text: str, duration: float, max_chars: int = 18) -> list:
     text = text.strip()
+    if not text:
+        return []
 
-    sentences = re.split(r'(?<=[。！？\n])', text)
-    sentences = [s.strip() for s in sentences if s.strip()]
+    parts = re.split(r'(?<=[。！？」\n])', text)
+    parts = [p.strip() for p in parts if p.strip()]
 
-    if not sentences:
-        return [text]
+    if not parts:
+        parts = [text]
 
     chunks = []
-    current_chunk = ""
+    current = ""
 
-    for sentence in sentences:
-        if len(sentence) > max_chars_per_line * 2:
-            if current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = ""
-            for k in range(0, len(sentence), max_chars_per_line):
-                chunks.append(sentence[k:k + max_chars_per_line])
-        elif len(current_chunk) + len(sentence) > max_chars_per_line * 2:
-            if current_chunk:
-                chunks.append(current_chunk)
-            current_chunk = sentence
+    for part in parts:
+        if len(current) + len(part) <= max_chars:
+            current += part
         else:
-            current_chunk += sentence
+            if current:
+                chunks.append(current)
+            if len(part) > max_chars:
+                for k in range(0, len(part), max_chars):
+                    sub = part[k:k + max_chars]
+                    if sub:
+                        chunks.append(sub)
+                current = ""
+            else:
+                current = part
 
-    if current_chunk:
-        chunks.append(current_chunk)
+    if current:
+        chunks.append(current)
 
-    if not chunks:
-        chunks = [text]
+    result = []
+    for chunk in chunks:
+        if len(chunk) <= 2 and result:
+            result[-1] += chunk
+        else:
+            result.append(chunk)
 
-    return chunks
+    return result if result else [text]
 
 
 def _format_srt_time(seconds: float) -> str:

@@ -133,9 +133,12 @@ def _create_placeholder_image(output_path: str, label: str, drama_id: int) -> st
     cmd = [
         "ffmpeg", "-y",
         "-f", "lavfi",
-        "-i", "color=c=0x1a2e2e:s=1080x1920:d=1",
+        "-i", "color=c=0x00897b:s=1080x1920:d=1",
         "-vframes", "1",
-        "-vf", f"drawtext=text='{label} {drama_id}':fontsize=60:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2",
+        "-vf", (
+            "drawtext=text='CEOの扉':fontsize=48:fontcolor=white:x=(w-text_w)/2:y=(h/2-60),"
+            f"drawtext=text='Episode {drama_id}':fontsize=36:fontcolor=0xB2DFDB:x=(w-text_w)/2:y=(h/2+20)"
+        ),
         output_path
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -143,7 +146,7 @@ def _create_placeholder_image(output_path: str, label: str, drama_id: int) -> st
         cmd_simple = [
             "ffmpeg", "-y",
             "-f", "lavfi",
-            "-i", "color=c=0x1a2e2e:s=1080x1920:d=1",
+            "-i", "color=c=0x00897b:s=1080x1920:d=1",
             "-vframes", "1",
             output_path
         ]

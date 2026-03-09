@@ -33,7 +33,7 @@
 - **全自動生成**: テーマ→脚本→画像→Kling→音声→FFmpeg→投稿 の全自動
 - 新API: POST /api/generate-script (脚本のみ), POST /api/generate-video/{id} (動画のみ), PUT /api/dramas/{id}/script (脚本編集)
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
-- 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Sans CJK JP フォント使用）
+- 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Sans CJK JP, FontSize=16, MarginV=60, MarginL/R=40, max 18文字/チャンク）
 - Kling API: キャラクター画像がある場合は `image2video` エンドポイントにbase64画像を送信。失敗時は `text2video` にフォールバック
 
 ## Script Format

@@ -45,14 +45,16 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         safe_sub_path = os.path.abspath(subtitle_path).replace("\\", "/").replace(":", "\\:")
         sub_style = (
             "FontName=Noto Sans CJK JP,"
-            "FontSize=24,"
+            "FontSize=16,"
             "PrimaryColour=&H00FFFFFF,"
             "OutlineColour=&H00000000,"
             "BackColour=&H80000000,"
             "BorderStyle=3,"
-            "Outline=2,"
+            "Outline=1,"
             "Shadow=1,"
-            "MarginV=100,"
+            "MarginV=60,"
+            "MarginL=40,"
+            "MarginR=40,"
             "Alignment=2,"
             "Bold=1"
         )

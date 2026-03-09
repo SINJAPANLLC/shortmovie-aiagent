@@ -60,7 +60,7 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     api_key = _get_kling_token()
     if not api_key:
         logger.warning("KLING_API_KEY/KLING_ACCESS_KEY not set, creating placeholder scene")
-        return _create_placeholder_scene(drama_id, scene_number)
+        return _create_placeholder_scene(drama_id, scene_number, reference_image=reference_image)
 
     enhanced_prompt = f"{scene_description}, same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"
 
@@ -94,7 +94,7 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
                 logger.error(f"Kling API failed for scene {scene_number}: {e}")
 
     logger.warning(f"Using placeholder for scene {scene_number}")
-    return _create_placeholder_scene(drama_id, scene_number)
+    return _create_placeholder_scene(drama_id, scene_number, reference_image=reference_image)
 
 
 def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_number):
@@ -195,29 +195,39 @@ def _download_video(url: str, output_path: str):
             f.write(response.content)
 
 
-def _create_placeholder_scene(drama_id: int, scene_number: int, duration: float = 6) -> str:
+def _create_placeholder_scene(drama_id: int, scene_number: int, duration: float = 6, reference_image: str = None) -> str:
     import subprocess
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
+
+    if reference_image and os.path.exists(reference_image):
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1",
+            "-i", reference_image,
+            "-t", str(duration),
+            "-vf", (
+                "scale=1080:1920:force_original_aspect_ratio=increase,"
+                "crop=1080:1920,"
+                f"zoompan=z='min(zoom+0.0008,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={int(duration*25)}:s=1080x1920:fps=25"
+            ),
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-r", "25",
+            output_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode == 0:
+            return output_path
+        logger.warning(f"Ken Burns placeholder failed, falling back to simple: {result.stderr[:200]}")
 
     cmd = [
         "ffmpeg", "-y",
         "-f", "lavfi",
         "-i", f"color=c=0x1a2e2e:s=1080x1920:d={duration}",
-        "-vf", f"drawtext=text='Scene {scene_number}':fontsize=60:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         output_path
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    if result.returncode != 0:
-        cmd_simple = [
-            "ffmpeg", "-y",
-            "-f", "lavfi",
-            "-i", f"color=c=0x1a2e2e:s=1080x1920:d={duration}",
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            output_path
-        ]
-        subprocess.run(cmd_simple, capture_output=True, text=True, timeout=60)
+    subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
     return output_path
