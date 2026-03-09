@@ -3,6 +3,7 @@ import time
 import base64
 import logging
 import httpx
+import jwt as pyjwt
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,8 @@ os.makedirs(SCENES_DIR, exist_ok=True)
 
 MAX_RETRIES = 3
 RETRY_DELAY = 30
+
+_cached_token = {"token": None, "expires": 0}
 
 
 def _noop(step, msg):
@@ -22,6 +25,30 @@ def _encode_image_base64(image_path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
+def _get_kling_token():
+    access_key = os.environ.get("KLING_ACCESS_KEY", "")
+    secret_key = os.environ.get("KLING_SECRET_KEY", "")
+
+    if not access_key or not secret_key:
+        return os.environ.get("KLING_API_KEY", "")
+
+    now = time.time()
+    if _cached_token["token"] and _cached_token["expires"] > now + 60:
+        return _cached_token["token"]
+
+    payload = {
+        "iss": access_key,
+        "exp": int(now) + 1800,
+        "nbf": int(now) - 5
+    }
+    token = pyjwt.encode(payload, secret_key, algorithm="HS256",
+                          headers={"alg": "HS256", "typ": "JWT"})
+    _cached_token["token"] = token
+    _cached_token["expires"] = int(now) + 1800
+    logger.info("Kling JWT token generated")
+    return token
+
+
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
                          reference_image: str = None, progress_callback=None) -> str:
     if progress_callback is None:
@@ -30,9 +57,9 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     os.makedirs(SCENES_DIR, exist_ok=True)
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
 
-    api_key = os.environ.get("KLING_API_KEY", "")
+    api_key = _get_kling_token()
     if not api_key:
-        logger.warning("KLING_API_KEY not set, creating placeholder scene")
+        logger.warning("KLING_API_KEY/KLING_ACCESS_KEY not set, creating placeholder scene")
         return _create_placeholder_scene(drama_id, scene_number)
 
     enhanced_prompt = f"{scene_description}, same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"

@@ -16,6 +16,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "passlib[bcrypt]>=1.7.4",
     "psycopg2-binary>=2.9.11",
+    "pyjwt>=2.11.0",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.22",
     "uvicorn>=0.41.0",
