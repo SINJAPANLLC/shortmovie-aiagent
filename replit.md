@@ -29,8 +29,10 @@
 - 投稿説明文: チャンネル名 + シリーズ名 + サブタイトル + CTA + ハッシュタグ
 
 ## Pipeline (10 Steps)
-0. 初期化 → 1. テーマ生成(Claude) → 2. 脚本生成(Claude) → 3. 画像生成(Stable Diffusion) → 4. シーン分割 → 5. 動画シーン生成(Kling) → 6. 音声生成(ElevenLabs) → 7. 動画編集(FFmpeg) → 8. 投稿(YouTube/TikTok) → 9. 完了
+0. 初期化 → 1. テーマ生成(Claude) → 2. 脚本生成(Claude) → 3. 画像生成(Stable Diffusion) → 4. シーン分割 → 5. 動画シーン生成(Kling) → 6. 音声生成(ElevenLabs) → 7. 字幕生成+動画編集(FFmpeg) → 8. 投稿(YouTube/TikTok) → 9. 完了
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
+- 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Sans CJK JP フォント使用）
+- Kling API: キャラクター画像がある場合は `image2video` エンドポイントにbase64画像を送信。失敗時は `text2video` にフォールバック
 
 ## Series System
 - `series` テーブルでシリーズを管理

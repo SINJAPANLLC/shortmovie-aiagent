@@ -33,22 +33,41 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         logger.error(f"FFmpeg concat error: {result.stderr}")
         raise RuntimeError(f"Video concat failed: {result.stderr[:500]}")
 
-    filter_complex = ""
     inputs = ["-i", concat_output]
+    map_args = []
     if audio_path and os.path.exists(audio_path):
         inputs += ["-i", audio_path]
-        filter_complex = "-map 0:v -map 1:a -shortest"
+        map_args = ["-map", "0:v", "-map", "1:a", "-shortest"]
 
-    cmd_final = ["ffmpeg", "-y"] + inputs
-    if filter_complex:
-        cmd_final += filter_complex.split()
-    cmd_final += [
+    vf_filters = ["scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"]
+
+    if subtitle_path and os.path.exists(subtitle_path):
+        safe_sub_path = os.path.abspath(subtitle_path).replace("\\", "/").replace(":", "\\:")
+        sub_style = (
+            "FontName=Noto Sans CJK JP,"
+            "FontSize=24,"
+            "PrimaryColour=&H00FFFFFF,"
+            "OutlineColour=&H00000000,"
+            "BackColour=&H80000000,"
+            "BorderStyle=3,"
+            "Outline=2,"
+            "Shadow=1,"
+            "MarginV=100,"
+            "Alignment=2,"
+            "Bold=1"
+        )
+        vf_filters.append(f"subtitles='{safe_sub_path}':force_style='{sub_style}'")
+        logger.info(f"Burning subtitles from: {subtitle_path}")
+
+    vf_string = ",".join(vf_filters)
+
+    cmd_final = ["ffmpeg", "-y"] + inputs + map_args + [
         "-c:v", "libx264",
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+        "-vf", vf_string,
         output_path
     ]
 

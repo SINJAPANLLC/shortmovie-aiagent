@@ -1,5 +1,6 @@
 import os
 import time
+import base64
 import logging
 import httpx
 
@@ -14,6 +15,11 @@ RETRY_DELAY = 30
 
 def _noop(step, msg):
     pass
+
+
+def _encode_image_base64(image_path: str) -> str:
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
@@ -31,38 +37,27 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
 
     enhanced_prompt = f"{scene_description}, same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"
 
-    if reference_image and os.path.exists(reference_image):
-        enhanced_prompt += ", reference character from image"
+    use_image2video = reference_image and os.path.exists(reference_image)
 
     for attempt in range(MAX_RETRIES):
         try:
             progress_callback(5, f"シーン{scene_number}を生成中 (Kling API)...")
 
-            with httpx.Client(timeout=300) as client:
-                response = client.post(
-                    "https://api.klingai.com/v1/videos/text2video",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "prompt": enhanced_prompt,
-                        "duration": "5",
-                        "aspect_ratio": "9:16",
-                        "model": "kling-v1"
-                    }
-                )
+            result_url = None
+            if use_image2video:
+                result_url = _try_image2video(api_key, enhanced_prompt, reference_image, progress_callback, scene_number)
+                if not result_url:
+                    logger.warning(f"image2video failed for scene {scene_number}, falling back to text2video")
+                    use_image2video = False
 
-                if response.status_code == 200:
-                    result = response.json()
-                    task_id = result.get("data", {}).get("task_id")
-                    if task_id:
-                        video_url = _poll_task(api_key, task_id, progress_callback, scene_number)
-                        if video_url:
-                            _download_video(video_url, output_path)
-                            return output_path
+            if not result_url:
+                result_url = _try_text2video(api_key, enhanced_prompt, progress_callback, scene_number)
 
-                logger.warning(f"Kling API response: {response.status_code} - {response.text[:200]}")
+            if result_url:
+                _download_video(result_url, output_path)
+                return output_path
+
+            logger.warning(f"Kling API returned no video for scene {scene_number} (attempt {attempt+1})")
 
         except Exception as e:
             if attempt < MAX_RETRIES - 1:
@@ -75,14 +70,78 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     return _create_placeholder_scene(drama_id, scene_number)
 
 
-def _poll_task(api_key: str, task_id: str, progress_callback, scene_number: int, max_wait: int = 300):
-    import time
+def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_number):
+    try:
+        image_b64 = _encode_image_base64(reference_image)
+        ext = os.path.splitext(reference_image)[1].lower()
+        mime = "image/png" if ext == ".png" else "image/jpeg"
+        image_data_url = f"data:{mime};base64,{image_b64}"
+
+        with httpx.Client(timeout=300) as client:
+            response = client.post(
+                "https://api.klingai.com/v1/videos/image2video",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model_name": "kling-v1",
+                    "prompt": prompt,
+                    "image": image_data_url,
+                    "duration": "5",
+                    "aspect_ratio": "9:16",
+                    "mode": "std"
+                }
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                task_id = result.get("data", {}).get("task_id")
+                if task_id:
+                    return _poll_task(api_key, task_id, progress_callback, scene_number, "image2video")
+
+            logger.warning(f"Kling image2video response: {response.status_code} - {response.text[:200]}")
+    except Exception as e:
+        logger.warning(f"Kling image2video error for scene {scene_number}: {e}")
+    return None
+
+
+def _try_text2video(api_key, prompt, progress_callback, scene_number):
+    try:
+        with httpx.Client(timeout=300) as client:
+            response = client.post(
+                "https://api.klingai.com/v1/videos/text2video",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "prompt": prompt,
+                    "duration": "5",
+                    "aspect_ratio": "9:16",
+                    "model": "kling-v1"
+                }
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                task_id = result.get("data", {}).get("task_id")
+                if task_id:
+                    return _poll_task(api_key, task_id, progress_callback, scene_number, "text2video")
+
+            logger.warning(f"Kling text2video response: {response.status_code} - {response.text[:200]}")
+    except Exception as e:
+        logger.warning(f"Kling text2video error for scene {scene_number}: {e}")
+    return None
+
+
+def _poll_task(api_key: str, task_id: str, progress_callback, scene_number: int, endpoint_name: str = "text2video", max_wait: int = 300):
     start = time.time()
     while time.time() - start < max_wait:
         try:
             with httpx.Client(timeout=60) as client:
                 response = client.get(
-                    f"https://api.klingai.com/v1/videos/text2video/{task_id}",
+                    f"https://api.klingai.com/v1/videos/{endpoint_name}/{task_id}",
                     headers={"Authorization": f"Bearer {api_key}"}
                 )
                 if response.status_code == 200:

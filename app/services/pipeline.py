@@ -12,6 +12,7 @@ from app.services.video.image_generator import generate_character_image, generat
 from app.services.video.audio_generator import generate_voice
 from app.services.video.video_generator import edit_video, create_placeholder_video
 from app.services.video.kling_service import generate_scene_video
+from app.services.video.subtitle_generator import generate_subtitle
 from app.services.youtube.youtube_service import upload_video, is_youtube_connected
 from app.services.tiktok.tiktok_service import upload_to_tiktok, is_tiktok_connected
 from app.services.analytics_collector import collect_all_analytics
@@ -189,10 +190,11 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         audio_path = generate_voice(narration, drama_id, progress_callback=progress_callback)
         progress_callback(6, f"音声生成完了")
 
-        progress_callback(7, "動画を編集中（FFmpeg）...")
-        final_video = edit_video(scene_videos, audio_path, drama_id)
+        progress_callback(7, "字幕・動画を編集中（FFmpeg）...")
+        subtitle_path = generate_subtitle(scenes, drama_id, progress_callback=progress_callback)
+        final_video = edit_video(scene_videos, audio_path, drama_id, subtitle_path=subtitle_path)
         update_drama(drama_id, video_url=final_video, status="ready")
-        progress_callback(7, f"動画編集完了")
+        progress_callback(7, f"動画編集完了（字幕付き）")
 
         youtube_id = None
         tiktok_id = None
