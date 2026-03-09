@@ -6,6 +6,7 @@ import urllib.parse
 import httpx
 
 from app.services.video.luma_service import generate_video_luma, generate_image_luma, is_luma_available
+from app.services.video.kling_service import generate_scene_video as kling_generate_scene_video, _get_kling_token
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,14 @@ def _pick_effect(scene_number: int, emotion: str = "") -> str:
     return cycle[scene_number % len(cycle)]
 
 
+def _is_kling_available() -> bool:
+    try:
+        token = _get_kling_token()
+        return bool(token)
+    except Exception:
+        return False
+
+
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
                          reference_image: str = None, progress_callback=None,
                          emotion: str = "", duration: float = 6) -> str:
@@ -121,6 +130,24 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
 
     os.makedirs(SCENES_DIR, exist_ok=True)
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
+
+    if _is_kling_available():
+        progress_callback(5, f"シーン{scene_number}: AI動画生成中 (Kling AI)...")
+        try:
+            kling_path = kling_generate_scene_video(
+                scene_description=scene_description,
+                scene_number=scene_number,
+                drama_id=drama_id,
+                reference_image=reference_image,
+                progress_callback=progress_callback
+            )
+            if kling_path and os.path.exists(kling_path) and os.path.getsize(kling_path) > 10000:
+                final = _ensure_duration(kling_path, duration)
+                logger.info(f"Scene {scene_number} video created via Kling AI: {final}")
+                progress_callback(5, f"シーン{scene_number}: Kling AI動画生成完了")
+                return final
+        except Exception as e:
+            logger.warning(f"Scene {scene_number}: Kling AI failed: {e}")
 
     if is_luma_available():
         progress_callback(5, f"シーン{scene_number}: AI動画生成中 (Luma Dream Machine)...")

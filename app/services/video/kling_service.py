@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 SCENES_DIR = "app/static/scenes"
 os.makedirs(SCENES_DIR, exist_ok=True)
 
-MAX_RETRIES = 3
-RETRY_DELAY = 30
+MAX_RETRIES = 1
+RETRY_DELAY = 10
 
 _cached_token = {"token": None, "expires": 0}
 
@@ -99,10 +99,25 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
 
 def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_number):
     try:
-        image_b64 = _encode_image_base64(reference_image)
+        file_size = os.path.getsize(reference_image)
+        if file_size > 10 * 1024 * 1024:
+            logger.warning(f"Image too large for Kling i2v ({file_size} bytes), skipping")
+            return None
+
         ext = os.path.splitext(reference_image)[1].lower()
-        mime = "image/png" if ext == ".png" else "image/jpeg"
-        image_data_url = f"data:{mime};base64,{image_b64}"
+        if ext == ".png":
+            import subprocess as sp
+            jpg_path = reference_image.replace(".png", "_kling_tmp.jpg")
+            sp.run(["ffmpeg", "-y", "-i", reference_image, "-q:v", "2", jpg_path],
+                   capture_output=True, timeout=10)
+            if os.path.exists(jpg_path):
+                reference_image = jpg_path
+                ext = ".jpg"
+
+        image_b64 = _encode_image_base64(reference_image)
+
+        if reference_image.endswith("_kling_tmp.jpg") and os.path.exists(reference_image):
+            os.remove(reference_image)
 
         with httpx.Client(timeout=300) as client:
             response = client.post(
@@ -114,7 +129,7 @@ def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_
                 json={
                     "model_name": "kling-v1",
                     "prompt": prompt,
-                    "image": image_data_url,
+                    "image": image_b64,
                     "duration": "5",
                     "aspect_ratio": "9:16",
                     "mode": "std"
@@ -162,15 +177,22 @@ def _try_text2video(api_key, prompt, progress_callback, scene_number):
     return None
 
 
-def _poll_task(api_key: str, task_id: str, progress_callback, scene_number: int, endpoint_name: str = "text2video", max_wait: int = 300):
+def _poll_task(api_key: str, task_id: str, progress_callback, scene_number: int, endpoint_name: str = "text2video", max_wait: int = 600):
     start = time.time()
     while time.time() - start < max_wait:
         try:
+            current_token = _get_kling_token()
             with httpx.Client(timeout=60) as client:
                 response = client.get(
                     f"https://api.klingai.com/v1/videos/{endpoint_name}/{task_id}",
-                    headers={"Authorization": f"Bearer {api_key}"}
+                    headers={"Authorization": f"Bearer {current_token}"}
                 )
+                if response.status_code == 401:
+                    _cached_token["token"] = None
+                    _cached_token["expires"] = 0
+                    logger.warning(f"Kling token expired, refreshing...")
+                    time.sleep(2)
+                    continue
                 if response.status_code == 200:
                     data = response.json().get("data", {})
                     status = data.get("task_status", "")

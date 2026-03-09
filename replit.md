@@ -11,7 +11,7 @@
 - **Database**: PostgreSQL (Neon - NEON_DATABASE_URL)
 - **AI Script**: Claude API (シリーズテーマ生成, エピソードテーマ生成, 脚本生成, 改善分析)
 - **Image Generation**: Luma Photon → Stability AI SD3 → Pollinations.ai（フォールバック順） (キャラクター画像 + サムネイル + シーン画像)
-- **Video Generation**: Luma Dream Machine Ray-2（AI動画生成）→ Pollinations.ai + FFmpeg Ken Burns（フォールバック）→ FFmpeg（編集・結合）
+- **Video Generation**: Kling AI image2video/text2video → Luma Dream Machine Ray-2（フォールバック）→ Pollinations.ai + FFmpeg Ken Burns → FFmpeg（編集・結合）
 - **Audio**: ElevenLabs API (マルチボイス音声生成 - 話者別声+感情表現)
 - **YouTube**: YouTube Data API v3 (Shorts投稿/分析)
 - **TikTok**: Playwright RPA (ブラウザ自動操作で動画投稿、Cookie認証)
@@ -78,7 +78,7 @@ app/
       story_generator.py         # Claude AI script generation (CEO drama focused)
       improvement_ai.py          # Claude AI analytics improvement
     video/
-      kling_service.py           # Kling API scene video generation (legacy, credits expired)
+      kling_service.py           # Kling API scene video generation (image2video + text2video, JWT auth, 10min timeout)
       luma_service.py            # Luma Labs Dream Machine API (Photon画像/Ray-2動画)
       scene_generator.py         # Luma → Pollinations.ai + FFmpeg Ken Burns scene video generation
       audio_generator.py         # ElevenLabs multi-voice generation (美咲=Lily/涼介=George/ナレーション=Sarah)

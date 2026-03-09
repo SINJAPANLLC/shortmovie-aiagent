@@ -13,6 +13,10 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 MAX_RETRIES = 3
 RETRY_DELAY = 15
 
+SILENCE_SHORT = 0.3
+SILENCE_SPEAKER_CHANGE = 0.55
+SILENCE_SCENE_BREAK = 0.7
+
 VOICE_PROFILES = {
     "female": {
         "voice_id": "pFZP5JQG7iQjIQuC4Bku",
@@ -170,6 +174,23 @@ def _generate_segment_audio(client, role: str, text: str, segment_path: str) -> 
                 raise
 
 
+def _generate_silence(output_path: str, duration: float) -> str:
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi",
+        "-i", f"anullsrc=r=44100:cl=mono",
+        "-t", str(duration),
+        "-c:a", "libmp3lame",
+        "-b:a", "128k",
+        output_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    if result.returncode != 0:
+        logger.warning(f"Silence generation failed: {result.stderr[:200]}")
+        return None
+    return output_path
+
+
 def _concatenate_audio_segments(segment_paths: list, output_path: str) -> str:
     if len(segment_paths) == 1:
         os.rename(segment_paths[0], output_path)
@@ -217,14 +238,18 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
     client = ElevenLabs(api_key=api_key)
 
     all_segments = []
+    scene_boundaries = []
 
     if scenes:
+        seg_count = 0
         for scene in scenes:
             scene_narration = scene.get("narration", "").strip()
             if not scene_narration:
                 continue
             scene_speaker = scene.get("speaker", "ナレーション")
             scene_segments = _split_scene_narration(scene_narration, scene_speaker)
+            if scene_segments and all_segments:
+                scene_boundaries.append(len(all_segments))
             all_segments.extend(scene_segments)
     else:
         all_segments = _split_scene_narration(narration, "ナレーション")
@@ -241,29 +266,47 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
     logger.info(f"Multi-voice TTS: {len(all_segments)} segments ({summary})")
     progress_callback(6, f"音声生成中（{len(all_segments)}セグメント: {summary}）...")
 
-    segment_paths = []
+    final_paths = []
+    temp_files = []
     try:
+        prev_role = None
         for i, segment in enumerate(all_segments):
             seg_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_seg{i:03d}.mp3")
             profile = VOICE_PROFILES.get(segment["role"], VOICE_PROFILES["narrator"])
             logger.info(f"  Seg {i+1}/{len(all_segments)}: {segment['role']} ({profile['label']}) - \"{segment['text'][:40]}...\"")
             progress_callback(6, f"音声 {i+1}/{len(all_segments)}: {role_labels.get(segment['role'], segment['role'])}")
 
-            _generate_segment_audio(client, segment["role"], segment["text"], seg_path)
-            segment_paths.append(seg_path)
+            if i > 0:
+                if i in scene_boundaries:
+                    pause_dur = SILENCE_SCENE_BREAK
+                elif segment["role"] != prev_role:
+                    pause_dur = SILENCE_SPEAKER_CHANGE
+                else:
+                    pause_dur = SILENCE_SHORT
 
-        progress_callback(6, "音声セグメント結合中...")
-        _concatenate_audio_segments(segment_paths, output_path)
+                silence_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_pause{i:03d}.mp3")
+                sil = _generate_silence(silence_path, pause_dur)
+                if sil:
+                    final_paths.append(sil)
+                    temp_files.append(sil)
+
+            _generate_segment_audio(client, segment["role"], segment["text"], seg_path)
+            final_paths.append(seg_path)
+            temp_files.append(seg_path)
+            prev_role = segment["role"]
+
+        progress_callback(6, "音声セグメント結合中（自然な間を挿入）...")
+        _concatenate_audio_segments(final_paths, output_path)
 
         if os.path.getsize(output_path) < 1000:
             raise RuntimeError(f"Final audio too small: {os.path.getsize(output_path)} bytes")
 
-        progress_callback(6, "音声生成完了（マルチボイス）")
-        logger.info(f"Multi-voice audio generated: {output_path}")
+        progress_callback(6, "音声生成完了（マルチボイス・自然な間）")
+        logger.info(f"Multi-voice audio generated with natural pauses: {output_path}")
         return output_path
 
     except Exception as e:
-        for sp in segment_paths:
+        for sp in temp_files:
             if os.path.exists(sp):
                 os.remove(sp)
         raise
