@@ -58,11 +58,13 @@
                 <div class="step-item" data-step="0"><span class="step-dot"></span><span class="step-name">初期化</span></div>
                 <div class="step-item" data-step="1"><span class="step-dot"></span><span class="step-name">テーマ</span></div>
                 <div class="step-item" data-step="2"><span class="step-dot"></span><span class="step-name">脚本</span></div>
-                <div class="step-item" data-step="3"><span class="step-dot"></span><span class="step-name">シーン分割</span></div>
-                <div class="step-item" data-step="4"><span class="step-dot"></span><span class="step-name">動画生成</span></div>
-                <div class="step-item" data-step="5"><span class="step-dot"></span><span class="step-name">音声</span></div>
-                <div class="step-item" data-step="6"><span class="step-dot"></span><span class="step-name">編集</span></div>
-                <div class="step-item" data-step="7"><span class="step-dot"></span><span class="step-name">投稿</span></div>
+                <div class="step-item" data-step="3"><span class="step-dot"></span><span class="step-name">画像(SD)</span></div>
+                <div class="step-item" data-step="4"><span class="step-dot"></span><span class="step-name">シーン分割</span></div>
+                <div class="step-item" data-step="5"><span class="step-dot"></span><span class="step-name">動画(Kling)</span></div>
+                <div class="step-item" data-step="6"><span class="step-dot"></span><span class="step-name">音声(EL)</span></div>
+                <div class="step-item" data-step="7"><span class="step-dot"></span><span class="step-name">編集(FFmpeg)</span></div>
+                <div class="step-item" data-step="8"><span class="step-dot"></span><span class="step-name">投稿(YT/TT)</span></div>
+                <div class="step-item" data-step="9"><span class="step-dot"></span><span class="step-name">完了</span></div>
             </div>
 
             <div class="progress-bar-container" style="margin:16px 0">
@@ -316,10 +318,24 @@
             </div>
             <div class="setting-card">
                 <div class="setting-header">
+                    <h3>Stable Diffusion</h3>
+                    {% if has_stability %}<span class="badge badge-published">設定済み</span>{% else %}<span class="badge badge-error">未設定</span>{% endif %}
+                </div>
+                <p class="setting-desc">キャラクター・サムネイル画像を生成</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
                     <h3>YouTube</h3>
                     {% if youtube_connected %}<span class="badge badge-published">接続済み</span>{% else %}<span class="badge badge-draft">未接続</span>{% endif %}
                 </div>
                 <p class="setting-desc">YouTube Shortsに自動投稿</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>TikTok</h3>
+                    {% if has_tiktok %}<span class="badge badge-published">接続済み</span>{% else %}<span class="badge badge-draft">未接続</span>{% endif %}
+                </div>
+                <p class="setting-desc">TikTokに自動投稿</p>
             </div>
         </div>
     </div>

@@ -73,6 +73,38 @@
 
     <div class="setting-card">
         <div class="setting-header">
+            <h3>Stable Diffusion (画像生成)</h3>
+            {% if has_stability %}
+            <span class="badge badge-published">設定済み</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">キャラクター画像とサムネイルを自動生成します。</p>
+        <p class="setting-status">
+            {% if has_stability %}STABILITY_API_KEY が設定されています。
+            {% else %}STABILITY_API_KEY を環境変数に設定してください。{% endif %}
+        </p>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>TikTok 連携</h3>
+            {% if has_tiktok %}
+            <span class="badge badge-published">接続済み</span>
+            {% else %}
+            <span class="badge badge-draft">未接続</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">TikTokに動画を自動投稿します。</p>
+        <p class="setting-status">
+            {% if has_tiktok %}TIKTOK_ACCESS_TOKEN が設定されています。
+            {% else %}TIKTOK_ACCESS_TOKEN を環境変数に設定してください。{% endif %}
+        </p>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
             <h3>YouTube 連携</h3>
             {% if youtube_connected %}
             <span class="badge badge-published">接続済み</span>

@@ -19,6 +19,7 @@ from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.youtube.youtube_service import (
     get_oauth_flow, save_credentials, is_youtube_connected
 )
+from app.services.tiktok.tiktok_service import is_tiktok_connected
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ pipeline_status = {
     "running": False,
     "last_result": None,
     "current_step": 0,
-    "total_steps": 9,
+    "total_steps": 10,
     "step_label": "",
     "logs": [],
     "started_at": None,
@@ -39,12 +40,13 @@ PIPELINE_STEPS = {
     0: "初期化",
     1: "テーマ生成",
     2: "脚本生成",
-    3: "シーン分割",
-    4: "動画シーン生成",
-    5: "音声生成",
-    6: "動画編集",
-    7: "投稿",
-    8: "完了",
+    3: "画像生成(SD)",
+    4: "シーン分割",
+    5: "動画シーン生成(Kling)",
+    6: "音声生成(ElevenLabs)",
+    7: "動画編集(FFmpeg)",
+    8: "投稿(YouTube/TikTok)",
+    9: "完了",
 }
 
 
@@ -130,6 +132,8 @@ async def dashboard(request: Request):
         "has_anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
         "has_kling": bool(os.environ.get("KLING_API_KEY")),
+        "has_stability": bool(os.environ.get("STABILITY_API_KEY")),
+        "has_tiktok": is_tiktok_connected(),
         "ai_logs": get_ai_logs(limit=20),
     })
 
@@ -199,6 +203,8 @@ async def settings_page(request: Request):
         "has_anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
         "has_kling": bool(os.environ.get("KLING_API_KEY")),
+        "has_stability": bool(os.environ.get("STABILITY_API_KEY")),
+        "has_tiktok": is_tiktok_connected(),
         "yt_has_client_id": has_client_id,
         "yt_has_client_secret": has_client_secret,
         "yt_has_refresh_token": has_refresh_token,
@@ -283,7 +289,7 @@ async def api_generate(request: Request):
                 custom_genre=custom_genre
             )
             pipeline_status["last_result"] = result
-            pipeline_log("パイプライン完了", step=8)
+            pipeline_log("パイプライン完了", step=9)
         except Exception as e:
             pipeline_status["last_result"] = {"success": False, "error": str(e)}
             pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
