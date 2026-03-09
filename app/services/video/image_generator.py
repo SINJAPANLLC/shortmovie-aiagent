@@ -1,6 +1,7 @@
 import os
 import logging
 import subprocess
+import urllib.parse
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -11,10 +12,27 @@ os.makedirs(CHARACTER_DIR, exist_ok=True)
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
 FONT_PATH = "/nix/store/94k49bsd164kndrvpnj7a3pqd98hnjnv-noto-fonts-cjk-serif-2.002/share/fonts/opentype/noto-cjk/NotoSerifCJK-VF.otf.ttc"
+POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}?width={w}&height={h}&nologo=true&seed={seed}"
 
 
 def _noop(step, msg):
     pass
+
+
+def _generate_pollinations_image(prompt: str, output_path: str, width: int = 1080, height: int = 1920, seed: int = 42) -> bool:
+    encoded_prompt = urllib.parse.quote(prompt, safe='')
+    url = POLLINATIONS_URL.format(prompt=encoded_prompt, w=width, h=height, seed=seed)
+    try:
+        with httpx.Client(timeout=60, follow_redirects=True) as client:
+            response = client.get(url)
+            if response.status_code == 200 and len(response.content) > 5000:
+                with open(output_path, "wb") as f:
+                    f.write(response.content)
+                logger.info(f"Pollinations image generated: {output_path} ({len(response.content)} bytes)")
+                return True
+    except Exception as e:
+        logger.warning(f"Pollinations image error: {e}")
+    return False
 
 
 def generate_character_image(character_description: str, drama_id: int, progress_callback=None) -> str:
@@ -25,46 +43,49 @@ def generate_character_image(character_description: str, drama_id: int, progress
     output_path = os.path.join(CHARACTER_DIR, f"drama_{drama_id}_character.png")
 
     api_key = os.environ.get("STABILITY_API_KEY", "")
-    if not api_key:
-        logger.warning("STABILITY_API_KEY not set, creating placeholder character")
-        return _create_placeholder_image(output_path, "Character", drama_id)
+    if api_key:
+        prompt = (
+            f"{character_description}, "
+            "photorealistic, beautiful character portrait, high quality, "
+            "dramatic lighting, detailed face, expressive eyes, "
+            "vertical composition 9:16, cinematic"
+        )
+        progress_callback(3, f"キャラクター画像を生成中 (Stable Diffusion)...")
+        try:
+            with httpx.Client(timeout=120) as client:
+                response = client.post(
+                    "https://api.stability.ai/v2beta/stable-image/generate/sd3",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Accept": "image/*"
+                    },
+                    data={
+                        "prompt": prompt,
+                        "negative_prompt": "blurry, low quality, deformed, ugly, watermark, text, anime, cartoon, illustration",
+                        "aspect_ratio": "9:16",
+                        "output_format": "png",
+                    },
+                    files={"none": ("", "")}
+                )
+                if response.status_code == 200:
+                    with open(output_path, "wb") as f:
+                        f.write(response.content)
+                    progress_callback(3, "キャラクター画像生成完了 (Stability AI)")
+                    return output_path
+                else:
+                    logger.warning(f"Stability API error: {response.status_code} - {response.text[:200]}")
+        except Exception as e:
+            logger.error(f"Stability AI character generation failed: {e}")
 
-    prompt = (
-        f"{character_description}, "
-        "photorealistic, beautiful character portrait, high quality, "
+    progress_callback(3, f"キャラクター画像を生成中 (Pollinations AI)...")
+    poll_prompt = (
+        f"{character_description}, photorealistic, cinematic portrait, "
         "dramatic lighting, detailed face, expressive eyes, "
-        "vertical composition 9:16, cinematic"
+        "vertical composition, high quality photography"
     )
-
-    progress_callback(3, f"キャラクター画像を生成中 (Stable Diffusion)...")
-
-    try:
-        with httpx.Client(timeout=120) as client:
-            response = client.post(
-                "https://api.stability.ai/v2beta/stable-image/generate/sd3",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Accept": "image/*"
-                },
-                data={
-                    "prompt": prompt,
-                    "negative_prompt": "blurry, low quality, deformed, ugly, watermark, text, anime, cartoon, illustration",
-                    "aspect_ratio": "9:16",
-                    "output_format": "png",
-                },
-                files={"none": ("", "")}
-            )
-
-            if response.status_code == 200:
-                with open(output_path, "wb") as f:
-                    f.write(response.content)
-                progress_callback(3, "キャラクター画像生成完了")
-                logger.info(f"Character image generated: {output_path}")
-                return output_path
-            else:
-                logger.warning(f"Stability API error: {response.status_code} - {response.text[:200]}")
-    except Exception as e:
-        logger.error(f"Character image generation failed: {e}")
+    if _generate_pollinations_image(poll_prompt, output_path, seed=drama_id * 7):
+        progress_callback(3, "キャラクター画像生成完了 (Pollinations)")
+        return output_path
 
     return _create_placeholder_image(output_path, "Character", drama_id)
 
@@ -88,6 +109,27 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
                 return output_path
         except Exception as e:
             logger.warning(f"Stability thumbnail failed: {e}")
+
+    genre_style = {
+        "CEOドラマ": "luxury penthouse office, city skyline at night, dramatic blue lighting",
+        "恋愛": "romantic sunset, cherry blossoms, warm golden light",
+        "復讐": "dramatic dark atmosphere, fire reflections, intense shadows",
+    }
+    style = genre_style.get(genre, "cinematic dramatic lighting, luxury setting")
+    poll_prompt = (
+        f"dramatic thumbnail for short drama, {style}, "
+        "beautiful Japanese woman emotional expression, "
+        "photorealistic, high contrast, eye-catching, vertical 9:16"
+    )
+    progress_callback(3, f"サムネイル画像を生成中 (Pollinations AI)...")
+    poll_path = output_path.replace(".png", "_poll.png")
+    if _generate_pollinations_image(poll_prompt, poll_path, seed=drama_id * 13):
+        result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, poll_path, episode_number)
+        if os.path.exists(poll_path) and poll_path != output_path:
+            os.remove(poll_path)
+        _compress_thumbnail(output_path)
+        progress_callback(3, "サムネイル生成完了 (Pollinations + FFmpeg)")
+        return result
 
     resolved_char = _resolve_path(character_image) if character_image else None
     result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, resolved_char, episode_number)

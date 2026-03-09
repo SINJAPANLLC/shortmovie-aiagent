@@ -10,8 +10,8 @@
 - **Backend**: Python + FastAPI
 - **Database**: PostgreSQL (Neon - NEON_DATABASE_URL)
 - **AI Script**: Claude API (シリーズテーマ生成, エピソードテーマ生成, 脚本生成, 改善分析)
-- **Image Generation**: Stability AI / Stable Diffusion SD3 (キャラクター画像 + サムネイル)
-- **Video Generation**: Kling API (各シーン動画生成) + FFmpeg (編集・結合)
+- **Image Generation**: Stability AI SD3 → Pollinations.ai（無料フォールバック） (キャラクター画像 + サムネイル + シーン画像)
+- **Video Generation**: Pollinations.ai（シーン画像生成）+ FFmpeg Ken Burnsエフェクト（zoom/pan/fade）+ FFmpeg（編集・結合）
 - **Audio**: ElevenLabs API (マルチボイス音声生成 - 話者別声+感情表現)
 - **YouTube**: YouTube Data API v3 (Shorts投稿/分析)
 - **TikTok**: Playwright RPA (ブラウザ自動操作で動画投稿、Cookie認証)
@@ -78,7 +78,8 @@ app/
       story_generator.py         # Claude AI script generation (CEO drama focused)
       improvement_ai.py          # Claude AI analytics improvement
     video/
-      kling_service.py           # Kling API scene video generation
+      kling_service.py           # Kling API scene video generation (legacy, credits expired)
+      scene_generator.py         # Pollinations.ai + FFmpeg Ken Burns scene video generation (free)
       audio_generator.py         # ElevenLabs multi-voice generation (美咲=Lily/涼介=George/ナレーション=Sarah)
       video_generator.py         # FFmpeg video editing/concat
       image_generator.py         # Stability AI SD3 character + thumbnail generation

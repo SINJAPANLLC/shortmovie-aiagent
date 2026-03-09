@@ -11,7 +11,7 @@ from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.video.image_generator import generate_character_image, generate_thumbnail
 from app.services.video.audio_generator import generate_voice
 from app.services.video.video_generator import edit_video, create_placeholder_video
-from app.services.video.kling_service import generate_scene_video
+from app.services.video.scene_generator import generate_scene_video
 from app.services.video.subtitle_generator import generate_subtitle
 from app.services.youtube.youtube_service import upload_video, is_youtube_connected
 from app.services.tiktok.tiktok_rpa import upload_to_tiktok_rpa_sync, is_tiktok_rpa_connected
@@ -268,12 +268,16 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
                 ref_image = character_image
             else:
                 ref_image = None
+            scene_emotion = scene.get("emotion", "")
+            scene_duration = float(scene.get("duration", 6))
             scene_path = generate_scene_video(
                 scene_description=scene_desc,
                 scene_number=scene.get("scene_number", i+1),
                 drama_id=drama_id,
                 reference_image=ref_image,
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                emotion=scene_emotion,
+                duration=scene_duration
             )
             scene_videos.append(scene_path)
             progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
@@ -588,12 +592,16 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
             ref_image = character_image
         else:
             ref_image = None
+        scene_emotion = scene.get("emotion", "")
+        scene_duration = float(scene.get("duration", 6))
         scene_path = generate_scene_video(
             scene_description=scene_desc,
             scene_number=scene.get("scene_number", i+1),
             drama_id=drama_id,
             reference_image=ref_image,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            emotion=scene_emotion,
+            duration=scene_duration
         )
         scene_videos.append(scene_path)
         progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
