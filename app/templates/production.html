@@ -20,6 +20,63 @@
     </div>
 </div>
 
+<div class="card" data-testid="story-overview" style="padding:0;margin-bottom:20px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-hover);border-bottom:1px solid var(--border);cursor:pointer" onclick="var b=document.getElementById('story-body');b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.toggle-arrow').textContent=b.style.display==='none'?'▶':'▼'">
+        <div style="display:flex;align-items:center;gap:10px">
+            <span class="toggle-arrow" style="font-size:0.7rem;color:var(--text-secondary)">▼</span>
+            <span style="font-weight:600;font-size:0.95rem">ストーリー & 脚本</span>
+            <span style="font-size:0.75rem;color:var(--text-secondary)">第{{ drama.series_episode or drama.episode_number or '?' }}話</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+            {% if drama.theme %}
+            <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--success);color:#fff">テーマ済</span>
+            {% else %}
+            <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--border);color:var(--text-secondary)">テーマ未設定</span>
+            {% endif %}
+            {% if script_data.get('narration') %}
+            <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--success);color:#fff">脚本済</span>
+            {% else %}
+            <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:var(--border);color:var(--text-secondary)">脚本未生成</span>
+            {% endif %}
+        </div>
+    </div>
+    <div id="story-body" style="padding:16px">
+        {% if series %}
+        <div style="margin-bottom:14px;padding:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px">
+            <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">シリーズ: {{ series.name or '' }}</div>
+            <div style="font-size:0.85rem;color:var(--text-primary);line-height:1.6">{{ series.description or '' }}</div>
+            {% if series.synopsis %}
+            <details style="margin-top:8px">
+                <summary style="font-size:0.8rem;color:var(--accent);cursor:pointer">シリーズあらすじを表示</summary>
+                <div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.6;margin-top:6px;padding:8px;background:var(--bg-card);border-radius:6px">{{ series.synopsis }}</div>
+            </details>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">エピソードテーマ（あらすじ）</label>
+                <button id="btn-gen-theme" class="btn btn-secondary" data-testid="btn-gen-theme" style="font-size:0.75rem;padding:4px 10px">テーマを自動生成</button>
+            </div>
+            <textarea id="edit-theme" data-testid="textarea-theme" rows="3" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;resize:vertical;font-family:inherit;line-height:1.6">{{ drama.theme or '' }}</textarea>
+        </div>
+
+        <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">完成脚本（ナレーション全文）</label>
+                <button id="btn-gen-script" class="btn btn-secondary" data-testid="btn-gen-script" style="font-size:0.75rem;padding:4px 10px">脚本を自動生成</button>
+            </div>
+            <div style="padding:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;line-height:1.8;white-space:pre-wrap;max-height:200px;overflow-y:auto" id="narration-display" data-testid="text-narration">{{ script_data.get('narration', '脚本が未生成です。テーマを設定してから「脚本を自動生成」を押してください。') }}</div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+            <button id="btn-save-theme" class="btn btn-primary" data-testid="btn-save-theme" style="font-size:0.8rem">テーマを保存</button>
+        </div>
+        <div id="story-message" style="margin-top:8px;font-size:0.8rem;display:none"></div>
+    </div>
+</div>
+
 <div id="progress-bar" data-testid="progress-bar" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <span style="font-weight:600;font-size:0.95rem">制作進捗</span>
@@ -629,6 +686,83 @@ document.getElementById('btn-batch-all').addEventListener('click', function() {
             .catch(function(e) { showBatchStatus('音声エラー: ' + e.message); btn.disabled = false; btn.textContent = '全工程を自動実行'; });
         });
     });
+});
+
+var storyMsg = document.getElementById('story-message');
+function showStoryMsg(msg, isError) {
+    storyMsg.style.display = 'block';
+    storyMsg.style.color = isError ? 'var(--error)' : 'var(--success)';
+    storyMsg.textContent = msg;
+    if (!isError) setTimeout(function() { storyMsg.style.display = 'none'; }, 3000);
+}
+
+document.getElementById('btn-save-theme').addEventListener('click', function() {
+    var btn = this;
+    var theme = document.getElementById('edit-theme').value.trim();
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+    fetch('/api/production/' + DRAMA_ID + '/save-theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: theme })
+    })
+    .then(handleGenResponse)
+    .then(function() {
+        showStoryMsg('テーマを保存しました ✓');
+        btn.disabled = false;
+        btn.textContent = 'テーマを保存';
+    })
+    .catch(function(e) { showStoryMsg('保存エラー: ' + e.message, true); btn.disabled = false; btn.textContent = 'テーマを保存'; });
+});
+
+document.getElementById('btn-gen-theme').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'テーマ生成中...';
+    showStoryMsg('Claudeがエピソードテーマを生成中...（20〜30秒）');
+    storyMsg.style.color = 'var(--text-secondary)';
+    fetch('/api/generate-theme', { method: 'POST' })
+    .then(handleGenResponse)
+    .then(function(data) {
+        if (data.theme) {
+            document.getElementById('edit-theme').value = data.theme;
+            showStoryMsg('テーマを生成しました。内容を確認して「テーマを保存」を押してください。');
+        } else {
+            showStoryMsg('テーマ生成に失敗しました', true);
+        }
+        btn.disabled = false;
+        btn.textContent = 'テーマを自動生成';
+    })
+    .catch(function(e) { showStoryMsg('テーマ生成エラー: ' + e.message, true); btn.disabled = false; btn.textContent = 'テーマを自動生成'; });
+});
+
+document.getElementById('btn-gen-script').addEventListener('click', function() {
+    var btn = this;
+    var theme = document.getElementById('edit-theme').value.trim();
+    if (!theme) {
+        showStoryMsg('先にエピソードテーマを入力または生成してください', true);
+        return;
+    }
+    if (!confirm('現在のテーマから脚本を生成します。既存の脚本は上書きされます。続行しますか？')) return;
+
+    btn.disabled = true;
+    btn.textContent = '脚本生成中...';
+    showStoryMsg('Claudeが脚本を生成中...（30〜60秒）');
+    storyMsg.style.color = 'var(--text-secondary)';
+
+    fetch('/api/production/' + DRAMA_ID + '/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: theme })
+    })
+    .then(handleGenResponse)
+    .then(function(data) {
+        showStoryMsg('脚本を生成しました。ページを再読み込みしてシーン一覧を更新します。');
+        btn.disabled = false;
+        btn.textContent = '脚本を自動生成';
+        setTimeout(function() { window.location.reload(); }, 1500);
+    })
+    .catch(function(e) { showStoryMsg('脚本生成エラー: ' + e.message, true); btn.disabled = false; btn.textContent = '脚本を自動生成'; });
 });
 
 pollAssets();

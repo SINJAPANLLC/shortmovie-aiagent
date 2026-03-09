@@ -925,10 +925,19 @@ async def production_page(request: Request, drama_id: int):
     available_dramas = [d for d in all_dramas if d.get("status") in ("script_ready", "generating", "ready", "published")]
     available_dramas.sort(key=lambda d: d.get("id", 0), reverse=True)
 
+    series = None
+    if drama.get("series_id"):
+        all_series = get_all_series()
+        for s in all_series:
+            if s.get("id") == drama["series_id"]:
+                series = s
+                break
+
     return templates.TemplateResponse("production.html", {
         "request": request,
         "user": user,
         "drama": drama,
+        "series": series,
         "available_dramas": available_dramas,
         "script_data": script_data,
         "scenes": scenes,
@@ -1273,7 +1282,7 @@ async def api_production_save_script(request: Request, drama_id: int):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    drama = get_drama(drama_id)
+    drama = get_drama_by_id(drama_id)
     if not drama:
         return JSONResponse({"error": "ドラマが見つかりません"}, status_code=404)
 
@@ -1285,3 +1294,91 @@ async def api_production_save_script(request: Request, drama_id: int):
     import json
     update_drama(drama_id, script=json.dumps(script_data, ensure_ascii=False))
     return JSONResponse({"success": True})
+
+
+@router.post("/api/production/{drama_id}/save-theme")
+async def api_production_save_theme(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "ドラマが見つかりません"}, status_code=404)
+
+    body = await request.json()
+    theme = body.get("theme", "").strip()
+    update_drama(drama_id, theme=theme)
+    return JSONResponse({"success": True})
+
+
+@router.post("/api/production/{drama_id}/generate-script")
+async def api_production_generate_script(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "ドラマが見つかりません"}, status_code=404)
+
+    body = await request.json()
+    theme = body.get("theme", "").strip()
+    if not theme:
+        return JSONResponse({"error": "テーマが必要です"}, status_code=400)
+
+    task_key = _get_production_task_key(drama_id, "script")
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    import threading
+
+    def run_script_gen():
+        try:
+            import json as json_mod
+            update_drama(drama_id, theme=theme)
+
+            from app.services.ai.story_generator import generate_script
+            series = get_active_series()
+            characters = get_characters()
+
+            characters_ctx = ""
+            if characters:
+                lines = []
+                for c in characters:
+                    lines.append(f"- {c.get('name','')}: {c.get('role','')} / {c.get('personality','')}")
+                characters_ctx = "\n".join(lines)
+
+            script_data = generate_script(
+                theme=theme,
+                genre=drama.get("genre", "CEOドラマ"),
+                drama_id=drama_id,
+                series_info=series,
+                characters_context=characters_ctx
+            )
+
+            if script_data:
+                script_json = json_mod.dumps(script_data, ensure_ascii=False)
+                scene_count = len(script_data.get("scenes", []))
+                update_drama(drama_id, script=script_json, scene_count=scene_count, status="script_ready")
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "脚本生成に失敗しました"}
+        except Exception as e:
+            logger.error(f"Script generation error: {e}")
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_script_gen, daemon=True)
+    thread.start()
+
+    thread.join(timeout=120)
+
+    task_status = production_tasks.get(task_key, {})
+    if task_status.get("status") == "done":
+        return JSONResponse({"success": True, "message": "脚本を生成しました"})
+    elif task_status.get("status") == "error":
+        return JSONResponse({"error": task_status.get("error", "脚本生成に失敗しました")}, status_code=500)
+    else:
+        return JSONResponse({"success": True, "message": "脚本生成中です。しばらくお待ちください。"})
