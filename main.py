@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import timezone, timedelta
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -17,11 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Short Movie AI AGENT SIN JAPAN")
+app = FastAPI(title="CEOの扉 - AI Short Drama Generator")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(router)
+
+JST = timezone(timedelta(hours=9))
 
 
 @app.on_event("startup")
@@ -35,42 +38,42 @@ async def startup_event():
     create_admin_user(admin_username, password_hash)
     logger.info(f"Admin user '{admin_username}' ensured")
 
-    scheduler = BackgroundScheduler()
+    scheduler = BackgroundScheduler(timezone=JST)
 
     scheduler.add_job(
         run_full_pipeline,
-        trigger=CronTrigger(hour=10, minute=0),
+        trigger=CronTrigger(hour=10, minute=0, timezone=JST),
         id="morning_drama",
-        name="Morning Drama Generation",
+        name="朝の自動生成 (10:00 JST)",
         replace_existing=True
     )
 
     scheduler.add_job(
         run_full_pipeline,
-        trigger=CronTrigger(hour=15, minute=0),
+        trigger=CronTrigger(hour=15, minute=0, timezone=JST),
         id="afternoon_drama",
-        name="Afternoon Drama Generation",
+        name="昼の自動生成 (15:00 JST)",
         replace_existing=True
     )
 
     scheduler.add_job(
         run_full_pipeline,
-        trigger=CronTrigger(hour=21, minute=0),
+        trigger=CronTrigger(hour=21, minute=0, timezone=JST),
         id="evening_drama",
-        name="Evening Drama Generation",
+        name="夜の自動生成 (21:00 JST)",
         replace_existing=True
     )
 
     scheduler.add_job(
         collect_all_analytics,
-        trigger=CronTrigger(hour=9, minute=0),
+        trigger=CronTrigger(hour=9, minute=0, timezone=JST),
         id="morning_analytics",
-        name="Morning Analytics Collection",
+        name="分析データ収集 (09:00 JST)",
         replace_existing=True
     )
 
     scheduler.start()
-    logger.info("Scheduler started - dramas at 10:00, 15:00, 21:00 | analytics at 09:00")
+    logger.info("Scheduler started (JST) - dramas at 10:00, 15:00, 21:00 | analytics at 09:00")
 
 
 if __name__ == "__main__":

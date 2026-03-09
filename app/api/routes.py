@@ -12,7 +12,8 @@ from app.api.auth import (
 from app.db.database import (
     get_admin_user, create_admin_user, get_all_dramas,
     get_drama_by_id, get_dramas_with_analytics, update_drama,
-    get_ai_logs, get_setting, set_setting
+    get_ai_logs, get_setting, set_setting,
+    get_active_series, get_all_series
 )
 from app.services.pipeline import run_full_pipeline, generate_theme_only
 from app.services.ai.improvement_ai import analyze_and_improve
@@ -116,6 +117,9 @@ async def dashboard(request: Request):
         g = d.get("genre", "不明")
         genre_counts[g] = genre_counts.get(g, 0) + 1
 
+    active_series = get_active_series()
+    all_series = get_all_series()
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": user,
@@ -135,6 +139,9 @@ async def dashboard(request: Request):
         "has_stability": bool(os.environ.get("STABILITY_API_KEY")),
         "has_tiktok": is_tiktok_connected(),
         "ai_logs": get_ai_logs(limit=20),
+        "active_series": active_series,
+        "all_series": all_series,
+        "total_series": len(all_series),
     })
 
 

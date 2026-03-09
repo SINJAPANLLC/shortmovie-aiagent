@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}ドラマ生成 - Short Movie AI AGENT SIN JAPAN{% endblock %}
+{% block title %}ドラマ生成 - CEOの扉{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>AIショートドラマ生成</h1>
-    <p>45秒のショートドラマを自動生成します</p>
+    <h1>CEOの扉 - エピソード生成</h1>
+    <p>45秒のCEOドラマを自動生成 | シリーズ形式で毎日3本投稿</p>
 </div>
 
 <div class="section">
@@ -27,50 +27,50 @@
             <div class="step-arrow">→</div>
             <div class="step"><div class="step-number">8</div><div class="step-text">投稿<br><small style="color:var(--text-secondary)">YouTube / TikTok</small></div></div>
         </div>
-        <p style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary)">毎日3本自動生成: 10:00 / 15:00 / 21:00</p>
+        <p style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary)">毎日3本自動生成（日本時間）: 10:00 / 15:00 / 21:00</p>
     </div>
 
     <div class="card" style="max-width:600px;margin:20px auto">
-        <h3 style="margin-bottom:16px">手動生成</h3>
+        <h3 style="margin-bottom:16px">手動エピソード生成</h3>
 
         <div class="form-group">
-            <label for="genre-select">ジャンル（任意）</label>
-            <select id="genre-select" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;background:var(--bg-card)">
-                <option value="">ランダム</option>
-                <option value="恋愛">恋愛</option>
-                <option value="浮気">浮気</option>
-                <option value="復讐">復讐</option>
-                <option value="CEOドラマ">CEOドラマ</option>
-                <option value="怖い話">怖い話</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="custom-theme">テーマ（任意）</label>
-            <input type="text" id="custom-theme" placeholder="例: 社長と秘密の恋、彼氏の浮気..." style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
-            <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">空欄の場合はAIが自動でテーマを決めます</p>
+            <label for="custom-theme">エピソードテーマ（任意）</label>
+            <input type="text" id="custom-theme" placeholder="例: CEOの秘密が暴かれる、運命の再会..." style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+            <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">空欄の場合はAIがシリーズの流れに沿って自動でテーマを決めます</p>
         </div>
 
         <div class="generate-actions" style="text-align:center;margin-top:20px">
-            <button id="btn-generate" class="btn btn-primary btn-lg" {% if pipeline_running %}disabled{% endif %}>
-                {% if pipeline_running %}生成中...{% else %}ドラマ生成を開始{% endif %}
+            <button id="btn-generate" class="btn btn-primary btn-lg" data-testid="button-generate" {% if pipeline_running %}disabled{% endif %}>
+                {% if pipeline_running %}生成中...{% else %}エピソード生成を開始{% endif %}
             </button>
         </div>
     </div>
 
-    <div id="pipeline-status" style="{% if not pipeline_running and not last_result %}display:none{% endif %};margin-top:20px">
+    <div id="pipeline-status" data-testid="pipeline-status" style="{% if not pipeline_running and not last_result %}display:none{% endif %};margin-top:20px">
         {% if pipeline_running %}
         <div class="status-running">
             <div class="spinner"></div>
-            <span>AIショートドラマを生成中です。しばらくお待ちください...</span>
+            <span>CEOの扉 エピソードを生成中です。しばらくお待ちください...</span>
         </div>
         {% elif last_result %}
             {% if last_result.success %}
-            <div class="alert alert-success">ドラマを生成しました: {{ last_result.title }}</div>
+            <div class="alert alert-success">エピソード生成完了: {{ last_result.title }}</div>
             {% else %}
             <div class="alert alert-error">エラー: {{ last_result.error }}</div>
             {% endif %}
         {% endif %}
+    </div>
+</div>
+
+<div class="section">
+    <h3>チャンネル情報</h3>
+    <div class="card" style="padding:20px">
+        <h4 style="margin-bottom:8px;color:var(--primary)">CEOの扉</h4>
+        <p style="font-size:0.9rem;line-height:1.6;color:var(--text-secondary)">
+            人生を変える出会いを描くショートドラマチャンネル。<br>
+            普通の女性が謎のCEOと出会い、仕事・恋愛・成長・成功・運命が動き出す。<br>
+            1話45秒 × 1シリーズ30話 × シリーズ形式で公開。
+        </p>
     </div>
 </div>
 
@@ -93,6 +93,14 @@
             <div class="stat-value" style="font-size:1.2rem">6-8</div>
             <div class="stat-label">シーン数</div>
         </div>
+        <div class="card" style="text-align:center">
+            <div class="stat-value" style="font-size:1.2rem">30話</div>
+            <div class="stat-label">1シリーズ</div>
+        </div>
+        <div class="card" style="text-align:center">
+            <div class="stat-value" style="font-size:1.2rem">3本/日</div>
+            <div class="stat-label">自動生成</div>
+        </div>
     </div>
 </div>
 <script>
@@ -104,22 +112,21 @@ btnGenerate.addEventListener('click', function() {
     btnGenerate.disabled = true;
     btnGenerate.textContent = '生成中...';
     statusDiv.style.display = 'block';
-    statusDiv.innerHTML = '<div class="status-running"><div class="spinner"></div><span>AIショートドラマを生成中です...</span></div>';
+    statusDiv.innerHTML = '<div class="status-running"><div class="spinner"></div><span>CEOの扉 エピソードを生成中です...</span></div>';
 
-    var genre = document.getElementById('genre-select').value;
     var theme = document.getElementById('custom-theme').value.trim();
 
     fetch('/api/generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({theme: theme, genre: genre})
+        body: JSON.stringify({theme: theme, genre: 'CEOドラマ'})
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
         if (data.error) {
             statusDiv.innerHTML = '<div class="alert alert-error">' + data.error + '</div>';
             btnGenerate.disabled = false;
-            btnGenerate.textContent = 'ドラマ生成を開始';
+            btnGenerate.textContent = 'エピソード生成を開始';
             return;
         }
         pollStatus();
@@ -127,7 +134,7 @@ btnGenerate.addEventListener('click', function() {
     .catch(function() {
         statusDiv.innerHTML = '<div class="alert alert-error">リクエストに失敗しました</div>';
         btnGenerate.disabled = false;
-        btnGenerate.textContent = 'ドラマ生成を開始';
+        btnGenerate.textContent = 'エピソード生成を開始';
     });
 });
 
@@ -139,10 +146,10 @@ function pollStatus() {
             if (!data.running) {
                 clearInterval(interval);
                 btnGenerate.disabled = false;
-                btnGenerate.textContent = 'ドラマ生成を開始';
+                btnGenerate.textContent = 'エピソード生成を開始';
                 if (data.last_result) {
                     if (data.last_result.success) {
-                        statusDiv.innerHTML = '<div class="alert alert-success">ドラマを生成しました: ' + (data.last_result.title || '') + '</div>';
+                        statusDiv.innerHTML = '<div class="alert alert-success">エピソード生成完了: ' + (data.last_result.title || '') + '</div>';
                     } else {
                         statusDiv.innerHTML = '<div class="alert alert-error">エラー: ' + (data.last_result.error || '') + '</div>';
                     }

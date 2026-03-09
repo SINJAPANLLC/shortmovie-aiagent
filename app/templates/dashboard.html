@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}ダッシュボード - Short Movie AI AGENT SIN JAPAN{% endblock %}
+{% block title %}ダッシュボード - CEOの扉{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>ダッシュボード</h1>
-    <p>AIショートドラマ自動生成システム</p>
+    <h1>CEOの扉 ダッシュボード</h1>
+    <p>AI自動生成ショートドラマ | シリーズ形式 × 毎日3本投稿</p>
 </div>
 
 <div class="stats-grid">
@@ -25,12 +25,38 @@
         <div class="stat-label">総いいね</div>
     </div>
     <div class="stat-card">
+        <div class="stat-value">{{ total_series or 0 }}</div>
+        <div class="stat-label">シリーズ数</div>
+    </div>
+    <div class="stat-card">
         <div class="stat-value">
             {% if youtube_connected %}<span style="color:var(--success)">接続</span>{% else %}<span style="color:var(--text-secondary)">未接続</span>{% endif %}
         </div>
         <div class="stat-label">YouTube</div>
     </div>
 </div>
+
+{% if active_series %}
+<div class="card" style="margin:20px 0;padding:16px 20px;border-left:4px solid var(--primary)">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+            <h3 style="margin:0;font-size:1rem;color:var(--primary)">現在のシリーズ: {{ active_series.name }}</h3>
+            <p style="margin:4px 0 0;font-size:0.85rem;color:var(--text-secondary)">{{ active_series.description or '' }}</p>
+        </div>
+        <div style="text-align:right">
+            <span style="font-size:1.4rem;font-weight:700;color:var(--primary)">{{ active_series.current_episode }}/{{ active_series.total_episodes }}</span>
+            <div style="font-size:0.75rem;color:var(--text-secondary)">エピソード進捗</div>
+        </div>
+    </div>
+    <div class="progress-bar-container" style="margin-top:10px;height:6px">
+        <div class="progress-bar" style="width:{{ (active_series.current_episode / active_series.total_episodes * 100)|int }}%"></div>
+    </div>
+</div>
+{% else %}
+<div class="card" style="margin:20px 0;padding:16px 20px;border-left:4px solid var(--warning, #f59e0b)">
+    <p style="margin:0;font-size:0.9rem;color:var(--text-secondary)">シリーズ未作成 — 最初のエピソード生成時に新しいシリーズが自動的に作成されます。</p>
+</div>
+{% endif %}
 
 <div class="tab-nav">
     <button class="tab-btn active" data-tab="tab-pipeline">パイプライン</button>
@@ -44,7 +70,7 @@
         <div class="section-header">
             <h2>パイプライン</h2>
             <button id="btn-generate-dash" class="btn btn-primary" {% if pipeline_running %}disabled{% endif %}>
-                {% if pipeline_running %}生成中...{% else %}新しいドラマを生成{% endif %}
+                {% if pipeline_running %}生成中...{% else %}新エピソード生成{% endif %}
             </button>
         </div>
 
@@ -79,7 +105,7 @@
         <div id="pipeline-result" style="{% if not last_result or pipeline_running %}display:none{% endif %}">
             {% if last_result and not pipeline_running %}
                 {% if last_result.success %}
-                <div class="alert alert-success">ドラマを生成しました: {{ last_result.title }}</div>
+                <div class="alert alert-success">エピソード生成完了: {{ last_result.title }}</div>
                 {% else %}
                 <div class="alert alert-error">エラー: {{ last_result.error }}</div>
                 {% endif %}
@@ -126,7 +152,7 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <p>まだドラマがありません。「新しいドラマを生成」ボタンで最初のドラマを作成しましょう。</p>
+            <p>まだエピソードがありません。「新エピソード生成」ボタンで最初のエピソードを作成しましょう。</p>
         </div>
         {% endif %}
     </div>
@@ -181,7 +207,7 @@
         {% endfor %}
         {% else %}
         <div class="empty-state">
-            <p>まだAIログがありません。ドラマを生成するとAIの思考過程がここに記録されます。</p>
+            <p>まだAIログがありません。エピソードを生成するとAIの思考過程がここに記録されます。</p>
         </div>
         {% endif %}
     </div>
@@ -378,7 +404,7 @@
                 resultDiv.style.display = 'block';
                 progressDiv.style.display = 'none';
                 btnGen.disabled = false;
-                btnGen.textContent = '新しいドラマを生成';
+                btnGen.textContent = '新エピソード生成';
             } else {
                 pollPipeline();
             }
@@ -420,10 +446,10 @@
                 if (!data.running) {
                     clearInterval(interval);
                     btnGen.disabled = false;
-                    btnGen.textContent = '新しいドラマを生成';
+                    btnGen.textContent = '新エピソード生成';
                     if (data.last_result) {
                         if (data.last_result.success) {
-                            resultDiv.innerHTML = '<div class="alert alert-success">ドラマを生成しました: ' + (data.last_result.title || '') + '</div>';
+                            resultDiv.innerHTML = '<div class="alert alert-success">エピソード生成完了: ' + (data.last_result.title || '') + '</div>';
                         } else {
                             resultDiv.innerHTML = '<div class="alert alert-error">エラー: ' + (data.last_result.error || '') + '</div>';
                         }

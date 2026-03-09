@@ -21,6 +21,18 @@ def init_db():
             created_at TIMESTAMP DEFAULT NOW()
         );
 
+        CREATE TABLE IF NOT EXISTS series (
+            id SERIAL PRIMARY KEY,
+            series_number INTEGER DEFAULT 1,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            synopsis TEXT,
+            total_episodes INTEGER DEFAULT 30,
+            current_episode INTEGER DEFAULT 0,
+            status VARCHAR(50) DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+
         CREATE TABLE IF NOT EXISTS dramas (
             id SERIAL PRIMARY KEY,
             title VARCHAR(255),
@@ -36,6 +48,8 @@ def init_db():
             likes INTEGER DEFAULT 0,
             status VARCHAR(50) DEFAULT 'draft',
             episode_number INTEGER DEFAULT 1,
+            series_id INTEGER,
+            series_episode INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT NOW()
         );
 
@@ -53,9 +67,87 @@ def init_db():
             value TEXT NOT NULL
         );
     """)
+
+    cur.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'dramas' AND column_name = 'series_id'
+            ) THEN
+                ALTER TABLE dramas ADD COLUMN series_id INTEGER;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'dramas' AND column_name = 'series_episode'
+            ) THEN
+                ALTER TABLE dramas ADD COLUMN series_episode INTEGER DEFAULT 1;
+            END IF;
+        END $$;
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
+
+
+def get_active_series():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM series WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return dict(row) if row else None
+
+
+def create_series(series_number, name, description="", synopsis="", total_episodes=30):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO series (series_number, name, description, synopsis, total_episodes) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        (series_number, name, description, synopsis, total_episodes)
+    )
+    series_id = cur.fetchone()["id"]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return series_id
+
+
+def update_series(series_id, **kwargs):
+    conn = get_connection()
+    cur = conn.cursor()
+    sets = []
+    vals = []
+    for k, v in kwargs.items():
+        sets.append(f"{k} = %s")
+        vals.append(v)
+    vals.append(series_id)
+    cur.execute(f"UPDATE series SET {', '.join(sets)} WHERE id = %s", vals)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_next_series_number():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COALESCE(MAX(series_number), 0) as max_num FROM series")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row["max_num"] + 1
+
+
+def get_all_series():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM series ORDER BY series_number DESC")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def get_all_dramas():
@@ -78,12 +170,12 @@ def get_drama_by_id(drama_id: int):
     return dict(row) if row else None
 
 
-def create_drama(title, genre, theme, script="", status="draft", episode_number=1):
+def create_drama(title, genre, theme, script="", status="draft", episode_number=1, series_id=None, series_episode=1):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO dramas (title, genre, theme, script, status, episode_number) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-        (title, genre, theme, script, status, episode_number)
+        "INSERT INTO dramas (title, genre, theme, script, status, episode_number, series_id, series_episode) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (title, genre, theme, script, status, episode_number, series_id, series_episode)
     )
     drama_id = cur.fetchone()["id"]
     conn.commit()
@@ -191,7 +283,7 @@ def get_dramas_with_analytics():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, title, genre, theme, views, likes, youtube_id, tiktok_id, created_at
+        SELECT id, title, genre, theme, views, likes, youtube_id, tiktok_id, series_id, series_episode, created_at
         FROM dramas
         WHERE youtube_id IS NOT NULL OR tiktok_id IS NOT NULL
         ORDER BY created_at DESC

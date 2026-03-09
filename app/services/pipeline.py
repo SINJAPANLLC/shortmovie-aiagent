@@ -2,9 +2,10 @@ import os
 import logging
 from app.db.database import (
     create_drama, update_drama, get_next_episode_number,
-    get_dramas_with_analytics, get_all_dramas
+    get_dramas_with_analytics, get_all_dramas,
+    get_active_series, create_series, update_series, get_next_series_number, get_all_series
 )
-from app.services.ai.theme_generator import generate_theme
+from app.services.ai.theme_generator import generate_theme, generate_series_theme
 from app.services.ai.story_generator import generate_script
 from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.video.image_generator import generate_character_image, generate_thumbnail
@@ -17,25 +18,69 @@ from app.services.analytics_collector import collect_all_analytics
 
 logger = logging.getLogger(__name__)
 
-CHARACTER_DIR = "app/static/characters"
-THUMBNAIL_DIR = "app/static/thumbnail"
+CHANNEL_NAME = "CEOの扉"
+EPISODES_PER_SERIES = 30
 
 
 def _noop_progress(step, message):
     pass
 
 
+def _ensure_active_series(progress_callback=None):
+    if progress_callback is None:
+        progress_callback = _noop_progress
+
+    series = get_active_series()
+    if series and series["current_episode"] < series["total_episodes"]:
+        return series
+
+    if series and series["current_episode"] >= series["total_episodes"]:
+        update_series(series["id"], status="completed")
+        progress_callback(1, f"シリーズ「{series['name']}」完結（{series['total_episodes']}話）")
+
+    series_number = get_next_series_number()
+    progress_callback(1, f"新シリーズ{series_number}を企画中...")
+
+    all_series = get_all_series()
+    previous_names = [s["name"] for s in all_series]
+
+    series_data = generate_series_theme(series_number, previous_series=previous_names)
+
+    series_id = create_series(
+        series_number=series_number,
+        name=series_data.get("series_name", f"シリーズ{series_number}"),
+        description=series_data.get("series_description", ""),
+        synopsis=series_data.get("synopsis", ""),
+        total_episodes=EPISODES_PER_SERIES
+    )
+    progress_callback(1, f"新シリーズ作成: 「{series_data.get('series_name', '')}」")
+
+    return {
+        "id": series_id,
+        "series_number": series_number,
+        "name": series_data.get("series_name", f"シリーズ{series_number}"),
+        "description": series_data.get("series_description", ""),
+        "synopsis": series_data.get("synopsis", ""),
+        "total_episodes": EPISODES_PER_SERIES,
+        "current_episode": 0,
+        "status": "active"
+    }
+
+
 def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=None):
     if progress_callback is None:
         progress_callback = _noop_progress
 
-    logger.info("=== Starting AI Short Drama Pipeline ===")
+    logger.info(f"=== Starting {CHANNEL_NAME} Pipeline ===")
     progress_callback(0, "パイプラインを開始しました")
 
     try:
-        progress_callback(1, "テーマを生成中...")
+        progress_callback(1, "シリーズ・テーマを確認中...")
+        series = _ensure_active_series(progress_callback)
+        series_episode = series["current_episode"] + 1
+
         existing_dramas = get_all_dramas()
-        previous_themes = [d["theme"] for d in existing_dramas if d.get("theme")]
+        previous_themes = [d["theme"] for d in existing_dramas if d.get("theme") and d.get("series_id") == series["id"]]
 
         if custom_theme:
             theme_data = {
@@ -43,25 +88,29 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
                 "title_base": custom_theme,
                 "hook": "",
                 "twist": "",
-                "genre": custom_genre or "恋愛"
+                "genre": "CEOドラマ"
             }
             progress_callback(1, f"手動テーマ: 「{custom_theme}」")
         else:
-            theme_data = generate_theme(previous_themes, genre=custom_genre)
-            progress_callback(1, f"テーマ決定: 「{theme_data.get('title_base', '')}」({theme_data.get('genre', '')})")
+            theme_data = generate_theme(previous_themes, genre="CEOドラマ", series_info=series)
+            progress_callback(1, f"テーマ決定: 「{theme_data.get('title_base', '')}」")
 
-        genre = theme_data.get("genre", "恋愛")
+        genre = "CEOドラマ"
         episode_num = get_next_episode_number(genre)
-        title = f"{theme_data.get('title_base', 'ドラマ')} 第{episode_num}話"
+
+        series_name = series.get("name", "")
+        title = f"CEOの扉 | {series_name} 第{series_episode}話「{theme_data.get('title_base', '')}」"
 
         drama_id = create_drama(
             title=title,
             genre=genre,
             theme=theme_data.get("theme", ""),
             status="generating",
-            episode_number=episode_num
+            episode_number=episode_num,
+            series_id=series["id"],
+            series_episode=series_episode
         )
-        progress_callback(1, f"ドラマ作成: ID={drama_id}, 「{title}」")
+        progress_callback(1, f"第{series_episode}話 作成開始: 「{title}」")
 
         progress_callback(2, "脚本を生成中...")
         script_data = generate_script(
@@ -70,7 +119,8 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
             hook=theme_data.get("hook", ""),
             twist=theme_data.get("twist", ""),
             drama_id=drama_id,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            series_info=series
         )
         narration = script_data.get("narration", "")
         scenes = script_data.get("scenes", [])
@@ -78,7 +128,7 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         progress_callback(2, f"脚本生成完了: {len(narration)}文字, {len(scenes)}シーン")
 
         progress_callback(3, "キャラクター・サムネイル画像を生成中 (Stable Diffusion)...")
-        character_desc = f"{genre} drama character, Japanese, emotional expression"
+        character_desc = "beautiful Japanese woman in modern office setting, CEO drama, cinematic, emotional expression, luxury background"
         character_image = generate_character_image(
             character_description=character_desc,
             drama_id=drama_id,
@@ -123,13 +173,17 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
 
         youtube_id = None
         tiktok_id = None
+
+        hashtags = "#CEOの扉 #ショートドラマ #社長ドラマ #恋愛ドラマ #Shorts"
         description = (
-            f"【AIショートドラマ】\n\n"
-            f"{title}\n\n"
-            "続きはフォローして待っててください\n\n"
-            "#ショートドラマ #AIドラマ #Shorts"
+            f"【CEOの扉】{series_name} 第{series_episode}話\n\n"
+            f"「{theme_data.get('title_base', '')}」\n\n"
+            f"普通の女性が謎のCEOと出会い、\n"
+            f"仕事、恋愛、成長、そして運命が動き出す。\n\n"
+            f"続きはフォローして待っててください!\n\n"
+            f"{hashtags}"
         )
-        tags = ["ショートドラマ", "AIドラマ", genre, "Shorts", "TikTok"]
+        tags = ["CEOの扉", "ショートドラマ", "社長ドラマ", "恋愛ドラマ", "CEOドラマ", "Shorts", "TikTok", series_name]
 
         if is_youtube_connected():
             progress_callback(8, "YouTubeにアップロード中...")
@@ -166,6 +220,8 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         if tiktok_id:
             update_data["tiktok_id"] = tiktok_id
         update_drama(drama_id, **update_data)
+
+        update_series(series["id"], current_episode=series_episode)
 
         progress_callback(9, "パイプライン完了!")
         return {"success": True, "drama_id": drama_id, "title": title}
