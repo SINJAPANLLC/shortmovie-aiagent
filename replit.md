@@ -1,4 +1,4 @@
-# Youtube AI AGENT SIN JAPAN
+# Short Movie AI AGENT SIN JAPAN
 
 ## Overview
 睡眠用朗読動画をAIで自動生成しYouTubeへ投稿するシステム。

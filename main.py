@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Youtube AI AGENT SIN JAPAN")
+app = FastAPI(title="Short Movie AI AGENT SIN JAPAN")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
