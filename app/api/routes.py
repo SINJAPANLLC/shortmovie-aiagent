@@ -672,10 +672,12 @@ async def character_images_page(request: Request):
             "url": f"/static/characters/{fname}",
         })
 
+    characters = get_characters()
     return templates.TemplateResponse("character_images.html", {
         "request": request,
         "user": user,
         "images": images,
+        "characters": characters,
     })
 
 
@@ -735,6 +737,12 @@ async def api_update_character(request: Request, character_id: int):
         updates["voice_id"] = body["voice_id"]
     if "image_path" in body:
         updates["image_path"] = body["image_path"]
+    if "image_face" in body:
+        updates["image_face"] = body["image_face"]
+    if "image_bust" in body:
+        updates["image_bust"] = body["image_bust"]
+    if "image_fullbody" in body:
+        updates["image_fullbody"] = body["image_fullbody"]
     if "series_id" in body:
         updates["series_id"] = int(body["series_id"]) if body["series_id"] else None
 

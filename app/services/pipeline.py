@@ -23,6 +23,37 @@ CHANNEL_NAME = "CEOの扉"
 EPISODES_PER_SERIES = 30
 
 
+def _pick_character_image_for_scene(character, scene_description=""):
+    desc_lower = scene_description.lower()
+    face_keywords = ["クローズアップ", "表情", "顔", "目", "涙", "close-up", "closeup", "face", "eyes"]
+    fullbody_keywords = ["全身", "歩く", "走る", "立つ", "振り返", "エレベーター", "ロビー", "full body", "walking", "standing", "elevator", "lobby"]
+
+    if any(kw in desc_lower for kw in face_keywords):
+        img = character.get("image_face", "")
+        if img and os.path.exists(img):
+            return img
+
+    if any(kw in desc_lower for kw in fullbody_keywords):
+        img = character.get("image_fullbody", "")
+        if img and os.path.exists(img):
+            return img
+
+    img = character.get("image_bust", "")
+    if img and os.path.exists(img):
+        return img
+
+    img = character.get("image_path", "")
+    if img and os.path.exists(img):
+        return img
+
+    for key in ["image_face", "image_fullbody", "image_bust"]:
+        img = character.get(key, "")
+        if img and os.path.exists(img):
+            return img
+
+    return None
+
+
 def _noop_progress(step, message):
     pass
 
@@ -157,29 +188,51 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
 
         progress_callback(3, "キャラクター・サムネイル画像を生成中 (Stable Diffusion)...")
 
-        series_character = series.get("character_image", "")
-        if series_character and os.path.exists(series_character):
-            character_image = series_character
-            progress_callback(3, f"シリーズ固定キャラクター画像を使用: {os.path.basename(character_image)}")
+        characters_list = []
+        try:
+            from app.db.database import get_characters_by_series
+            characters_list = get_characters_by_series(series["id"]) if series else []
+        except Exception:
+            pass
+
+        protagonist = None
+        any_char = None
+        for c in characters_list:
+            has_img = any(c.get(k) and os.path.exists(c[k]) for k in ["image_path", "image_face", "image_bust", "image_fullbody"])
+            if has_img:
+                any_char = c
+                if c.get("role") == "主人公":
+                    protagonist = c
+                    break
+        main_character = protagonist or any_char
+
+        if main_character:
+            character_image = _pick_character_image_for_scene(main_character) or ""
+            progress_callback(3, f"キャラクター「{main_character['name']}」の画像を使用（複数バリエーション対応）")
         else:
-            first_scene_desc = scenes[0].get("description", "") if scenes else ""
-            character_desc = (
-                f"beautiful Japanese woman, 26 years old, modern professional look, "
-                f"emotional cinematic portrait, luxury office background with city skyline, "
-                f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
-                f"photorealistic, film grain, {first_scene_desc[:100]}"
-            )
-            character_image = generate_character_image(
-                character_description=character_desc,
-                drama_id=drama_id,
-                progress_callback=progress_callback
-            )
-            import shutil
-            series_char_path = f"app/static/characters/series_{series['id']}_character.png"
-            shutil.copy2(character_image, series_char_path)
-            update_series(series["id"], character_image=series_char_path)
-            series["character_image"] = series_char_path
-            progress_callback(3, f"キャラクター画像を生成 → シリーズ固定化")
+            series_character = series.get("character_image", "")
+            if series_character and os.path.exists(series_character):
+                character_image = series_character
+                progress_callback(3, f"シリーズ固定キャラクター画像を使用: {os.path.basename(character_image)}")
+            else:
+                first_scene_desc = scenes[0].get("description", "") if scenes else ""
+                character_desc = (
+                    f"beautiful Japanese woman, 26 years old, modern professional look, "
+                    f"emotional cinematic portrait, luxury office background with city skyline, "
+                    f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
+                    f"photorealistic, film grain, {first_scene_desc[:100]}"
+                )
+                character_image = generate_character_image(
+                    character_description=character_desc,
+                    drama_id=drama_id,
+                    progress_callback=progress_callback
+                )
+                import shutil
+                series_char_path = f"app/static/characters/series_{series['id']}_character.png"
+                shutil.copy2(character_image, series_char_path)
+                update_series(series["id"], character_image=series_char_path)
+                series["character_image"] = series_char_path
+                progress_callback(3, f"キャラクター画像を生成 → シリーズ固定化")
 
         thumbnail_path = generate_thumbnail(
             title=title,
@@ -199,11 +252,18 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         scene_videos = []
         for i, scene in enumerate(scenes):
             progress_callback(5, f"シーン{i+1}/{len(scenes)}を生成中...")
+            scene_desc = scene.get("description", "")
+            if main_character:
+                ref_image = _pick_character_image_for_scene(main_character, scene_desc)
+            elif character_image and os.path.exists(character_image):
+                ref_image = character_image
+            else:
+                ref_image = None
             scene_path = generate_scene_video(
-                scene_description=scene.get("description", ""),
+                scene_description=scene_desc,
                 scene_number=scene.get("scene_number", i+1),
                 drama_id=drama_id,
-                reference_image=character_image if os.path.exists(character_image) else None,
+                reference_image=ref_image,
                 progress_callback=progress_callback
             )
             scene_videos.append(scene_path)
@@ -455,38 +515,44 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
     except Exception:
         pass
 
-    heroine_image = None
+    protagonist = None
+    any_character = None
     for c in characters_list:
-        if c.get("image_path") and os.path.exists(c["image_path"]):
-            heroine_image = c["image_path"]
+        has_any_image = any(c.get(k) and os.path.exists(c[k]) for k in ["image_path", "image_face", "image_bust", "image_fullbody"])
+        if has_any_image:
+            any_character = c
             if c.get("role") == "主人公":
+                protagonist = c
                 break
 
-    series_character = series.get("character_image", "")
-    if heroine_image:
-        character_image = heroine_image
-        progress_callback(3, f"カスタムキャラクター画像を使用")
-    elif series_character and os.path.exists(series_character):
-        character_image = series_character
-        progress_callback(3, f"シリーズ固定キャラクター画像を使用")
+    main_character = protagonist or any_character
+
+    if main_character:
+        character_image = _pick_character_image_for_scene(main_character) or ""
+        progress_callback(3, f"キャラクター「{main_character['name']}」の画像を使用（複数バリエーション対応）")
     else:
-        first_scene_desc = scenes[0].get("description", "") if scenes else ""
-        character_desc = (
-            f"beautiful Japanese woman, 26 years old, modern professional look, "
-            f"emotional cinematic portrait, luxury office background with city skyline, "
-            f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
-            f"photorealistic, film grain, {first_scene_desc[:100]}"
-        )
-        character_image = generate_character_image(
-            character_description=character_desc,
-            drama_id=drama_id,
-            progress_callback=progress_callback
-        )
-        import shutil
-        series_char_path = f"app/static/characters/series_{series['id']}_character.png"
-        shutil.copy2(character_image, series_char_path)
-        update_series(series["id"], character_image=series_char_path)
-        progress_callback(3, f"キャラクター画像を生成 → シリーズ固定化")
+        series_character = series.get("character_image", "")
+        if series_character and os.path.exists(series_character):
+            character_image = series_character
+            progress_callback(3, f"シリーズ固定キャラクター画像を使用")
+        else:
+            first_scene_desc = scenes[0].get("description", "") if scenes else ""
+            character_desc = (
+                f"beautiful Japanese woman, 26 years old, modern professional look, "
+                f"emotional cinematic portrait, luxury office background with city skyline, "
+                f"dramatic lighting, shallow depth of field, vertical 9:16 composition, "
+                f"photorealistic, film grain, {first_scene_desc[:100]}"
+            )
+            character_image = generate_character_image(
+                character_description=character_desc,
+                drama_id=drama_id,
+                progress_callback=progress_callback
+            )
+            import shutil
+            series_char_path = f"app/static/characters/series_{series['id']}_character.png"
+            shutil.copy2(character_image, series_char_path)
+            update_series(series["id"], character_image=series_char_path)
+            progress_callback(3, f"キャラクター画像を生成 → シリーズ固定化")
 
     thumbnail_path = generate_thumbnail(
         title=title,
@@ -506,11 +572,18 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
     scene_videos = []
     for i, scene in enumerate(scenes):
         progress_callback(5, f"シーン{i+1}/{len(scenes)}を生成中...")
+        scene_desc = scene.get("description", "")
+        if main_character:
+            ref_image = _pick_character_image_for_scene(main_character, scene_desc)
+        elif character_image and os.path.exists(character_image):
+            ref_image = character_image
+        else:
+            ref_image = None
         scene_path = generate_scene_video(
-            scene_description=scene.get("description", ""),
+            scene_description=scene_desc,
             scene_number=scene.get("scene_number", i+1),
             drama_id=drama_id,
-            reference_image=character_image if os.path.exists(character_image) else None,
+            reference_image=ref_image,
             progress_callback=progress_callback
         )
         scene_videos.append(scene_path)

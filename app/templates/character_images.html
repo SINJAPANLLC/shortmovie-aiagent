@@ -2,53 +2,50 @@
 {% block title %}キャラクター画像選択 - CEOの扉{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>キャラクター画像候補</h1>
-    <p style="color:#546e7a; margin-top:8px;">使いたい画像を選んでキャラクターに設定してください</p>
+    <h1>キャラクター画像選択</h1>
+    <p style="color:#546e7a; margin-top:8px;">各キャラクターに顔アップ・バストショット・全身の画像を設定してシーンごとに自動で使い分けます</p>
 </div>
 
-<div style="margin-bottom:24px;">
-    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:16px;">美咲（主人公・26歳OL）</h2>
-    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+{% for char in characters %}
+<div style="background:white; border-radius:12px; padding:24px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:8px;">{{ char.name }}（{{ char.role }}）</h2>
+    <p style="color:#78909c; font-size:0.9rem; margin-bottom:16px;">{{ char.description }}</p>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+        {% set current_face = char.image_face or '' %}
+        {% set current_bust = char.image_bust or '' %}
+        {% set current_fullbody = char.image_fullbody or '' %}
+        <div style="background:#e0f2f1; padding:8px 16px; border-radius:8px; font-size:0.85rem;">
+            <strong>顔:</strong> {{ current_face.split('/')[-1] if current_face else '未設定' }}
+        </div>
+        <div style="background:#e0f2f1; padding:8px 16px; border-radius:8px; font-size:0.85rem;">
+            <strong>バスト:</strong> {{ current_bust.split('/')[-1] if current_bust else '未設定' }}
+        </div>
+        <div style="background:#e0f2f1; padding:8px 16px; border-radius:8px; font-size:0.85rem;">
+            <strong>全身:</strong> {{ current_fullbody.split('/')[-1] if current_fullbody else '未設定' }}
+        </div>
+    </div>
+
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
         {% for img in images %}
-            {% if 'misaki' in img.filename %}
-            <div style="background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; max-width:320px;">
-                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; max-width:300px; border-radius:8px; margin-bottom:12px;" data-testid="img-{{ img.filename }}">
-                <div style="font-size:0.9rem; color:#37474f; margin-bottom:8px;">{{ img.filename }}</div>
-                <button class="btn btn-primary select-btn" data-filename="{{ img.filename }}" data-url="{{ img.url }}" data-character="美咲" data-testid="btn-select-{{ img.filename }}" style="width:100%;">この画像を美咲に設定</button>
+            {% set name_lower = char.name | lower %}
+            {% set fname_lower = img.filename | lower %}
+            {% if (name_lower == '美咲' and 'misaki' in fname_lower) or (name_lower == '涼介' and 'ryosuke' in fname_lower) or ('option' not in fname_lower and 'misaki' not in fname_lower and 'ryosuke' not in fname_lower) %}
+            <div style="background:#fafafa; border-radius:8px; padding:12px; text-align:center; width:200px; border:1px solid #e0e0e0;">
+                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; border-radius:6px; margin-bottom:8px; max-height:280px; object-fit:cover;" data-testid="img-{{ img.filename }}">
+                <div style="font-size:0.8rem; color:#546e7a; margin-bottom:8px; word-break:break-all;">{{ img.filename }}</div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <button class="btn btn-sm set-img-btn" data-char-id="{{ char.id }}" data-type="image_face" data-path="{{ img.url }}" data-testid="btn-face-{{ img.filename }}" style="font-size:0.75rem; padding:4px 8px; background:#00897b; color:white; border:none; border-radius:4px; cursor:pointer;">顔に設定</button>
+                    <button class="btn btn-sm set-img-btn" data-char-id="{{ char.id }}" data-type="image_bust" data-path="{{ img.url }}" data-testid="btn-bust-{{ img.filename }}" style="font-size:0.75rem; padding:4px 8px; background:#00796b; color:white; border:none; border-radius:4px; cursor:pointer;">バストに設定</button>
+                    <button class="btn btn-sm set-img-btn" data-char-id="{{ char.id }}" data-type="image_fullbody" data-path="{{ img.url }}" data-testid="btn-full-{{ img.filename }}" style="font-size:0.75rem; padding:4px 8px; background:#00695c; color:white; border:none; border-radius:4px; cursor:pointer;">全身に設定</button>
+                    <button class="btn btn-sm set-img-btn" data-char-id="{{ char.id }}" data-type="image_path" data-path="{{ img.url }}" data-testid="btn-default-{{ img.filename }}" style="font-size:0.75rem; padding:4px 8px; background:#546e7a; color:white; border:none; border-radius:4px; cursor:pointer;">デフォルトに設定</button>
+                </div>
             </div>
             {% endif %}
         {% endfor %}
     </div>
 </div>
-
-<div style="margin-bottom:24px;">
-    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:16px;">涼介（CEO・32歳）</h2>
-    <div style="display:flex; gap:24px; flex-wrap:wrap;">
-        {% for img in images %}
-            {% if 'ryosuke' in img.filename %}
-            <div style="background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; max-width:320px;">
-                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; max-width:300px; border-radius:8px; margin-bottom:12px;" data-testid="img-{{ img.filename }}">
-                <div style="font-size:0.9rem; color:#37474f; margin-bottom:8px;">{{ img.filename }}</div>
-                <button class="btn btn-primary select-btn" data-filename="{{ img.filename }}" data-url="{{ img.url }}" data-character="涼介" data-testid="btn-select-{{ img.filename }}" style="width:100%;">この画像を涼介に設定</button>
-            </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-</div>
-
-<div style="margin-bottom:24px;">
-    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:16px;">その他の画像</h2>
-    <div style="display:flex; gap:24px; flex-wrap:wrap;">
-        {% for img in images %}
-            {% if 'misaki' not in img.filename and 'ryosuke' not in img.filename %}
-            <div style="background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; max-width:320px;">
-                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; max-width:300px; border-radius:8px; margin-bottom:12px;" data-testid="img-{{ img.filename }}">
-                <div style="font-size:0.9rem; color:#37474f;">{{ img.filename }}</div>
-            </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-</div>
+{% endfor %}
 
 <div style="margin-top:24px;">
     <a href="/characters" class="btn btn-secondary" data-testid="link-back-characters">← キャラクター管理に戻る</a>
@@ -57,23 +54,25 @@
 <div id="toast" style="display:none; position:fixed; bottom:24px; right:24px; background:#00897b; color:white; padding:16px 24px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.2); z-index:9999; font-weight:600;"></div>
 
 <script>
-document.querySelectorAll('.select-btn').forEach(btn => {
+document.querySelectorAll('.set-img-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
-        const filename = this.dataset.filename;
-        const character = this.dataset.character;
-        const charId = character === '美咲' ? 1 : 2;
-        const imagePath = '/static/characters/' + filename;
+        const charId = this.dataset.charId;
+        const type = this.dataset.type;
+        const path = this.dataset.path;
+        const typeLabel = {image_face:'顔', image_bust:'バスト', image_fullbody:'全身', image_path:'デフォルト'}[type];
 
         try {
+            const body = {};
+            body[type] = path;
             const resp = await fetch('/api/characters/' + charId, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ image_path: imagePath })
+                body: JSON.stringify(body)
             });
             const data = await resp.json();
             if (data.success) {
                 const toast = document.getElementById('toast');
-                toast.textContent = character + 'の画像を設定しました！';
+                toast.textContent = typeLabel + '画像を設定しました';
                 toast.style.display = 'block';
                 this.textContent = '✓ 設定済み';
                 this.style.background = '#2e7d32';

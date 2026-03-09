@@ -10,7 +10,10 @@
 <div class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h3>キャラクター一覧</h3>
-        <button class="btn btn-primary btn-sm" data-testid="btn-add-character" onclick="showAddForm()">＋ 新規追加</button>
+        <div style="display:flex;gap:8px;">
+            <a href="/character-images" class="btn btn-secondary btn-sm" data-testid="link-character-images">📸 画像選択</a>
+            <button class="btn btn-primary btn-sm" data-testid="btn-add-character" onclick="showAddForm()">＋ 新規追加</button>
+        </div>
     </div>
 
     <div id="add-form" style="display:none;margin-bottom:24px">
@@ -84,6 +87,10 @@
                     {% endif %}
                     {% if char.voice_id %}
                     <p style="font-size:0.75rem;color:var(--accent);margin-top:4px">🔊 Voice: {{ char.voice_id[:16] }}...</p>
+                    {% endif %}
+                    {% set img_count = [char.image_face, char.image_bust, char.image_fullbody] | select | list | length %}
+                    {% if img_count > 0 %}
+                    <p style="font-size:0.75rem;color:#00897b;margin-top:4px">📸 画像 {{ img_count }}/3 設定済（{{ '顔' if char.image_face else '' }}{{ ' バスト' if char.image_bust else '' }}{{ ' 全身' if char.image_fullbody else '' }}）</p>
                     {% endif %}
                     <div style="display:flex;gap:6px;margin-top:10px">
                         <button class="btn btn-secondary btn-sm" data-testid="btn-edit-{{ char.id }}" onclick="editCharacter({{ char.id }})">編集</button>

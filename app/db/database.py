@@ -75,6 +75,9 @@ def init_db():
             description TEXT,
             voice_id VARCHAR(100),
             image_path VARCHAR(500),
+            image_face VARCHAR(500),
+            image_bust VARCHAR(500),
+            image_fullbody VARCHAR(500),
             series_id INTEGER,
             created_at TIMESTAMP DEFAULT NOW()
         );
@@ -100,6 +103,24 @@ def init_db():
                 WHERE table_name = 'series' AND column_name = 'character_image'
             ) THEN
                 ALTER TABLE series ADD COLUMN character_image VARCHAR(500);
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'characters' AND column_name = 'image_face'
+            ) THEN
+                ALTER TABLE characters ADD COLUMN image_face VARCHAR(500);
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'characters' AND column_name = 'image_bust'
+            ) THEN
+                ALTER TABLE characters ADD COLUMN image_bust VARCHAR(500);
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'characters' AND column_name = 'image_fullbody'
+            ) THEN
+                ALTER TABLE characters ADD COLUMN image_fullbody VARCHAR(500);
             END IF;
         END $$;
     """)
