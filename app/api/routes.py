@@ -9,13 +9,16 @@ from app.api.auth import (
     hash_password, verify_password, create_access_token,
     get_current_user, require_auth
 )
+from fastapi import UploadFile, File
 from app.db.database import (
     get_admin_user, create_admin_user, get_all_dramas,
     get_drama_by_id, get_dramas_with_analytics, update_drama,
     get_ai_logs, get_setting, set_setting,
-    get_active_series, get_all_series
+    get_active_series, get_all_series,
+    get_characters, get_characters_by_series, get_character_by_id,
+    create_character, update_character, delete_character
 )
-from app.services.pipeline import run_full_pipeline, generate_theme_only
+from app.services.pipeline import run_full_pipeline, generate_theme_only, generate_script_only, continue_pipeline_from_script
 from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.youtube.youtube_service import (
     get_oauth_flow, save_credentials, is_youtube_connected
@@ -189,6 +192,9 @@ async def generate_page(request: Request):
         return RedirectResponse(url="/login", status_code=303)
 
     active_series = get_active_series()
+    characters_list = []
+    if active_series:
+        characters_list = get_characters_by_series(active_series["id"])
     return templates.TemplateResponse("generate.html", {
         "request": request,
         "user": user,
@@ -196,6 +202,7 @@ async def generate_page(request: Request):
         "last_result": pipeline_status.get("last_result"),
         "youtube_connected": is_youtube_connected(),
         "active_series": active_series,
+        "characters": characters_list,
     })
 
 
@@ -378,6 +385,139 @@ def pipeline_progress_callback(step: int, message: str):
     pipeline_log(message, step=step)
 
 
+@router.post("/api/generate-script")
+async def api_generate_script(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    if pipeline_status["running"]:
+        return JSONResponse({"error": "パイプラインが実行中です"}, status_code=409)
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    custom_theme = body.get("theme", "").strip() or None
+    target_episode = body.get("target_episode")
+    if target_episode:
+        try:
+            target_episode = int(target_episode)
+        except (ValueError, TypeError):
+            target_episode = None
+
+    active_series = get_active_series()
+    characters_list = []
+    if active_series:
+        characters_list = get_characters_by_series(active_series["id"])
+
+    import datetime
+
+    def run_script_gen():
+        if not pipeline_lock.acquire(blocking=False):
+            return
+        try:
+            pipeline_status["running"] = True
+            pipeline_status["last_result"] = None
+            pipeline_status["current_step"] = 0
+            pipeline_status["step_label"] = ""
+            pipeline_status["logs"] = []
+            pipeline_status["started_at"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            try:
+                result = generate_script_only(
+                    progress_callback=pipeline_progress_callback,
+                    custom_theme=custom_theme,
+                    target_episode=target_episode,
+                    characters=characters_list
+                )
+                pipeline_status["last_result"] = result
+                pipeline_log("脚本生成完了", step=2)
+            except Exception as e:
+                pipeline_status["last_result"] = {"success": False, "error": str(e)}
+                pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
+        finally:
+            pipeline_status["running"] = False
+            pipeline_lock.release()
+
+    thread = threading.Thread(target=run_script_gen, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "脚本生成を開始しました", "status": "running"})
+
+
+@router.post("/api/generate-video/{drama_id}")
+async def api_generate_video(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    if pipeline_status["running"]:
+        return JSONResponse({"error": "パイプラインが実行中です"}, status_code=409)
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    max_scenes = body.get("max_scenes")
+    if max_scenes:
+        try:
+            max_scenes = int(max_scenes)
+        except (ValueError, TypeError):
+            max_scenes = None
+
+    import datetime
+
+    def run_video_gen():
+        if not pipeline_lock.acquire(blocking=False):
+            return
+        try:
+            pipeline_status["running"] = True
+            pipeline_status["last_result"] = None
+            pipeline_status["current_step"] = 3
+            pipeline_status["step_label"] = ""
+            pipeline_status["logs"] = []
+            pipeline_status["started_at"] = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            try:
+                result = continue_pipeline_from_script(
+                    drama_id=drama_id,
+                    progress_callback=pipeline_progress_callback,
+                    max_scenes=max_scenes
+                )
+                pipeline_status["last_result"] = result
+                pipeline_log("パイプライン完了", step=9)
+            except Exception as e:
+                pipeline_status["last_result"] = {"success": False, "error": str(e)}
+                pipeline_log(f"エラー: {str(e)}", step=pipeline_status["current_step"])
+        finally:
+            pipeline_status["running"] = False
+            pipeline_lock.release()
+
+    thread = threading.Thread(target=run_video_gen, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "動画生成を開始しました", "status": "running"})
+
+
+@router.put("/api/dramas/{drama_id}/script")
+async def api_update_script(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    body = await request.json()
+    script_data = body.get("script_data")
+    if not script_data:
+        return JSONResponse({"error": "脚本データが必要です"}, status_code=400)
+
+    import json
+    update_drama(drama_id, script=json.dumps(script_data, ensure_ascii=False))
+    return JSONResponse({"success": True})
+
+
 @router.get("/api/pipeline-status")
 async def api_pipeline_status(request: Request):
     user = get_current_user(request)
@@ -514,3 +654,110 @@ async def api_usage(request: Request):
     result["kling"] = {"configured": bool(os.environ.get("KLING_API_KEY"))}
 
     return JSONResponse(result)
+
+
+@router.get("/characters", response_class=HTMLResponse)
+async def characters_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    characters = get_characters()
+    all_series = get_all_series()
+    return templates.TemplateResponse("characters.html", {
+        "request": request,
+        "user": user,
+        "characters": characters,
+        "all_series": all_series,
+    })
+
+
+@router.post("/api/characters")
+async def api_create_character(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    body = await request.json()
+    name = body.get("name", "").strip()
+    if not name:
+        return JSONResponse({"error": "名前は必須です"}, status_code=400)
+
+    char_id = create_character(
+        name=name,
+        role=body.get("role", "主人公"),
+        description=body.get("description", ""),
+        voice_id=body.get("voice_id", ""),
+        image_path=body.get("image_path", ""),
+        series_id=int(body["series_id"]) if body.get("series_id") else None
+    )
+    return JSONResponse({"success": True, "id": char_id})
+
+
+@router.put("/api/characters/{character_id}")
+async def api_update_character(request: Request, character_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    body = await request.json()
+    updates = {}
+    if "name" in body:
+        updates["name"] = body["name"].strip()
+    if "role" in body:
+        updates["role"] = body["role"]
+    if "description" in body:
+        updates["description"] = body["description"]
+    if "voice_id" in body:
+        updates["voice_id"] = body["voice_id"]
+    if "image_path" in body:
+        updates["image_path"] = body["image_path"]
+    if "series_id" in body:
+        updates["series_id"] = int(body["series_id"]) if body["series_id"] else None
+
+    if updates:
+        update_character(character_id, **updates)
+    return JSONResponse({"success": True})
+
+
+@router.delete("/api/characters/{character_id}")
+async def api_delete_character(request: Request, character_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    delete_character(character_id)
+    return JSONResponse({"success": True})
+
+
+@router.post("/api/characters/upload-image")
+async def api_upload_character_image(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    form = await request.form()
+    image = form.get("image")
+    if not image:
+        return JSONResponse({"error": "画像が必要です"}, status_code=400)
+
+    import uuid
+    ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+    MAX_SIZE = 10 * 1024 * 1024
+
+    ext = os.path.splitext(image.filename)[1].lower() if image.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        return JSONResponse({"error": f"許可されていないファイル形式です。{', '.join(ALLOWED_EXTENSIONS)} のみ"}, status_code=400)
+
+    contents = await image.read()
+    if len(contents) > MAX_SIZE:
+        return JSONResponse({"error": "ファイルサイズが大きすぎます（最大10MB）"}, status_code=400)
+
+    os.makedirs("app/static/characters", exist_ok=True)
+    filename = f"char_{uuid.uuid4().hex[:8]}{ext}"
+    filepath = f"app/static/characters/{filename}"
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    return JSONResponse({"success": True, "path": filepath})

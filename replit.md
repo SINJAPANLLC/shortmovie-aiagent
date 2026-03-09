@@ -28,11 +28,19 @@
 - タイトル形式: `CEOの扉 | {シリーズ名} 第{話数}話「{サブタイトル}」`
 - 投稿説明文: チャンネル名 + シリーズ名 + サブタイトル + CTA + ハッシュタグ
 
-## Pipeline (10 Steps)
-0. 初期化 → 1. テーマ生成(Claude) → 2. 脚本生成(Claude) → 3. 画像生成(Stable Diffusion) → 4. シーン分割 → 5. 動画シーン生成(Kling) → 6. 音声生成(ElevenLabs) → 7. 字幕生成+動画編集(FFmpeg) → 8. 投稿(YouTube/TikTok) → 9. 完了
+## Pipeline (2-Step Mode + Full Auto)
+- **脚本だけ生成**: テーマ+脚本生成 → 脚本編集(手動) → 動画生成
+- **全自動生成**: テーマ→脚本→画像→Kling→音声→FFmpeg→投稿 の全自動
+- 新API: POST /api/generate-script (脚本のみ), POST /api/generate-video/{id} (動画のみ), PUT /api/dramas/{id}/script (脚本編集)
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
 - 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Sans CJK JP フォント使用）
 - Kling API: キャラクター画像がある場合は `image2video` エンドポイントにbase64画像を送信。失敗時は `text2video` にフォールバック
+
+## Script Format
+- セリフ中心の対話形式（ナレーションは最小限）
+- 形式: 話者名「セリフ」（例: CEO「君、泣いてたよね」）
+- 各シーンにspeakerフィールドあり（主人公/CEO/ナレーション等）
+- キャラクター情報がある場合、脚本プロンプトに【登場キャラクター】として反映
 
 ## Series System
 - `series` テーブルでシリーズを管理
@@ -87,7 +95,8 @@ app/
     dashboard.html               # Dashboard with series progress + stats + 4 tabs
     dramas.html                  # Drama list
     drama_detail.html            # Drama detail view
-    generate.html                # Manual generation page (8-step flow + channel info)
+    generate.html                # 2-step generation: script-only + edit → video, or full auto
+    characters.html              # Character management (CRUD + image upload + voice ID)
     settings.html                # API settings + usage (6 service cards)
   static/
     css/style.css                # Turquoise theme
@@ -100,7 +109,8 @@ app/
 
 ## Database Tables
 - `series` - id, series_number, name, description, synopsis, total_episodes(30), current_episode, status(active/completed), created_at
-- `dramas` - id, title, genre, theme, script, scene_count, video_url, thumbnail_url, youtube_id, tiktok_id, views, likes, status, episode_number, series_id, series_episode, created_at
+- `dramas` - id, title, genre, theme, script, scene_count, video_url, thumbnail_url, youtube_id, tiktok_id, views, likes, status(draft/script_ready/generating/ready/published), episode_number, series_id, series_episode, created_at
+- `characters` - id, name, role(主人公/CEO/サブキャラ/ライバル/ナレーション), description, voice_id, image_path, series_id, created_at
 - `ai_logs` - id, drama_id, step, prompt, response, created_at
 - `admin_users` - id, username, password_hash, created_at
 - `settings` - key, value

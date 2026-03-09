@@ -67,6 +67,17 @@ def init_db():
             key VARCHAR(100) PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS characters (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            role VARCHAR(50) DEFAULT '主人公',
+            description TEXT,
+            voice_id VARCHAR(100),
+            image_path VARCHAR(500),
+            series_id INTEGER,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
     """)
 
     cur.execute("""
@@ -318,6 +329,74 @@ def set_setting(key, value):
         INSERT INTO settings (key, value) VALUES (%s, %s)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     """, (key, str(value)))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_characters():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM characters ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_characters_by_series(series_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM characters WHERE series_id = %s OR series_id IS NULL ORDER BY created_at DESC", (series_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_character_by_id(character_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM characters WHERE id = %s", (character_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return dict(row) if row else None
+
+
+def create_character(name, role="主人公", description="", voice_id="", image_path="", series_id=None):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO characters (name, role, description, voice_id, image_path, series_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (name, role, description, voice_id, image_path, series_id)
+    )
+    char_id = cur.fetchone()["id"]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return char_id
+
+
+def update_character(character_id, **kwargs):
+    conn = get_connection()
+    cur = conn.cursor()
+    sets = []
+    vals = []
+    for k, v in kwargs.items():
+        sets.append(f"{k} = %s")
+        vals.append(v)
+    vals.append(character_id)
+    cur.execute(f"UPDATE characters SET {', '.join(sets)} WHERE id = %s", vals)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def delete_character(character_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM characters WHERE id = %s", (character_id,))
     conn.commit()
     cur.close()
     conn.close()

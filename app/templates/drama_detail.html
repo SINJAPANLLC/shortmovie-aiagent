@@ -97,15 +97,16 @@
     <video controls style="max-width:300px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" data-testid="video-preview">
         <source src="/{{ drama.video_url | replace('app/static/', 'static/') }}" type="video/mp4">
     </video>
+    <div style="margin-top:12px">
+        <a href="/{{ drama.video_url | replace('app/static/', 'static/') }}" download="{{ drama.title or 'drama' }}.mp4" class="btn btn-primary btn-sm" data-testid="btn-download-video">⬇ 動画をダウンロード</a>
+    </div>
 </div>
 {% endif %}
 
 {% if drama.script %}
 <div class="section">
     <h2>脚本 / ナレーション</h2>
-    <div class="story-content">
-        {{ drama.script | replace('\n', '<br>') | safe }}
-    </div>
+    <pre class="story-content" style="white-space:pre-wrap;word-wrap:break-word;font-family:inherit;line-height:1.8;background:var(--bg-primary);padding:16px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem" data-testid="text-script">{{ drama.script }}</pre>
 </div>
 {% endif %}
 

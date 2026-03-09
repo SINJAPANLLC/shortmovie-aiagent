@@ -15,7 +15,7 @@ def _noop(step, msg):
     pass
 
 
-def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_callback=None, series_info=None, previous_script=None, emotional_arc=""):
+def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_callback=None, series_info=None, previous_script=None, emotional_arc="", characters_context=""):
     if progress_callback is None:
         progress_callback = _noop
 
@@ -49,6 +49,7 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
 3. 感情の落差が激しい（幸せな瞬間→一瞬で崩壊、を45秒で作る）
 {series_context}
 {prev_script_context}
+{characters_context}
 
 テーマ: {theme}
 冒頭フック: {hook}
@@ -84,9 +85,10 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
 - 視聴者が「えっ、ここで終わるの!?」と思う瞬間
 
 【脚本ルール】
-- 合計150〜200文字のナレーション
+- 合計150〜200文字の対話（セリフ中心、ナレーションは最小限）
 - 6〜8シーンに分割
-- セリフとナレーションを混ぜる（セリフは「」で囲む）
+- セリフ中心で構成。ナレーションは状況説明の最小限のみ
+- セリフは「話者名「セリフ」」の形式で書く（例: 美咲「なんで...ここにいるの？」）
 - 説明的な文は書かない（「彼は怒った」→「机を叩いた」）
 - 五感で伝える（視覚、聴覚、触覚を使う）
 - 最後は必ず「続く...」で終わる
@@ -126,13 +128,14 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
 
 以下のJSON形式で返してください:
 {{
-    "narration": "全体のナレーション+セリフテキスト（150〜200文字。セリフは「」で囲む）",
+    "narration": "全体の対話テキスト（150〜200文字。話者名「セリフ」形式。ナレーションは最小限）",
     "scenes": [
         {{
             "scene_number": 1,
             "duration": 6,
             "description": "映像の詳細説明（英語。カメラワーク+ライティング+表情+場所を含む。40-60 words）",
-            "narration": "このシーンのナレーション/セリフ",
+            "narration": "このシーンの対話/セリフ（話者名「セリフ」形式）",
+            "speaker": "話者名（例: 主人公, CEO, ナレーション）",
             "emotion": "このシーンの核心感情（例: 緊張、切なさ、衝撃、期待）"
         }},
         ...
@@ -171,13 +174,13 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
         pass
 
     return {
-        "narration": "「君、泣いてたよね」——エレベーターで隣に立った男が、そう言った。心臓が止まりそうだった。誰にも見せたことのない涙を、この人は見ていた。「大丈夫じゃなくていい」——その声が、ずるいくらい優しかった。翌朝、出社した彼女の目の前に、昨日の男が立っていた。名札には「CEO」の文字。続く...",
+        "narration": "CEO「君、泣いてたよね」ナレーション「エレベーターで隣に立った男が、そう言った」主人公「え...誰...？」ナレーション「誰にも見せたことのない涙を、この人は見ていた」CEO「大丈夫じゃなくていい」主人公「...なんで、そんなこと言うんですか」ナレーション「翌朝、出社した彼女の目の前に、昨日の男が立っていた。名札には『CEO』の文字」続く...",
         "scenes": [
-            {"scene_number": 1, "duration": 5, "description": "Extreme close-up of a man's lips speaking in elevator, dramatic side lighting, luxury glass elevator with city view, vertical 9:16 composition, 1080x1920, cinematic shallow depth of field", "narration": "「君、泣いてたよね」", "emotion": "衝撃"},
-            {"scene_number": 2, "duration": 5, "description": "Over-the-shoulder shot of beautiful Japanese woman looking up at tall handsome man in suit, elevator interior with warm golden lighting, eyes wide with surprise, vertical 9:16 composition, 1080x1920", "narration": "エレベーターで隣に立った男が、そう言った。心臓が止まりそうだった。", "emotion": "動揺"},
-            {"scene_number": 3, "duration": 6, "description": "Close-up of woman's face, eyes glistening with unshed tears, soft diffused lighting, glass elevator descending with city lights behind, emotional vulnerability, vertical 9:16 composition, 1080x1920", "narration": "誰にも見せたことのない涙を、この人は見ていた。", "emotion": "切なさ"},
-            {"scene_number": 4, "duration": 6, "description": "Medium shot of CEO gently smiling, warm backlight from city skyline at dusk, luxury suit, slight smile that reaches his eyes, slow dolly in, vertical 9:16 composition, 1080x1920", "narration": "「大丈夫じゃなくていい」——その声が、ずるいくらい優しかった。", "emotion": "温かさ"},
-            {"scene_number": 5, "duration": 6, "description": "Wide establishing shot of modern luxury office lobby next morning, woman walking in with determined expression, cold blue fluorescent light contrasting with warm sunrise through windows, vertical 9:16 composition, 1080x1920", "narration": "翌朝、出社した彼女の目の前に、", "emotion": "緊張"},
-            {"scene_number": 6, "duration": 5, "description": "Dramatic slow dolly in on CEO standing at reception, low angle looking up, cold blue office light, woman's shocked reflection in glass wall, name plate reading CEO visible, cliffhanger composition, vertical 9:16, 1080x1920", "narration": "昨日の男が立っていた。名札には「CEO」の文字。続く...", "emotion": "衝撃"},
+            {"scene_number": 1, "duration": 5, "description": "Extreme close-up of a man's lips speaking in elevator, dramatic side lighting, luxury glass elevator with city view, vertical 9:16 composition, 1080x1920, cinematic shallow depth of field", "narration": "CEO「君、泣いてたよね」", "speaker": "CEO", "emotion": "衝撃"},
+            {"scene_number": 2, "duration": 5, "description": "Over-the-shoulder shot of beautiful Japanese woman looking up at tall handsome man in suit, elevator interior with warm golden lighting, eyes wide with surprise, vertical 9:16 composition, 1080x1920", "narration": "ナレーション「エレベーターで隣に立った男が、そう言った」主人公「え...誰...？」", "speaker": "主人公", "emotion": "動揺"},
+            {"scene_number": 3, "duration": 6, "description": "Close-up of woman's face, eyes glistening with unshed tears, soft diffused lighting, glass elevator descending with city lights behind, emotional vulnerability, vertical 9:16 composition, 1080x1920", "narration": "ナレーション「誰にも見せたことのない涙を、この人は見ていた」", "speaker": "ナレーション", "emotion": "切なさ"},
+            {"scene_number": 4, "duration": 6, "description": "Medium shot of CEO gently smiling, warm backlight from city skyline at dusk, luxury suit, slight smile that reaches his eyes, slow dolly in, vertical 9:16 composition, 1080x1920", "narration": "CEO「大丈夫じゃなくていい」", "speaker": "CEO", "emotion": "温かさ"},
+            {"scene_number": 5, "duration": 6, "description": "Close-up of woman's hands trembling, soft morning light, modern office lobby background, vertical 9:16 composition, 1080x1920", "narration": "主人公「...なんで、そんなこと言うんですか」", "speaker": "主人公", "emotion": "緊張"},
+            {"scene_number": 6, "duration": 5, "description": "Dramatic slow dolly in on CEO standing at reception, low angle looking up, cold blue office light, woman's shocked reflection in glass wall, name plate reading CEO visible, cliffhanger composition, vertical 9:16, 1080x1920", "narration": "ナレーション「翌朝、出社した彼女の目の前に、昨日の男が立っていた。名札には『CEO』の文字」続く...", "speaker": "ナレーション", "emotion": "衝撃"},
         ]
     }
