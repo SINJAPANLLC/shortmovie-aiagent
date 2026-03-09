@@ -117,15 +117,16 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
     if is_luma_available():
         progress_callback(3, f"サムネイル画像を生成中 (Luma Photon)...")
         genre_style = {
-            "CEOドラマ": "luxury penthouse office, city skyline at night, dramatic blue lighting",
-            "恋愛": "romantic sunset, cherry blossoms, warm golden light",
-            "復讐": "dramatic dark atmosphere, fire reflections, intense shadows",
+            "CEOドラマ": "elegant modern office with warm lighting, city skyline through floor-to-ceiling windows at golden hour, soft ambient glow",
+            "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
+            "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
         }
-        style = genre_style.get(genre, "cinematic dramatic lighting, luxury setting")
+        style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
         luma_prompt = (
-            f"dramatic thumbnail for short drama '{title}', {style}, "
-            "beautiful Japanese woman emotional expression, "
-            "photorealistic, high contrast, eye-catching, vertical 9:16"
+            f"cinematic film still for romance drama, {style}, "
+            "beautiful young Japanese woman with expressive eyes looking at handsome man in suit, "
+            "warm color grading, soft focus background, appealing and inviting mood, "
+            "photorealistic, high quality, vertical 9:16"
         )
         luma_bg_path = output_path.replace(".png", "_luma_bg.png")
         if generate_image_luma(luma_prompt, luma_bg_path, aspect_ratio="9:16"):
@@ -149,15 +150,16 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
             logger.warning(f"Stability thumbnail failed: {e}")
 
     genre_style = {
-        "CEOドラマ": "luxury penthouse office, city skyline at night, dramatic blue lighting",
-        "恋愛": "romantic sunset, cherry blossoms, warm golden light",
-        "復讐": "dramatic dark atmosphere, fire reflections, intense shadows",
+        "CEOドラマ": "elegant modern office with warm lighting, city skyline through windows at golden hour",
+        "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
+        "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
     }
-    style = genre_style.get(genre, "cinematic dramatic lighting, luxury setting")
+    style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
     poll_prompt = (
-        f"dramatic thumbnail for short drama, {style}, "
-        "beautiful Japanese woman emotional expression, "
-        "photorealistic, high contrast, eye-catching, vertical 9:16"
+        f"cinematic film still for romance drama, {style}, "
+        "beautiful young Japanese woman with expressive eyes, handsome man in suit, "
+        "warm color grading, appealing and inviting mood, "
+        "photorealistic, eye-catching, vertical 9:16"
     )
     progress_callback(3, f"サムネイル画像を生成中 (Pollinations AI)...")
     poll_path = output_path.replace(".png", "_poll.png")
@@ -199,20 +201,20 @@ def _compress_thumbnail(path: str, max_bytes: int = 1_800_000):
 
 def _generate_thumbnail_stability(title: str, genre: str, api_key: str, output_path: str) -> bool:
     genre_style = {
-        "恋愛": "romantic atmosphere, cherry blossoms, warm colors, sunset",
-        "浮気": "dramatic tension, dark shadows, mystery, split scene",
-        "復讐": "intense dramatic lighting, fire, dark tones, powerful expression",
-        "CEOドラマ": "luxury office, city skyline, elegant, modern, blue tones",
-        "怖い話": "horror atmosphere, dark, eerie lighting, shadows, cold tones",
+        "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset, soft light",
+        "浮気": "moody cinematic tension, cool blue and warm amber contrast, urban night",
+        "復讐": "cinematic atmosphere, cool blue and amber lighting, intense expression",
+        "CEOドラマ": "luxury modern office, city skyline at golden hour, warm elegant tones",
+        "怖い話": "suspenseful cinematic atmosphere, moody blue lighting, tension",
     }
-    style_desc = genre_style.get(genre, "cinematic dramatic lighting, luxury office")
+    style_desc = genre_style.get(genre, "warm cinematic lighting, elegant modern office")
 
     prompt = (
-        f"YouTube Shorts thumbnail, dramatic scene, "
+        f"YouTube Shorts thumbnail, cinematic film still, "
         f"{style_desc}, "
-        "photorealistic, eye-catching vertical thumbnail, dramatic composition, "
-        "high contrast, vibrant colors, vertical 9:16 aspect ratio, "
-        "beautiful Japanese woman in dramatic pose, cinematic lighting"
+        "photorealistic, eye-catching vertical thumbnail, appealing composition, "
+        "warm color grading, vibrant colors, vertical 9:16 aspect ratio, "
+        "beautiful young Japanese woman, handsome man in suit, romance drama mood"
     )
 
     with httpx.Client(timeout=120) as client:
@@ -272,9 +274,9 @@ def _generate_thumbnail_ffmpeg(title: str, drama_id: int, output_path: str, char
     if character_image and os.path.exists(character_image):
         vf = (
             f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-            f"eq=brightness=-0.08:contrast=1.3:saturation=1.2,"
-            f"drawbox=y=0:w=iw:h=ih*0.12:color=black@0.85:t=fill,"
-            f"drawbox=y=ih*0.72:w=iw:h=ih*0.28:color=black@0.80:t=fill,"
+            f"eq=brightness=0.02:contrast=1.15:saturation=1.15,"
+            f"drawbox=y=0:w=iw:h=ih*0.10:color=black@0.60:t=fill,"
+            f"drawbox=y=ih*0.75:w=iw:h=ih*0.25:color=black@0.65:t=fill,"
             f"drawbox=y=ih*0.72:w=iw:h=6:color=0x00897b:t=fill,"
             f"drawtext={font_arg}text='CEOの扉':fontsize=38:fontcolor=0x00E5A0:x=(w-text_w)/2:y=h*0.035:shadowcolor=black@0.9:shadowx=2:shadowy=2,"
             f"drawtext={font_arg}text='{ep_text}':fontsize=30:fontcolor=0xB2DFDB:x=(w-text_w)/2:y=h*0.075:shadowcolor=black@0.8:shadowx=1:shadowy=1,"

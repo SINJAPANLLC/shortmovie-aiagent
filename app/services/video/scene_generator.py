@@ -54,6 +54,32 @@ def _generate_scene_image(prompt: str, drama_id: int, scene_number: int) -> str:
     return None
 
 
+def _generate_scene_specific_image(scene_description: str, drama_id: int, scene_number: int, progress_callback=None) -> str:
+    if progress_callback is None:
+        progress_callback = _noop
+
+    output_path = os.path.join(SCENE_IMAGES_DIR, f"drama_{drama_id}_scene_{scene_number}_ai.png")
+
+    if is_luma_available():
+        progress_callback(5, f"シーン{scene_number}: シーン画像生成中 (Luma Photon)...")
+        img_prompt = (
+            f"{scene_description}, photorealistic, cinematic lighting, "
+            "dramatic atmosphere, beautiful Japanese actors, "
+            "high quality film still, vertical composition 9:16"
+        )
+        if generate_image_luma(img_prompt, output_path, aspect_ratio="9:16"):
+            logger.info(f"Scene {scene_number} specific image via Luma Photon: {output_path}")
+            return output_path
+        logger.warning(f"Luma Photon scene image failed for scene {scene_number}")
+
+    progress_callback(5, f"シーン{scene_number}: シーン画像生成中 (Pollinations)...")
+    poll_img = _generate_scene_image(scene_description, drama_id, scene_number)
+    if poll_img:
+        return poll_img
+
+    return None
+
+
 def _apply_ken_burns(image_path: str, output_path: str, duration: float = 6,
                      effect_type: str = "zoom_in") -> bool:
     d_frames = int(duration * 25)
@@ -94,6 +120,8 @@ def _apply_ken_burns(image_path: str, output_path: str, duration: float = 6,
 
 
 def _pick_effect(scene_number: int, emotion: str = "") -> str:
+    emotion_lower = emotion.lower() if emotion else ""
+
     emotion_effects = {
         "衝撃": "zoom_face",
         "驚き": "zoom_face",
@@ -105,10 +133,15 @@ def _pick_effect(scene_number: int, emotion: str = "") -> str:
         "温かさ": "pan_up",
         "怒り": "zoom_face",
         "動揺": "pan_right",
+        "混乱": "pan_right",
+        "罪悪感": "zoom_out",
+        "苦痛": "zoom_face",
+        "絶望": "zoom_out",
     }
 
-    if emotion and emotion in emotion_effects:
-        return emotion_effects[emotion]
+    for key, effect in emotion_effects.items():
+        if key in emotion_lower:
+            return effect
 
     cycle = ["zoom_in", "pan_left", "zoom_face", "pan_right", "zoom_out", "pan_up"]
     return cycle[scene_number % len(cycle)]
@@ -131,6 +164,12 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     os.makedirs(SCENES_DIR, exist_ok=True)
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
 
+    scene_image = _generate_scene_specific_image(
+        scene_description, drama_id, scene_number, progress_callback
+    )
+
+    kling_ref = scene_image or reference_image
+
     if _is_kling_available():
         progress_callback(5, f"シーン{scene_number}: AI動画生成中 (Kling AI)...")
         try:
@@ -138,13 +177,14 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
                 scene_description=scene_description,
                 scene_number=scene_number,
                 drama_id=drama_id,
-                reference_image=reference_image,
+                reference_image=kling_ref,
                 progress_callback=progress_callback
             )
             if kling_path and os.path.exists(kling_path) and os.path.getsize(kling_path) > 10000:
                 final = _ensure_duration(kling_path, duration)
                 logger.info(f"Scene {scene_number} video created via Kling AI: {final}")
                 progress_callback(5, f"シーン{scene_number}: Kling AI動画生成完了")
+                _cleanup_temp_image(scene_image, reference_image)
                 return final
         except Exception as e:
             logger.warning(f"Scene {scene_number}: Kling AI failed: {e}")
@@ -167,27 +207,27 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
             final = _ensure_duration(output_path, duration)
             logger.info(f"Scene {scene_number} video created via Luma: {final}")
             progress_callback(5, f"シーン{scene_number}: Luma動画生成完了")
+            _cleanup_temp_image(scene_image, reference_image)
             return final
 
         logger.warning(f"Scene {scene_number}: Luma video failed, falling back to image+Ken Burns")
 
-    progress_callback(5, f"シーン{scene_number}: 画像生成中...")
-    scene_image = None
-
-    if is_luma_available():
-        progress_callback(5, f"シーン{scene_number}: 画像生成中 (Luma Photon)...")
-        luma_img_path = os.path.join(SCENE_IMAGES_DIR, f"drama_{drama_id}_scene_{scene_number}_luma.png")
-        img_prompt = (
-            f"{scene_description}, photorealistic, cinematic lighting, "
-            "dramatic atmosphere, vertical composition 9:16"
-        )
-        if generate_image_luma(img_prompt, luma_img_path, aspect_ratio="9:16"):
-            scene_image = luma_img_path
-            logger.info(f"Scene {scene_number} image via Luma Photon")
-
     if not scene_image:
-        progress_callback(5, f"シーン{scene_number}: 画像生成中 (Pollinations AI)...")
-        scene_image = _generate_scene_image(scene_description, drama_id, scene_number)
+        progress_callback(5, f"シーン{scene_number}: 画像生成中...")
+        if is_luma_available():
+            progress_callback(5, f"シーン{scene_number}: 画像生成中 (Luma Photon)...")
+            luma_img_path = os.path.join(SCENE_IMAGES_DIR, f"drama_{drama_id}_scene_{scene_number}_luma.png")
+            img_prompt = (
+                f"{scene_description}, photorealistic, cinematic lighting, "
+                "dramatic atmosphere, vertical composition 9:16"
+            )
+            if generate_image_luma(img_prompt, luma_img_path, aspect_ratio="9:16"):
+                scene_image = luma_img_path
+                logger.info(f"Scene {scene_number} image via Luma Photon")
+
+        if not scene_image:
+            progress_callback(5, f"シーン{scene_number}: 画像生成中 (Pollinations AI)...")
+            scene_image = _generate_scene_image(scene_description, drama_id, scene_number)
 
     if not scene_image:
         if reference_image and os.path.exists(reference_image):

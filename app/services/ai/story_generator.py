@@ -41,12 +41,12 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
 {previous_script[:600]}"""
 
     prompt = f"""あなたは、日本のショートドラマ業界でトップの脚本家です。
-あなたの書く45秒ドラマは、視聴者が「もう一回見たい」「続き見なきゃ」と中毒になる力を持っています。
+TikTokやYouTube Shortsで何百万回も再生される45秒ドラマを書いてください。
 
-その秘密は3つ:
-1. 「見せる」脚本を書く（「彼女は悲しかった」ではなく「彼女の手が震えていた」）
-2. セリフに人間味がある（「愛してる」ではなく「君がいないと、コーヒーの味がしない」）
-3. 感情の落差が激しい（幸せな瞬間→一瞬で崩壊、を45秒で作る）
+【あなたの脚本の特徴】
+1. セリフが自然で生き生きしている（棒読みにならない、感情が込もったセリフ）
+2. 1話の中に必ず「ドキッとする瞬間」がある
+3. 見終わった後「次どうなるの!?」と思わせる
 {series_context}
 {prev_script_context}
 {characters_context}
@@ -56,96 +56,52 @@ def generate_script(theme, genre, hook="", twist="", drama_id=None, progress_cal
 引き/どんでん返し: {twist}
 {f'感情の流れ: {emotional_arc}' if emotional_arc else ''}
 
-【45秒ドラマの黄金構造】
+【45秒の構造】
+■ 0〜3秒: フック — スクロールを止める一言（セリフで始める）
+■ 3〜10秒: 状況 — 何が起きてるか1シーンで見せる
+■ 10〜30秒: ドラマの核心 — 感情がぶつかる対話。短い鋭いセリフの応酬
+■ 30〜40秒: 転換 — 予想外の展開や新事実
+■ 40〜45秒: 引き — 「えっ!?」で終わる + 続く...
 
-■ 0〜2秒: 衝撃フック
-- 視聴者がスクロールの手を止める一文
-- 感情が動く + 「なぜ？」が生まれる
-- セリフかナレーションか映像描写で
-例: 「『もう会わない方がいい』——そう言ったのは、彼の方だった」
-例: 雨の中、高級車から降りてきた男の目が、彼女を捉えた
+【絶対ルール】
+- セリフ中心（全体の80%以上がセリフ）。ナレーションは1〜2文だけ
+- 合計150〜200文字
+- 6〜8シーンに分割（1シーン = 5〜7秒）
+- セリフ形式: 主人公「セリフ」 CEO「セリフ」 ナレーション「状況説明」
+- 自然な日本語の会話（「...」や「！」を効果的に使う）
+- 各シーンのセリフは短く（1シーン15〜30文字）
+- 最後は必ず「続く...」
 
-■ 2〜8秒: 状況設定（何が起きているか一瞬で分からせる）
-- 前回の続きか、新しい場面の導入
-- 場所・人物・状況を映像で伝える
+【絶対禁止】
+- キャラの実名（翔子、蓮、美咲、涼介など）は使用禁止
+- 必ず「主人公」「CEO」「ナレーション」の役割名のみ使用
+- 説明的な文章（「彼は悲しんだ」→ ×）。代わりに行動で見せる
+- 長いナレーション（映像で見せる。言葉で説明しない）
 
-■ 8〜25秒: 感情の山を作る（ここがドラマの核心）
-- 1つの出来事・1つのシーンに集中する
-- 表情、仕草、声のトーンで感情を伝える
-- セリフは短く、でも刺さる言葉を選ぶ
-- 「心臓が止まりそうな瞬間」を1つ入れる
-
-■ 25〜35秒: 転換点（予想を裏切る）
-- 視聴者が「そうなると思ってた」の逆を行く
-- 新しい情報、意外な行動、告白、暴露
-
-■ 35〜45秒: 引き（次回への中毒性を最大化）
-- 最後の1文で新しい謎を残す
-- 感情のピークで「続く...」
-- 視聴者が「えっ、ここで終わるの!?」と思う瞬間
-
-【脚本ルール】
-- 合計150〜200文字の対話（セリフ中心、ナレーションは最小限）
-- 6〜8シーンに分割
-- セリフ中心で構成。ナレーションは状況説明の最小限のみ
-- セリフは「話者名「セリフ」」の形式で書く（例: 美咲「なんで...ここにいるの？」）
-- 説明的な文は書かない（「彼は怒った」→「机を叩いた」）
-- 五感で伝える（視覚、聴覚、触覚を使う）
-- 最後は必ず「続く...」で終わる
-- 1シーンにつき1つの感情に集中する
-
-【映像演出の指示】
-各シーンのdescriptionは、動画生成AIが最高の映像を作れるように、
-以下を必ず含めてください：
-
-カメラワーク指示:
-- "extreme close-up" (感情シーン: 目、唇、手の震え)
-- "over-the-shoulder shot" (対話シーン)
-- "wide establishing shot" (場面設定)
-- "slow dolly in" (緊張が高まるシーン)
-- "low angle looking up" (CEOの権力・オーラ)
-
-ライティング指示:
-- "golden hour warm backlight" (ロマンティック)
-- "cold blue fluorescent office light" (ビジネス・緊張)
-- "rain on window with city lights bokeh" (切ないシーン)
-- "dramatic side lighting with deep shadows" (秘密・葛藤)
-- "soft diffused morning light" (希望・新しい始まり)
-
-表情・演技指示:
-- "eyes glistening with unshed tears" (泣きそうだけど我慢)
-- "jaw clenched, looking away" (怒りを押し殺す)
-- "slight smile that doesn't reach the eyes" (嘘の笑顔)
-- "hands trembling while holding phone" (衝撃・動揺)
-
-世界観:
-- "luxury penthouse office, floor-to-ceiling windows, city skyline at dusk"
-- "rainy Tokyo street, neon reflections on wet asphalt"
-- "intimate Italian restaurant, candlelight, wine glasses"
-- "modern minimalist apartment, single lamp light"
-
-必ず "vertical 9:16 composition, 1080x1920" を含めてください。
+【映像description（英語）の書き方】
+各シーンのdescriptionは、動画生成AIへの指示です。
+各シーンで異なる構図・場所・アングルを使い、映像に変化をつけてください:
+- シーンごとに異なるカメラアングル（close-up, wide shot, over-shoulder, low angle等）
+- シーンごとに異なる場所や背景（オフィス, カフェ, 車内, 雨の路上, エレベーター等）
+- 照明の変化（warm golden light, cold blue light, sunset backlight等）
+- 表情や仕草の描写（tears, trembling hands, clenched jaw等）
+- 必ず "vertical 9:16 composition, 1080x1920, cinematic, photorealistic" を含める
+- 40〜60 words
 
 以下のJSON形式で返してください:
 {{
-    "narration": "全体の対話テキスト（150〜200文字。話者名「セリフ」形式。ナレーションは最小限）",
+    "narration": "全体のセリフテキスト（主人公「」CEO「」ナレーション「」形式。150-200文字）",
     "scenes": [
         {{
             "scene_number": 1,
             "duration": 6,
-            "description": "映像の詳細説明（英語。カメラワーク+ライティング+表情+場所を含む。40-60 words）",
-            "narration": "このシーンの対話/セリフ（必ず 主人公「セリフ」CEO「セリフ」ナレーション「説明」 の形式。キャラの実名ではなく役割名を使う）",
-            "speaker": "このシーンのメイン話者。必ず次の3つのいずれか: 主人公 / CEO / ナレーション（キャラの実名は使わない）",
-            "emotion": "このシーンの核心感情（例: 緊張、切なさ、衝撃、期待）"
-        }},
-        ...
+            "description": "English visual description for AI video generation (40-60 words, unique camera angle + location + lighting + expression for each scene)",
+            "narration": "このシーンのセリフ（主人公「セリフ」CEO「セリフ」等）",
+            "speaker": "主人公 or CEO or ナレーション",
+            "emotion": "感情（例: 緊張、衝撃、切なさ）"
+        }}
     ]
-}}
-
-【重要ルール】
-- narration内のセリフ表記は必ず「主人公「セリフ」」「CEO「セリフ」」「ナレーション「説明文」」の形式にしてください
-- キャラクターの実名（美咲、涼介、翔子、蓮 など）はnarrationやspeakerには使わないでください
-- speakerフィールドは必ず「主人公」「CEO」「ナレーション」の3択です"""
+}}"""
 
     message = None
     for attempt in range(MAX_RETRIES):

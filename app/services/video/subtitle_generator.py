@@ -11,6 +11,9 @@ os.makedirs(SUBTITLE_DIR, exist_ok=True)
 def _clean_subtitle_text(text: str) -> str:
     cleaned = re.sub(r'[^\s「」、。！？…]+「', '「', text)
     cleaned = re.sub(r'「([^」]*)」', r'\1', cleaned)
+    cleaned = re.sub(r'[a-zA-Z][a-zA-Z0-9\s,.\-\'\"]+', '', cleaned)
+    cleaned = re.sub(r'[a-zA-Z]', '', cleaned)
+    cleaned = re.sub(r'\s+', '', cleaned)
     return cleaned.strip()
 
 
@@ -29,9 +32,26 @@ def generate_subtitle(scenes: list, drama_id: int, progress_callback=None) -> st
     for i, scene in enumerate(scenes):
         narration = scene.get("narration", "").strip()
         if not narration:
-            narration = scene.get("description", "").strip()
-        if not narration:
+            try:
+                duration = float(scene.get("duration", 5))
+                if duration <= 0 or duration > 30:
+                    duration = 5.0
+            except (ValueError, TypeError):
+                duration = 5.0
+            current_time += duration
             continue
+
+        has_japanese = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', narration))
+        if not has_japanese:
+            try:
+                duration = float(scene.get("duration", 5))
+                if duration <= 0 or duration > 30:
+                    duration = 5.0
+            except (ValueError, TypeError):
+                duration = 5.0
+            current_time += duration
+            continue
+
         narration = _clean_subtitle_text(narration)
 
         try:

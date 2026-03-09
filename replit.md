@@ -11,8 +11,8 @@
 - **Database**: PostgreSQL (Neon - NEON_DATABASE_URL)
 - **AI Script**: Claude API (シリーズテーマ生成, エピソードテーマ生成, 脚本生成, 改善分析)
 - **Image Generation**: Luma Photon → Stability AI SD3 → Pollinations.ai（フォールバック順） (キャラクター画像 + サムネイル + シーン画像)
-- **Video Generation**: Kling AI image2video/text2video → Luma Dream Machine Ray-2（フォールバック）→ Pollinations.ai + FFmpeg Ken Burns → FFmpeg（編集・結合）
-- **Audio**: ElevenLabs API (マルチボイス音声生成 - 話者別声+感情表現)
+- **Video Generation**: シーンごとにLuma Photon/Pollinationsで固有画像生成 → Kling AI image2video → Luma Dream Machine Ray-2（フォールバック）→ Ken Burns → FFmpeg（編集・結合）
+- **Audio**: ElevenLabs API eleven_v3 (マルチボイス・高感情表現 - stability低め+style高め)
 - **YouTube**: YouTube Data API v3 (Shorts投稿/分析)
 - **TikTok**: Playwright RPA (ブラウザ自動操作で動画投稿、Cookie認証)
 - **Auth**: PBKDF2-SHA256 + JWT
@@ -35,7 +35,9 @@
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
 - 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Serif CJK JP明朝体, FontSize=18, 半透明黒背景, MarginV=80, max 18文字/チャンク）
 - BGM: ambient_sleep.mp3 をナレーションと15%ボリュームでミックス（ループ再生）
-- Kling API: キャラクター画像がある場合は `image2video` エンドポイントにbase64画像を送信。失敗時は `text2video` にフォールバック
+- Kling API: 各シーンごとにシーン描写から固有画像を生成(Luma Photon→Pollinations)→その画像をimage2videoに送信。失敗時はtext2video→Luma動画→Ken Burnsとフォールバック
+- 字幕: narrationフィールドのみ使用（descriptionフォールバック廃止）。英語テキストは自動除去
+- サムネイル: 温かい雰囲気のロマンスドラマ風（ホラー風を防止）
 
 ## Script Format
 - セリフ中心の対話形式（ナレーションは最小限）

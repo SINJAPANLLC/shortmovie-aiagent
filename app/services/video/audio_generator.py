@@ -22,30 +22,30 @@ VOICE_PROFILES = {
         "voice_id": "pFZP5JQG7iQjIQuC4Bku",
         "label": "Lily (女性・ドラマティック)",
         "settings": {
-            "stability": 0.25,
-            "similarity_boost": 0.85,
-            "style": 0.78,
-            "speed": 0.92
+            "stability": 0.20,
+            "similarity_boost": 0.90,
+            "style": 0.85,
+            "speed": 0.88
         }
     },
     "male": {
         "voice_id": "JBFqnCBsd6RMkjVDRZzb",
         "label": "George (男性・低音)",
         "settings": {
-            "stability": 0.30,
-            "similarity_boost": 0.85,
-            "style": 0.70,
-            "speed": 0.88
+            "stability": 0.22,
+            "similarity_boost": 0.90,
+            "style": 0.80,
+            "speed": 0.85
         }
     },
     "narrator": {
         "voice_id": "EXAVITQu4vr4xnSDxMaL",
         "label": "Sarah (ナレーター・物語)",
         "settings": {
-            "stability": 0.45,
-            "similarity_boost": 0.80,
-            "style": 0.55,
-            "speed": 0.90
+            "stability": 0.35,
+            "similarity_boost": 0.85,
+            "style": 0.65,
+            "speed": 0.88
         }
     },
 }
