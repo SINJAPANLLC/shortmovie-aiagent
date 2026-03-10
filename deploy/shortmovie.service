@@ -1,0 +1,17 @@
+[Unit]
+Description=CEOの扉 AI Short Drama Generator
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/shortmovie-aiagent
+EnvironmentFile=/opt/shortmovie-aiagent/.env
+ExecStart=/opt/shortmovie-aiagent/venv/bin/python main.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
