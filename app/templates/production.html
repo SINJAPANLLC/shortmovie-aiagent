@@ -30,6 +30,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
         <a href="/dramas/{{ drama.id }}" class="btn btn-secondary spa-link" data-testid="link-back-drama" style="font-size:0.85rem">← ドラマ詳細</a>
+        <button class="btn btn-secondary" data-testid="btn-delete-drama" onclick="deleteCurrentDrama()" style="font-size:0.85rem;color:var(--error)">削除</button>
     </div>
 </div>
 
@@ -533,6 +534,21 @@ var DRAMA_ID = {{ drama.id }};
 var TOTAL_SCENES = {{ scenes|length }};
 var pollTimer = null;
 var isPolling = false;
+
+window.deleteCurrentDrama = async function() {
+    if (!confirm('このドラマ「{{ (drama.title or "")|e }}」を削除しますか？\n関連する画像・動画・音声ファイルも全て削除されます。')) return;
+    try {
+        var res = await fetch('/api/dramas/' + DRAMA_ID, { method: 'DELETE' });
+        var data = await res.json();
+        if (data.success) {
+            window.location.href = '/dramas';
+        } else {
+            alert('エラー: ' + (data.error || '削除に失敗しました'));
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+    }
+};
 var currentStep = 'scenes';
 
 function showStep(stepId) {

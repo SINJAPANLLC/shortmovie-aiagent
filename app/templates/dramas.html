@@ -27,6 +27,7 @@
                 <th>再生数</th>
                 <th>いいね</th>
                 <th>作成日</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -51,6 +52,9 @@
                 <td>{{ "{:,}".format(drama.views or 0) }}</td>
                 <td>{{ "{:,}".format(drama.likes or 0) }}</td>
                 <td>{{ drama.created_at.strftime('%Y/%m/%d %H:%M') if drama.created_at else '-' }}</td>
+                <td>
+                    <button class="btn btn-secondary btn-delete-drama" data-id="{{ drama.id }}" data-title="{{ drama.title or '' }}" data-testid="btn-delete-drama-{{ drama.id }}" onclick="event.stopPropagation();deleteDrama({{ drama.id }}, '{{ (drama.title or '')|e }}')" style="font-size:0.7rem;padding:2px 8px;color:var(--error)">削除</button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -64,6 +68,22 @@
 {% endif %}
 
 <script>
+window.deleteDrama = async function(id, title) {
+    if (!confirm('「' + title + '」を削除しますか？\n関連する画像・動画・音声ファイルも全て削除されます。')) return;
+    try {
+        var res = await fetch('/api/dramas/' + id, { method: 'DELETE' });
+        var data = await res.json();
+        if (data.success) {
+            var row = document.querySelector('button[data-id="' + id + '"]');
+            if (row) row.closest('tr').remove();
+        } else {
+            alert('エラー: ' + (data.error || '削除に失敗しました'));
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+    }
+};
+
 window.addEpisode = async function() {
     var btn = document.getElementById('btn-add-episode');
     if (!btn) return;

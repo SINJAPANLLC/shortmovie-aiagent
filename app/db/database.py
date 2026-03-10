@@ -224,6 +224,15 @@ def delete_series(series_id):
     conn.close()
 
 
+def delete_drama(drama_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM dramas WHERE id = %s", (drama_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def get_all_dramas():
     conn = get_connection()
     cur = conn.cursor()
