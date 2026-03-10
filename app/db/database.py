@@ -122,6 +122,12 @@ def init_db():
             ) THEN
                 ALTER TABLE characters ADD COLUMN image_fullbody VARCHAR(500);
             END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'dramas' AND column_name = 'thumbnail_prompt'
+            ) THEN
+                ALTER TABLE dramas ADD COLUMN thumbnail_prompt TEXT;
+            END IF;
         END $$;
     """)
 

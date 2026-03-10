@@ -105,7 +105,7 @@ def generate_character_image(character_description: str, drama_id: int, progress
     return _create_placeholder_image(output_path, "Character", drama_id)
 
 
-def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None) -> str:
+def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None, custom_prompt: str = None) -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -116,18 +116,21 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
 
     if is_luma_available():
         progress_callback(3, f"サムネイル画像を生成中 (Luma Photon)...")
-        genre_style = {
-            "CEOドラマ": "elegant modern office with warm lighting, city skyline through floor-to-ceiling windows at golden hour, soft ambient glow",
-            "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
-            "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
-        }
-        style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
-        luma_prompt = (
-            f"cinematic film still for romance drama, {style}, "
-            "beautiful young Japanese woman with expressive eyes looking at handsome man in suit, "
-            "warm color grading, soft focus background, appealing and inviting mood, "
-            "photorealistic, high quality, vertical 9:16"
-        )
+        if custom_prompt:
+            luma_prompt = custom_prompt
+        else:
+            genre_style = {
+                "CEOドラマ": "elegant modern office with warm lighting, city skyline through floor-to-ceiling windows at golden hour, soft ambient glow",
+                "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
+                "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
+            }
+            style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
+            luma_prompt = (
+                f"cinematic film still for romance drama, {style}, "
+                "beautiful young Japanese woman with expressive eyes looking at handsome man in suit, "
+                "warm color grading, soft focus background, appealing and inviting mood, "
+                "photorealistic, high quality, vertical 9:16"
+            )
         luma_bg_path = output_path.replace(".png", "_luma_bg.png")
         if generate_image_luma(luma_prompt, luma_bg_path, aspect_ratio="9:16"):
             result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, luma_bg_path, episode_number)
@@ -149,18 +152,21 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
         except Exception as e:
             logger.warning(f"Stability thumbnail failed: {e}")
 
-    genre_style = {
-        "CEOドラマ": "elegant modern office with warm lighting, city skyline through windows at golden hour",
-        "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
-        "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
-    }
-    style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
-    poll_prompt = (
-        f"cinematic film still for romance drama, {style}, "
-        "beautiful young Japanese woman with expressive eyes, handsome man in suit, "
-        "warm color grading, appealing and inviting mood, "
-        "photorealistic, eye-catching, vertical 9:16"
-    )
+    if custom_prompt:
+        poll_prompt = custom_prompt
+    else:
+        genre_style = {
+            "CEOドラマ": "elegant modern office with warm lighting, city skyline through windows at golden hour",
+            "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
+            "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
+        }
+        style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
+        poll_prompt = (
+            f"cinematic film still for romance drama, {style}, "
+            "beautiful young Japanese woman with expressive eyes, handsome man in suit, "
+            "warm color grading, appealing and inviting mood, "
+            "photorealistic, eye-catching, vertical 9:16"
+        )
     progress_callback(3, f"サムネイル画像を生成中 (Pollinations AI)...")
     poll_path = output_path.replace(".png", "_poll.png")
     if _generate_pollinations_image(poll_prompt, poll_path, seed=drama_id * 13):

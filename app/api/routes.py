@@ -1333,6 +1333,15 @@ async def api_production_thumbnail(request: Request, drama_id: int):
     if not drama:
         return JSONResponse({"error": "Not found"}, status_code=404)
 
+    try:
+        body = await request.json()
+        custom_prompt = body.get("prompt", "").strip()
+    except Exception:
+        custom_prompt = ""
+
+    if custom_prompt:
+        update_drama(drama_id, thumbnail_prompt=custom_prompt)
+
     task_key = _get_production_task_key(drama_id, "thumbnail")
     if production_tasks.get(task_key, {}).get("status") == "running":
         return JSONResponse({"error": "Already generating"}, status_code=409)
@@ -1346,7 +1355,8 @@ async def api_production_thumbnail(request: Request, drama_id: int):
                 title=drama.get("title", ""),
                 genre=drama.get("genre", "CEOドラマ"),
                 drama_id=drama_id,
-                episode_number=drama.get("series_episode") or drama.get("episode_number")
+                episode_number=drama.get("series_episode") or drama.get("episode_number"),
+                custom_prompt=custom_prompt if custom_prompt else None,
             )
             if result and os.path.exists(result):
                 update_drama(drama_id, thumbnail_url=result)

@@ -384,10 +384,10 @@
                 <div>
                     <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">サムネイル</div>
                     <div style="margin-bottom:6px">
-                        <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">サムネイル生成情報</label>
-                        <div style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:0.7rem;color:var(--text-primary);background:var(--bg-primary);line-height:1.4;margin-top:2px">
-                            <div>タイトル: {{ drama.title or '(未設定)' }}</div>
-                            <div>エピソード: 第{{ drama.series_episode or drama.episode_number or '?' }}話</div>
+                        <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">サムネイルプロンプト</label>
+                        <textarea id="thumb-prompt-edit" data-testid="thumb-prompt" rows="4" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:5px;font-size:0.7rem;resize:vertical;font-family:inherit;line-height:1.4;margin-top:2px" placeholder="空欄の場合、デフォルトプロンプトが使用されます">{{ drama.thumbnail_prompt or '' }}</textarea>
+                        <div style="padding:4px 6px;font-size:0.65rem;color:var(--text-secondary);line-height:1.3;margin-top:2px">
+                            タイトル: {{ drama.title or '(未設定)' }} ／ 第{{ drama.series_episode or drama.episode_number or '?' }}話
                         </div>
                     </div>
                     <div id="thumb-preview" data-testid="thumb-preview" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden">
@@ -817,10 +817,16 @@ document.getElementById('btn-gen-subtitle').addEventListener('click', function()
 document.getElementById('btn-gen-thumb').addEventListener('click', function() {
     var btn = this;
     var preview = document.getElementById('thumb-preview');
+    var promptEl = document.getElementById('thumb-prompt-edit');
+    var thumbPrompt = promptEl ? promptEl.value.trim() : '';
     btn.disabled = true;
     btn.textContent = '生成中...';
     preview.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.82rem;color:var(--text-secondary)">生成中...</span></div>';
-    fetch('/api/production/' + DRAMA_ID + '/thumbnail', { method: 'POST' })
+    fetch('/api/production/' + DRAMA_ID + '/thumbnail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: thumbPrompt })
+    })
     .then(handleGenResponse)
     .then(function() { startPolling(); })
     .catch(function(e) { btn.disabled = false; btn.textContent = 'サムネイル生成'; showError(preview, e.message); });
