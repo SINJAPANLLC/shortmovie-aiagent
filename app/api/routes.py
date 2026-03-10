@@ -160,15 +160,26 @@ async def series_list(request: Request):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
+    import json as _json
     all_series = get_all_series()
     series_episodes = {}
+    episode_scripts = {}
     for s in all_series:
-        series_episodes[s["id"]] = get_dramas_by_series(s["id"])
+        eps = get_dramas_by_series(s["id"])
+        series_episodes[s["id"]] = eps
+        for ep in eps:
+            if ep.get("script"):
+                try:
+                    sd = _json.loads(ep["script"]) if isinstance(ep["script"], str) else ep["script"]
+                    episode_scripts[ep["id"]] = sd
+                except Exception:
+                    pass
     return templates.TemplateResponse("series.html", {
         "request": request,
         "user": user,
         "all_series": all_series,
         "series_episodes": series_episodes,
+        "episode_scripts": episode_scripts,
     })
 
 
@@ -1023,10 +1034,9 @@ async def production_index(request: Request):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     dramas = get_all_dramas()
-    ready = [d for d in dramas if d.get("status") in ("script_ready", "generating", "ready", "published")]
-    ready.sort(key=lambda d: d.get("id", 0), reverse=True)
-    if ready:
-        return RedirectResponse(url=f"/production/{ready[0]['id']}", status_code=302)
+    if dramas:
+        dramas.sort(key=lambda d: d.get("id", 0), reverse=True)
+        return RedirectResponse(url=f"/production/{dramas[0]['id']}", status_code=302)
     return RedirectResponse(url="/dramas", status_code=302)
 
 
@@ -1070,15 +1080,20 @@ async def production_page(request: Request, drama_id: int):
     thumb_path = f"app/static/thumbnail/drama_{drama_id}.png"
     video_path = f"app/static/videos/drama_{drama_id}.mp4"
 
-    all_dramas = get_all_dramas()
-    available_dramas = [d for d in all_dramas if d.get("status") in ("script_ready", "generating", "ready", "published")]
-    available_dramas.sort(key=lambda d: d.get("id", 0), reverse=True)
+    all_series_list = get_all_series()
+    series_dramas_map = {}
+    for s in all_series_list:
+        s_dramas = get_dramas_by_series(s["id"])
+        s_dramas.sort(key=lambda d: d.get("series_episode", 0))
+        series_dramas_map[s["id"]] = s_dramas
+
+    no_series_dramas = [d for d in get_all_dramas() if not d.get("series_id")]
+    no_series_dramas.sort(key=lambda d: d.get("id", 0), reverse=True)
 
     series = None
     characters = []
     if drama.get("series_id"):
-        all_series = get_all_series()
-        for s in all_series:
+        for s in all_series_list:
             if s.get("id") == drama["series_id"]:
                 series = s
                 break
@@ -1092,7 +1107,9 @@ async def production_page(request: Request, drama_id: int):
         "drama": drama,
         "series": series,
         "characters": characters,
-        "available_dramas": available_dramas,
+        "all_series_list": all_series_list,
+        "series_dramas_map": series_dramas_map,
+        "no_series_dramas": no_series_dramas,
         "script_data": script_data,
         "scenes": scenes,
         "scene_assets": scene_assets,

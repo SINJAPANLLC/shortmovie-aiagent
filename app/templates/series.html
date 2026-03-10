@@ -74,13 +74,63 @@
             </div>
             {% set episodes = series_episodes.get(s.id, []) if series_episodes else [] %}
             {% if episodes %}
-            <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
                 {% for ep in episodes %}
                 <a href="/production/{{ ep.id }}" class="spa-link" data-testid="ep-link-{{ ep.id }}" style="display:inline-block;padding:3px 8px;font-size:0.68rem;border-radius:4px;border:1px solid var(--border);background:{% if ep.status == 'published' %}var(--accent){% elif ep.status == 'ready' %}var(--success){% else %}var(--bg-primary){% endif %};color:{% if ep.status in ('published','ready') %}#fff{% else %}var(--text-primary){% endif %};text-decoration:none;cursor:pointer;transition:background 0.15s" title="{{ ep.title or '' }} ({{ ep.status or 'draft' }})">
                     {{ ep.series_episode or loop.index }}話
                 </a>
                 {% endfor %}
             </div>
+            <details data-testid="script-view-{{ s.id }}">
+                <summary style="font-size:0.78rem;color:var(--accent);cursor:pointer;font-weight:600;margin-bottom:6px">全体脚本を表示 ▼</summary>
+                <div style="margin-top:8px;display:grid;gap:10px">
+                    {% for ep in episodes %}
+                    {% set ep_script = episode_scripts.get(ep.id, {}) if episode_scripts else {} %}
+                    <div style="padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                            <span style="font-weight:700;font-size:0.82rem">第{{ ep.series_episode or loop.index }}話 — {{ ep.title or '無題' }}</span>
+                            <span class="badge badge-{{ ep.status or 'draft' }}" style="font-size:0.62rem;padding:1px 6px">{{ ep.status or 'draft' }}</span>
+                        </div>
+                        {% if ep.theme %}
+                        <div style="margin-bottom:6px">
+                            <span style="font-size:0.65rem;color:var(--accent);font-weight:600">テーマ</span>
+                            <p style="font-size:0.75rem;color:var(--text-secondary);margin:2px 0 0;line-height:1.5">{{ ep.theme }}</p>
+                        </div>
+                        {% endif %}
+                        {% if ep_script.get('story') %}
+                        <div style="margin-bottom:6px">
+                            <span style="font-size:0.65rem;color:var(--accent);font-weight:600">ストーリー</span>
+                            <p style="font-size:0.75rem;color:var(--text-secondary);margin:2px 0 0;line-height:1.5">{{ ep_script.story }}</p>
+                        </div>
+                        {% endif %}
+                        {% if ep_script.get('scenes') %}
+                        <details style="margin-top:4px">
+                            <summary style="font-size:0.68rem;color:var(--text-secondary);cursor:pointer">シーン詳細 ({{ ep_script.scenes|length }}シーン)</summary>
+                            <div style="margin-top:6px;display:grid;gap:6px">
+                                {% for sc in ep_script.scenes %}
+                                <div style="padding:6px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px">
+                                    <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+                                        <span style="font-size:0.68rem;font-weight:600">シーン {{ sc.scene_number or loop.index }}</span>
+                                        <span style="font-size:0.62rem;color:var(--text-secondary)">{{ sc.speaker or 'ナレーション' }}</span>
+                                    </div>
+                                    {% if sc.description %}
+                                    <p style="font-size:0.68rem;color:var(--text-secondary);margin:0 0 2px;font-style:italic">{{ sc.description }}</p>
+                                    {% endif %}
+                                    {% if sc.narration %}
+                                    <p style="font-size:0.72rem;color:var(--text-primary);margin:0;line-height:1.5">{{ sc.narration }}</p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </details>
+                        {% endif %}
+                        {% if not ep.theme and not ep_script %}
+                        <p style="font-size:0.72rem;color:var(--text-secondary);margin:0">まだ脚本が作成されていません</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
             {% else %}
             <p style="font-size:0.78rem;color:var(--text-secondary);margin:0">まだエピソードがありません</p>
             {% endif %}

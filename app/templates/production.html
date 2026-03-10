@@ -6,12 +6,25 @@
     <div>
         <h1 data-testid="text-production-title" style="font-size:1.3rem">プロダクションスタジオ</h1>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-            <select id="drama-selector" data-testid="select-drama" onchange="if(this.value) window.location.href='/production/'+this.value" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-card);color:var(--text-primary);min-width:200px">
-                {% for d in available_dramas %}
-                <option value="{{ d.id }}" {% if d.id == drama.id %}selected{% endif %}>
-                    #{{ d.id }} {{ d.title or '無題' }} ({{ d.status }})
-                </option>
+            <select id="drama-selector" data-testid="select-drama" onchange="if(this.value) window.location.href='/production/'+this.value" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-card);color:var(--text-primary);min-width:280px">
+                {% for s in all_series_list %}
+                <optgroup label="{{ s.name }} ({{ s.current_episode or 0 }}/{{ s.total_episodes or 30 }}話)">
+                    {% for d in series_dramas_map.get(s.id, []) %}
+                    <option value="{{ d.id }}" {% if d.id == drama.id %}selected{% endif %}>
+                        第{{ d.series_episode or '?' }}話 {{ d.title or '無題' }} ({{ d.status }})
+                    </option>
+                    {% endfor %}
+                </optgroup>
                 {% endfor %}
+                {% if no_series_dramas %}
+                <optgroup label="シリーズなし">
+                    {% for d in no_series_dramas %}
+                    <option value="{{ d.id }}" {% if d.id == drama.id %}selected{% endif %}>
+                        #{{ d.id }} {{ d.title or '無題' }} ({{ d.status }})
+                    </option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
             </select>
         </div>
     </div>
