@@ -15,7 +15,8 @@ from app.db.database import (
     get_drama_by_id, get_dramas_with_analytics, update_drama,
     get_ai_logs, get_setting, set_setting,
     get_active_series, get_all_series, update_series,
-    create_drama, get_next_episode_number,
+    get_series_by_id, get_dramas_by_series, get_next_series_number,
+    create_series, create_drama, get_next_episode_number,
     get_characters, get_characters_by_series, get_character_by_id,
     create_character, update_character, delete_character
 )
@@ -151,6 +152,115 @@ async def dashboard(request: Request):
         "all_series": all_series,
         "total_series": len(all_series),
     })
+
+
+@router.get("/series", response_class=HTMLResponse)
+async def series_list(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    all_series = get_all_series()
+    series_episodes = {}
+    for s in all_series:
+        series_episodes[s["id"]] = get_dramas_by_series(s["id"])
+    return templates.TemplateResponse("series.html", {
+        "request": request,
+        "user": user,
+        "all_series": all_series,
+        "series_episodes": series_episodes,
+    })
+
+
+@router.post("/api/series")
+async def api_create_series(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    try:
+        body = await request.json()
+        name = body.get("name", "").strip()
+        if not name:
+            return JSONResponse({"success": False, "error": "シリーズ名を入力してください"})
+
+        description = body.get("description", "").strip()
+        synopsis = body.get("synopsis", "").strip()
+        total_episodes = int(body.get("total_episodes", 30))
+        series_number = get_next_series_number()
+
+        current_active = get_active_series()
+        if current_active:
+            update_series(current_active["id"], status="completed")
+
+        series_id = create_series(
+            series_number=series_number,
+            name=name,
+            description=description,
+            synopsis=synopsis,
+            total_episodes=total_episodes,
+        )
+        return JSONResponse({"success": True, "series_id": series_id})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
+
+
+@router.post("/api/series/{series_id}/add-episode")
+async def api_series_add_episode(request: Request, series_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    try:
+        series = get_series_by_id(series_id)
+        if not series:
+            return JSONResponse({"success": False, "error": "シリーズが見つかりません"})
+
+        current_ep = series.get("current_episode", 0)
+        total_ep = series.get("total_episodes", 30)
+        if current_ep >= total_ep:
+            return JSONResponse({"success": False, "error": f"このシリーズは全{total_ep}話で完結しています"})
+
+        next_ep = current_ep + 1
+        global_ep = get_next_episode_number("CEOドラマ")
+        title = f"CEOの扉 | {series['name']} 第{next_ep}話"
+
+        drama_id = create_drama(
+            title=title,
+            genre="CEOドラマ",
+            theme="",
+            script="",
+            status="draft",
+            episode_number=global_ep,
+            series_id=series_id,
+            series_episode=next_ep,
+        )
+        update_series(series_id, current_episode=next_ep)
+        return JSONResponse({"success": True, "drama_id": drama_id, "episode": next_ep, "title": title})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
+
+
+@router.post("/api/series/{series_id}/activate")
+async def api_activate_series(request: Request, series_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    try:
+        series = get_series_by_id(series_id)
+        if not series:
+            return JSONResponse({"success": False, "error": "シリーズが見つかりません"})
+
+        all_s = get_all_series()
+        for s in all_s:
+            if s["status"] == "active":
+                update_series(s["id"], status="completed")
+
+        update_series(series_id, status="active")
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
 
 
 @router.get("/dramas", response_class=HTMLResponse)

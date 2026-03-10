@@ -195,6 +195,35 @@ def get_all_series():
     return [dict(r) for r in rows]
 
 
+def get_series_by_id(series_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM series WHERE id = %s", (series_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_dramas_by_series(series_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM dramas WHERE series_id = %s ORDER BY series_episode ASC", (series_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_series(series_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM series WHERE id = %s", (series_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def get_all_dramas():
     conn = get_connection()
     cur = conn.cursor()

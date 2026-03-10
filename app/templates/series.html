@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}シリーズ管理 - CEOの扉{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1>シリーズ管理</h1>
+        <p>ドラマシリーズの一覧と新規作成</p>
+    </div>
+    <button class="btn btn-primary" data-testid="btn-new-series" style="font-size:0.85rem" onclick="document.getElementById('new-series-form').style.display=document.getElementById('new-series-form').style.display==='none'?'block':'none'">+ 新しいシリーズ</button>
+</div>
+
+<div id="new-series-form" class="card" data-testid="new-series-form" style="display:none;margin-bottom:20px;padding:20px">
+    <h3 style="margin-top:0;font-size:1rem;margin-bottom:14px">新しいシリーズを作成</h3>
+    <div style="display:grid;gap:12px">
+        <div>
+            <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">シリーズ名</label>
+            <input id="series-name" type="text" data-testid="input-series-name" placeholder="例: 偽装の契約、禁断の代償" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-primary);color:var(--text-primary)">
+        </div>
+        <div>
+            <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">説明</label>
+            <input id="series-desc" type="text" data-testid="input-series-desc" placeholder="シリーズの簡単な説明" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-primary);color:var(--text-primary)">
+        </div>
+        <div>
+            <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">あらすじ</label>
+            <textarea id="series-synopsis" data-testid="input-series-synopsis" rows="3" placeholder="シリーズ全体のストーリー概要" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-primary);color:var(--text-primary);resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <div>
+                <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">全話数</label>
+                <input id="series-total" type="number" data-testid="input-series-total" value="30" min="1" max="100" style="width:80px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--bg-primary);color:var(--text-primary)">
+            </div>
+            <div style="flex:1"></div>
+            <button id="btn-create-series" class="btn btn-primary" data-testid="btn-create-series" style="font-size:0.85rem;align-self:flex-end" onclick="window.createSeries()">作成</button>
+            <button class="btn btn-secondary" style="font-size:0.85rem;align-self:flex-end" onclick="document.getElementById('new-series-form').style.display='none'">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+{% if all_series %}
+<div style="display:grid;gap:16px">
+    {% for s in all_series %}
+    <div class="card" data-testid="card-series-{{ s.id }}" style="padding:0;overflow:hidden">
+        <div style="padding:14px 18px;background:var(--bg-hover);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:{% if s.status == 'active' %}var(--accent){% else %}var(--border){% endif %};color:{% if s.status == 'active' %}#fff{% else %}var(--text-secondary){% endif %};font-weight:600">{% if s.status == 'active' %}放送中{% else %}完結{% endif %}</span>
+                <span style="font-weight:700;font-size:1.05rem">{{ s.name }}</span>
+                <span style="font-size:0.75rem;color:var(--text-secondary)">シリーズ {{ s.series_number }}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+                <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">{{ s.current_episode or 0 }} / {{ s.total_episodes or 30 }} 話</span>
+                {% if s.status == 'active' %}
+                <button class="btn btn-primary" data-testid="btn-add-ep-{{ s.id }}" style="font-size:0.72rem;padding:3px 10px" onclick="window.addEpisodeToSeries({{ s.id }})">+ エピソード追加</button>
+                {% endif %}
+                {% if s.status != 'active' %}
+                <button class="btn btn-secondary" data-testid="btn-activate-{{ s.id }}" style="font-size:0.72rem;padding:3px 10px" onclick="window.activateSeries({{ s.id }})">有効化</button>
+                {% endif %}
+            </div>
+        </div>
+        <div style="padding:14px 18px">
+            {% if s.description %}
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 8px">{{ s.description }}</p>
+            {% endif %}
+            {% if s.synopsis %}
+            <details style="margin-bottom:10px">
+                <summary style="font-size:0.75rem;color:var(--accent);cursor:pointer;font-weight:600">あらすじ ▼</summary>
+                <p style="font-size:0.78rem;color:var(--text-secondary);margin:6px 0 0;line-height:1.6">{{ s.synopsis }}</p>
+            </details>
+            {% endif %}
+            <div style="margin-bottom:8px">
+                <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+                    <div style="background:var(--accent);height:100%;width:{{ ((s.current_episode or 0) / (s.total_episodes or 30) * 100)|int }}%;border-radius:4px;transition:width 0.3s"></div>
+                </div>
+            </div>
+            {% set episodes = series_episodes.get(s.id, []) if series_episodes else [] %}
+            {% if episodes %}
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+                {% for ep in episodes %}
+                <a href="/production/{{ ep.id }}" class="spa-link" data-testid="ep-link-{{ ep.id }}" style="display:inline-block;padding:3px 8px;font-size:0.68rem;border-radius:4px;border:1px solid var(--border);background:{% if ep.status == 'published' %}var(--accent){% elif ep.status == 'ready' %}var(--success){% else %}var(--bg-primary){% endif %};color:{% if ep.status in ('published','ready') %}#fff{% else %}var(--text-primary){% endif %};text-decoration:none;cursor:pointer;transition:background 0.15s" title="{{ ep.title or '' }} ({{ ep.status or 'draft' }})">
+                    {{ ep.series_episode or loop.index }}話
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="font-size:0.78rem;color:var(--text-secondary);margin:0">まだエピソードがありません</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>まだシリーズがありません。</p>
+    <button class="btn btn-primary" onclick="document.getElementById('new-series-form').style.display='block'">シリーズを作成する</button>
+</div>
+{% endif %}
+
+<script>
+window.createSeries = async function() {
+    var name = document.getElementById('series-name').value.trim();
+    var desc = document.getElementById('series-desc').value.trim();
+    var synopsis = document.getElementById('series-synopsis').value.trim();
+    var total = parseInt(document.getElementById('series-total').value) || 30;
+    if (!name) { alert('シリーズ名を入力してください'); return; }
+    var btn = document.getElementById('btn-create-series');
+    btn.disabled = true;
+    btn.textContent = '作成中...';
+    try {
+        var res = await fetch('/api/series', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, description: desc, synopsis: synopsis, total_episodes: total })
+        });
+        var data = await res.json();
+        if (data.success) {
+            window.location.href = '/series';
+        } else {
+            alert('エラー: ' + (data.error || '作成に失敗しました'));
+            btn.disabled = false;
+            btn.textContent = '作成';
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '作成';
+    }
+};
+
+window.addEpisodeToSeries = async function(seriesId) {
+    var btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '追加中...';
+    try {
+        var res = await fetch('/api/series/' + seriesId + '/add-episode', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        var data = await res.json();
+        if (data.success) {
+            window.location.href = '/production/' + data.drama_id;
+        } else {
+            alert('エラー: ' + (data.error || '追加に失敗しました'));
+            btn.disabled = false;
+            btn.textContent = '+ エピソード追加';
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '+ エピソード追加';
+    }
+};
+
+window.activateSeries = async function(seriesId) {
+    if (!confirm('このシリーズを有効化しますか？（現在のアクティブシリーズは無効化されます）')) return;
+    try {
+        var res = await fetch('/api/series/' + seriesId + '/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        var data = await res.json();
+        if (data.success) {
+            window.location.href = '/series';
+        } else {
+            alert('エラー: ' + (data.error || '有効化に失敗しました'));
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+    }
+};
+</script>
+{% endblock %}
