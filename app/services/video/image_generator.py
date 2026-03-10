@@ -105,7 +105,7 @@ def generate_character_image(character_description: str, drama_id: int, progress
     return _create_placeholder_image(output_path, "Character", drama_id)
 
 
-def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None, custom_prompt: str = None, character_image_url: str = None) -> str:
+def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None, custom_prompt: str = None, character_image_url: str = None, character_image_urls: list = None) -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -115,7 +115,9 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
     progress_callback(3, f"サムネイル画像を生成中...")
 
     if is_luma_available():
-        ref_label = " (キャラ参照あり)" if character_image_url else ""
+        all_refs = character_image_urls or ([character_image_url] if character_image_url else [])
+        ref_count = len(all_refs)
+        ref_label = f" (キャラ参照{ref_count}枚)" if ref_count > 0 else ""
         progress_callback(3, f"サムネイル画像を生成中 (Luma Photon{ref_label})...")
         if custom_prompt:
             luma_prompt = custom_prompt
@@ -128,12 +130,16 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
             style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
             luma_prompt = (
                 f"cinematic film still for romance drama, {style}, "
-                "beautiful young Japanese woman with expressive eyes looking at handsome man in suit, "
-                "warm color grading, soft focus background, appealing and inviting mood, "
-                "photorealistic, high quality, vertical 9:16"
+                "consistent character appearance matching reference photos exactly, "
+                "same face as reference, warm color grading, soft focus background, "
+                "appealing and inviting mood, photorealistic, high quality, vertical 9:16"
             )
         luma_bg_path = output_path.replace(".png", "_luma_bg.png")
-        if generate_image_luma(luma_prompt, luma_bg_path, aspect_ratio="9:16", character_image_url=character_image_url):
+        if generate_image_luma(
+            luma_prompt, luma_bg_path, aspect_ratio="9:16",
+            character_image_urls=all_refs if len(all_refs) > 1 else None,
+            character_image_url=all_refs[0] if len(all_refs) == 1 else None,
+        ):
             result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, luma_bg_path, episode_number)
             if os.path.exists(luma_bg_path) and luma_bg_path != output_path:
                 os.remove(luma_bg_path)

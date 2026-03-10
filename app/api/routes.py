@@ -939,6 +939,8 @@ async def api_create_character(request: Request):
         image_path=body.get("image_path", ""),
         series_id=int(body["series_id"]) if body.get("series_id") else None
     )
+    if body.get("appearance"):
+        update_character(char_id, appearance=body["appearance"])
     return JSONResponse({"success": True, "id": char_id})
 
 
@@ -966,6 +968,8 @@ async def api_update_character(request: Request, character_id: int):
         updates["image_bust"] = body["image_bust"]
     if "image_fullbody" in body:
         updates["image_fullbody"] = body["image_fullbody"]
+    if "appearance" in body:
+        updates["appearance"] = body["appearance"]
     if "series_id" in body:
         updates["series_id"] = int(body["series_id"]) if body["series_id"] else None
 
@@ -1333,15 +1337,20 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
 
     if character_ids:
         char_descs = []
+        char_appearances = []
         for cid in character_ids:
             ch = get_character_by_id(int(cid))
             if ch:
                 scene_characters.append(ch)
-                if ch.get("description"):
+                if ch.get("appearance"):
+                    char_appearances.append(f"{ch.get('role', ch['name'])}: {ch['appearance']}")
+                elif ch.get("description"):
                     char_descs.append(f"{ch.get('role', ch['name'])}: {ch['description']}")
                 if not character_img:
                     character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
-        if char_descs:
+        if char_appearances:
+            image_prompt = f"{image_prompt}. Characters: {'; '.join(char_appearances)}"
+        elif char_descs:
             image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
     elif speaker and speaker != "ナレーション":
         speaker_parts = [sp.strip() for sp in speaker.split("+")]
@@ -1355,12 +1364,17 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
 
         if scene_characters:
             char_descs = []
+            char_appearances = []
             for ch in scene_characters:
-                if ch.get("description"):
+                if ch.get("appearance"):
+                    char_appearances.append(f"{ch.get('role', ch['name'])}: {ch['appearance']}")
+                elif ch.get("description"):
                     char_descs.append(f"{ch.get('role', ch['name'])}: {ch['description']}")
                 if not character_img:
                     character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
-            if char_descs:
+            if char_appearances:
+                image_prompt = f"{image_prompt}. Characters: {'; '.join(char_appearances)}"
+            elif char_descs:
                 image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
 
     char_image_urls = []
@@ -1383,7 +1397,7 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
             result = _generate_scene_specific_image(
                 image_prompt,
                 drama_id, scene_num,
-                character_image_urls=char_image_urls if char_image_urls else None
+                character_image_urls=list(char_image_urls) if char_image_urls else None
             )
             if result:
                 production_tasks[task_key] = {"status": "done", "error": ""}
@@ -1659,7 +1673,8 @@ async def api_production_thumbnail(request: Request, drama_id: int):
                 drama_id=drama_id,
                 episode_number=drama.get("series_episode") or drama.get("episode_number"),
                 custom_prompt=thumb_prompt,
-                character_image_url=char_image_urls[0] if char_image_urls else None,
+                character_image_url=char_image_urls[0] if len(char_image_urls) == 1 else None,
+                character_image_urls=char_image_urls if len(char_image_urls) > 1 else None,
             )
             if result and os.path.exists(result):
                 update_drama(drama_id, thumbnail_url=result)

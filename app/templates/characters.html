@@ -29,6 +29,8 @@
                 <select id="char-role" data-testid="select-char-role" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
                     <option value="主人公">主人公（ヒロイン）</option>
                     <option value="CEO">CEO（相手役）</option>
+                    <option value="親友">親友</option>
+                    <option value="秘書">秘書</option>
                     <option value="サブキャラ">サブキャラ</option>
                     <option value="ライバル">ライバル</option>
                     <option value="ナレーション">ナレーション</option>
@@ -37,6 +39,11 @@
             <div class="form-group" style="margin-top:12px">
                 <label for="char-desc">説明・性格</label>
                 <textarea id="char-desc" data-testid="input-char-desc" rows="3" placeholder="例: 26歳のOL。明るく前向きだが、恋愛には不器用。過去のトラウマを抱えている。" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;resize:vertical"></textarea>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-appearance">外見描写（英語推奨・画像生成用）</label>
+                <textarea id="char-appearance" data-testid="input-char-appearance" rows="3" placeholder="例: 26 year old Japanese woman, dark brown hair in low ponytail, delicate oval face, warm brown eyes, fair skin, slim build" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;resize:vertical"></textarea>
+                <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">画像生成AIに渡す外見の具体的な描写。髪型・顔立ち・体型・年齢を英語で詳しく書くとキャラが固定されます。</p>
             </div>
             <div class="form-group" style="margin-top:12px">
                 <label for="char-voice">ElevenLabs Voice ID（任意）</label>
@@ -85,6 +92,9 @@
                     {% if char.description %}
                     <p style="font-size:0.82rem;color:var(--text-secondary);margin-top:6px;line-height:1.5" data-testid="text-char-desc-{{ char.id }}">{{ char.description[:120] }}{% if char.description|length > 120 %}...{% endif %}</p>
                     {% endif %}
+                    {% if char.appearance %}
+                    <p style="font-size:0.78rem;color:#455a64;margin-top:4px;font-style:italic;line-height:1.4" data-testid="text-char-appearance-{{ char.id }}">🎨 {{ char.appearance[:100] }}{% if char.appearance|length > 100 %}...{% endif %}</p>
+                    {% endif %}
                     {% if char.voice_id %}
                     <p style="font-size:0.75rem;color:var(--accent);margin-top:4px">🔊 Voice: {{ char.voice_id[:16] }}...</p>
                     {% endif %}
@@ -128,6 +138,7 @@ characterData[{{ char.id }}] = {
     name: "{{ char.name }}",
     role: "{{ char.role }}",
     description: {{ char.description | tojson }},
+    appearance: {{ (char.appearance or '') | tojson }},
     voice_id: "{{ char.voice_id or '' }}",
     series_id: "{{ char.series_id or '' }}",
     image_path: "{{ char.image_path or '' }}"
@@ -141,6 +152,7 @@ function showAddForm() {
     document.getElementById('char-name').value = '';
     document.getElementById('char-role').value = '主人公';
     document.getElementById('char-desc').value = '';
+    document.getElementById('char-appearance').value = '';
     document.getElementById('char-voice').value = '';
     document.getElementById('char-series').value = '';
     document.getElementById('image-preview').innerHTML = '';
@@ -160,6 +172,7 @@ function editCharacter(id) {
     document.getElementById('char-name').value = c.name;
     document.getElementById('char-role').value = c.role;
     document.getElementById('char-desc').value = c.description || '';
+    document.getElementById('char-appearance').value = c.appearance || '';
     document.getElementById('char-voice').value = c.voice_id;
     document.getElementById('char-series').value = c.series_id;
     if (c.image_path) {
@@ -184,6 +197,7 @@ function saveCharacter() {
             name: name,
             role: document.getElementById('char-role').value,
             description: document.getElementById('char-desc').value.trim(),
+            appearance: document.getElementById('char-appearance').value.trim(),
             voice_id: document.getElementById('char-voice').value.trim(),
             series_id: document.getElementById('char-series').value || null
         };

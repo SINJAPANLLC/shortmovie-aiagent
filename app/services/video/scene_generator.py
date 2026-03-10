@@ -60,18 +60,21 @@ def _generate_scene_specific_image(scene_description: str, drama_id: int, scene_
 
     output_path = os.path.join(SCENE_IMAGES_DIR, f"drama_{drama_id}_scene_{scene_number}_ai.png")
 
-    char_ref_url = character_image_urls[0] if character_image_urls else None
-
     if is_luma_available():
-        ref_label = " (キャラ参照あり)" if char_ref_url else ""
+        ref_count = len(character_image_urls) if character_image_urls else 0
+        ref_label = f" (キャラ参照{ref_count}枚)" if ref_count > 0 else ""
         progress_callback(5, f"シーン{scene_number}: シーン画像生成中 (Luma Photon{ref_label})...")
         img_prompt = (
-            f"{scene_description}, photorealistic, cinematic lighting, "
-            "dramatic atmosphere, beautiful Japanese actors, "
-            "high quality film still, vertical composition 9:16"
+            f"{scene_description}, photorealistic Japanese drama scene, "
+            "cinematic lighting, dramatic atmosphere, consistent character appearance, "
+            "same face as reference photo, high quality film still, vertical 9:16"
         )
-        if generate_image_luma(img_prompt, output_path, aspect_ratio="9:16", character_image_url=char_ref_url):
-            logger.info(f"Scene {scene_number} specific image via Luma Photon (ref={bool(char_ref_url)}): {output_path}")
+        if generate_image_luma(
+            img_prompt, output_path, aspect_ratio="9:16",
+            character_image_urls=character_image_urls if character_image_urls else None,
+            character_image_url=character_image_urls[0] if character_image_urls and len(character_image_urls) == 1 else None
+        ):
+            logger.info(f"Scene {scene_number} specific image via Luma Photon (refs={ref_count}): {output_path}")
             return output_path
         logger.warning(f"Luma Photon scene image failed for scene {scene_number}")
 

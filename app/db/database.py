@@ -128,6 +128,12 @@ def init_db():
             ) THEN
                 ALTER TABLE dramas ADD COLUMN thumbnail_prompt TEXT;
             END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'characters' AND column_name = 'appearance'
+            ) THEN
+                ALTER TABLE characters ADD COLUMN appearance TEXT;
+            END IF;
         END $$;
     """)
 
