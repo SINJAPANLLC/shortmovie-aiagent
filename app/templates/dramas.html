@@ -64,15 +64,16 @@
 {% endif %}
 
 <script>
-async function addEpisode() {
-    const btn = document.getElementById('btn-add-episode');
+window.addEpisode = async function() {
+    var btn = document.getElementById('btn-add-episode');
+    if (!btn) return;
     btn.disabled = true;
     btn.textContent = '追加中...';
     try {
-        const res = await fetch('/api/dramas/add-episode', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-        const data = await res.json();
+        var res = await fetch('/api/dramas/add-episode', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        var data = await res.json();
         if (data.success) {
-            location.href = '/production/' + data.drama_id;
+            window.location.href = '/production/' + data.drama_id;
         } else {
             alert('エラー: ' + (data.error || '追加に失敗しました'));
             btn.disabled = false;
@@ -83,6 +84,6 @@ async function addEpisode() {
         btn.disabled = false;
         btn.textContent = '+ エピソード追加';
     }
-}
+};
 </script>
 {% endblock %}
