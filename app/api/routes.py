@@ -14,7 +14,8 @@ from app.db.database import (
     get_admin_user, create_admin_user, get_all_dramas,
     get_drama_by_id, get_dramas_with_analytics, update_drama,
     get_ai_logs, get_setting, set_setting,
-    get_active_series, get_all_series,
+    get_active_series, get_all_series, update_series,
+    create_drama, get_next_episode_number,
     get_characters, get_characters_by_series, get_character_by_id,
     create_character, update_character, delete_character
 )
@@ -593,6 +594,41 @@ async def api_dramas(request: Request):
         if d.get("created_at"):
             d["created_at"] = d["created_at"].isoformat()
     return JSONResponse(dramas)
+
+
+@router.post("/api/dramas/add-episode")
+async def api_add_episode(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    try:
+        series = get_active_series()
+        if not series:
+            return JSONResponse({"success": False, "error": "アクティブなシリーズがありません"})
+
+        series_id = series["id"]
+        series_name = series["name"]
+        current_ep = series.get("current_episode", 0)
+        next_ep = current_ep + 1
+        global_ep = get_next_episode_number("CEOドラマ")
+        title = f"CEOの扉 | {series_name} 第{next_ep}話"
+
+        drama_id = create_drama(
+            title=title,
+            genre="CEOドラマ",
+            theme="",
+            script="",
+            status="draft",
+            episode_number=global_ep,
+            series_id=series_id,
+            series_episode=next_ep,
+        )
+        update_series(series_id, current_episode=next_ep)
+
+        return JSONResponse({"success": True, "drama_id": drama_id, "episode": next_ep, "title": title})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
 
 
 @router.get("/api/usage")

@@ -2,9 +2,15 @@
 {% block title %}ドラマ一覧 - CEOの扉{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>ドラマ一覧</h1>
-    <p>生成された全てのAIショートドラマ</p>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1>ドラマ一覧</h1>
+        <p>生成された全てのAIショートドラマ</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="btn-add-episode" class="btn btn-primary" data-testid="btn-add-episode" style="font-size:0.85rem" onclick="addEpisode()">+ エピソード追加</button>
+        <a href="/generate" class="btn btn-secondary spa-link" data-testid="link-generate" style="font-size:0.85rem">自動生成</a>
+    </div>
 </div>
 
 {% if dramas %}
@@ -56,4 +62,27 @@
     <a href="/generate" class="btn btn-primary spa-link">ドラマを生成する</a>
 </div>
 {% endif %}
+
+<script>
+async function addEpisode() {
+    const btn = document.getElementById('btn-add-episode');
+    btn.disabled = true;
+    btn.textContent = '追加中...';
+    try {
+        const res = await fetch('/api/dramas/add-episode', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        if (data.success) {
+            location.href = '/production/' + data.drama_id;
+        } else {
+            alert('エラー: ' + (data.error || '追加に失敗しました'));
+            btn.disabled = false;
+            btn.textContent = '+ エピソード追加';
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '+ エピソード追加';
+    }
+}
+</script>
 {% endblock %}
