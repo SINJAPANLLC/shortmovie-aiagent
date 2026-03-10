@@ -1510,7 +1510,7 @@ async def api_production_audio(request: Request, drama_id: int):
             from app.services.video.audio_generator import generate_voice
             narration = script_data.get("narration", "")
             scenes = script_data.get("scenes", [])
-            result = generate_voice(narration, drama_id, scenes=scenes)
+            result = generate_voice(narration, drama_id, scenes=scenes, series_id=drama.get("series_id"))
             if result and os.path.exists(result):
                 production_tasks[task_key] = {"status": "done", "error": ""}
             else:
@@ -1585,6 +1585,7 @@ async def api_production_scene_audio(request: Request, drama_id: int, scene_num:
                 drama_id=drama_id,
                 scene_num=scene_num,
                 voice_settings=voice_settings,
+                series_id=drama.get("series_id"),
             )
             if result and os.path.exists(result):
                 production_tasks[task_key] = {"status": "done", "error": ""}

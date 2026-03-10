@@ -22,9 +22,9 @@ VOICE_PROFILES = {
         "voice_id": "pFZP5JQG7iQjIQuC4Bku",
         "label": "Lily (女性・感情演技)",
         "settings": {
-            "stability": 0.15,
-            "similarity_boost": 0.92,
-            "style": 0.95,
+            "stability": 0.35,
+            "similarity_boost": 0.90,
+            "style": 0.70,
             "speed": 0.92
         }
     },
@@ -32,9 +32,9 @@ VOICE_PROFILES = {
         "voice_id": "JBFqnCBsd6RMkjVDRZzb",
         "label": "George (男性・低音演技)",
         "settings": {
-            "stability": 0.15,
-            "similarity_boost": 0.92,
-            "style": 0.90,
+            "stability": 0.35,
+            "similarity_boost": 0.90,
+            "style": 0.65,
             "speed": 0.90
         }
     },
@@ -42,9 +42,9 @@ VOICE_PROFILES = {
         "voice_id": "EXAVITQu4vr4xnSDxMaL",
         "label": "Sarah (ナレーション・ドラマ調)",
         "settings": {
-            "stability": 0.25,
-            "similarity_boost": 0.88,
-            "style": 0.80,
+            "stability": 0.45,
+            "similarity_boost": 0.85,
+            "style": 0.55,
             "speed": 0.90
         }
     },
@@ -72,26 +72,33 @@ SPEAKER_ROLE_MAP = {
 
 CHARACTER_VOICE_IDS = {}
 
-def _load_character_voice_map():
+def _load_character_voice_map(series_id=None):
+    CHARACTER_VOICE_IDS.clear()
     try:
-        from app.db.database import get_characters
-        chars = get_characters()
+        from app.db.database import get_characters, get_characters_by_series
+        if series_id:
+            chars = get_characters_by_series(series_id)
+        else:
+            chars = get_characters()
         for ch in chars:
             name = ch.get("name", "")
             role = ch.get("role", "")
             voice_id = ch.get("voice_id", "")
-            if name:
-                if voice_id:
+            if voice_id:
+                if name:
                     CHARACTER_VOICE_IDS[name] = voice_id
-                if name not in SPEAKER_ROLE_MAP:
-                    if role in SPEAKER_ROLE_MAP:
-                        SPEAKER_ROLE_MAP[name] = SPEAKER_ROLE_MAP[role]
-                    elif any(k in role for k in ("女", "妻", "彼女", "主人公", "ヒロイン", "秘書")):
-                        SPEAKER_ROLE_MAP[name] = "female"
-                    elif any(k in role for k in ("男", "夫", "彼", "CEO", "社長", "部長")):
-                        SPEAKER_ROLE_MAP[name] = "male"
-    except Exception:
-        pass
+                if role:
+                    CHARACTER_VOICE_IDS[role] = voice_id
+            if name and name not in SPEAKER_ROLE_MAP:
+                if role in SPEAKER_ROLE_MAP:
+                    SPEAKER_ROLE_MAP[name] = SPEAKER_ROLE_MAP[role]
+                elif any(k in role for k in ("女", "妻", "彼女", "主人公", "ヒロイン", "親友")):
+                    SPEAKER_ROLE_MAP[name] = "female"
+                elif any(k in role for k in ("男", "夫", "彼", "CEO", "社長", "部長", "秘書")):
+                    SPEAKER_ROLE_MAP[name] = "male"
+        logger.info(f"Character voice map loaded: VOICE_IDS={CHARACTER_VOICE_IDS}, ROLE_MAP additions={[(k,v) for k,v in SPEAKER_ROLE_MAP.items() if k not in ('主人公','ヒロイン','彼女','妻','親友','秘書','CEO','社長','上司','彼','夫','部長','専務','ナレーション','ナレーター','NA')]}")
+    except Exception as e:
+        logger.warning(f"Failed to load character voice map: {e}")
 
 
 def _noop(step, msg):
@@ -261,8 +268,8 @@ def _concatenate_audio_segments(segment_paths: list, output_path: str) -> str:
     return output_path
 
 
-def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes: list = None) -> str:
-    _load_character_voice_map()
+def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes: list = None, series_id: int = None) -> str:
+    _load_character_voice_map(series_id=series_id)
     if progress_callback is None:
         progress_callback = _noop
 
@@ -350,8 +357,8 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
         raise
 
 
-def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num: int, voice_settings: dict = None) -> str:
-    _load_character_voice_map()
+def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num: int, voice_settings: dict = None, series_id: int = None) -> str:
+    _load_character_voice_map(series_id=series_id)
     os.makedirs(AUDIO_DIR, exist_ok=True)
     output_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_scene_{scene_num}.mp3")
 
