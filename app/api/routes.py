@@ -929,18 +929,23 @@ async def production_page(request: Request, drama_id: int):
     available_dramas.sort(key=lambda d: d.get("id", 0), reverse=True)
 
     series = None
+    characters = []
     if drama.get("series_id"):
         all_series = get_all_series()
         for s in all_series:
             if s.get("id") == drama["series_id"]:
                 series = s
                 break
+        characters = get_characters_by_series(drama["series_id"])
+
+    subtitle_path = f"app/static/subtitle/drama_{drama_id}.srt"
 
     return templates.TemplateResponse("production.html", {
         "request": request,
         "user": user,
         "drama": drama,
         "series": series,
+        "characters": characters,
         "available_dramas": available_dramas,
         "script_data": script_data,
         "scenes": scenes,
@@ -951,6 +956,8 @@ async def production_page(request: Request, drama_id: int):
         "thumbnail_url": f"/static/thumbnail/drama_{drama_id}.png" if os.path.exists(thumb_path) else None,
         "has_final_video": os.path.exists(video_path),
         "final_video_url": f"/static/videos/drama_{drama_id}.mp4" if os.path.exists(video_path) else None,
+        "has_subtitle": os.path.exists(subtitle_path),
+        "subtitle_url": f"/static/subtitle/drama_{drama_id}.srt" if os.path.exists(subtitle_path) else None,
     })
 
 
@@ -1011,6 +1018,9 @@ async def api_production_assets(request: Request, drama_id: int):
     task_audio_key = _get_production_task_key(drama_id, "audio")
     task_thumb_key = _get_production_task_key(drama_id, "thumbnail")
     task_assemble_key = _get_production_task_key(drama_id, "assemble")
+    task_subtitle_key = _get_production_task_key(drama_id, "subtitle")
+
+    subtitle_path = f"app/static/subtitle/drama_{drama_id}.srt"
 
     return JSONResponse({
         "scenes": scene_assets,
@@ -1022,6 +1032,10 @@ async def api_production_assets(request: Request, drama_id: int):
         "thumbnail_url": f"/static/thumbnail/drama_{drama_id}.png?t={int(os.path.getmtime(thumb_path))}" if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 1000 else None,
         "thumbnail_generating": production_tasks.get(task_thumb_key, {}).get("status") == "running",
         "thumbnail_error": production_tasks.get(task_thumb_key, {}).get("error", ""),
+        "has_subtitle": os.path.exists(subtitle_path) and os.path.getsize(subtitle_path) > 10,
+        "subtitle_url": f"/static/subtitle/drama_{drama_id}.srt?t={int(os.path.getmtime(subtitle_path))}" if os.path.exists(subtitle_path) and os.path.getsize(subtitle_path) > 10 else None,
+        "subtitle_generating": production_tasks.get(task_subtitle_key, {}).get("status") == "running",
+        "subtitle_error": production_tasks.get(task_subtitle_key, {}).get("error", ""),
         "has_final_video": os.path.exists(video_path) and os.path.getsize(video_path) > 10000,
         "final_video_url": f"/static/videos/drama_{drama_id}.mp4?t={int(os.path.getmtime(video_path))}" if os.path.exists(video_path) and os.path.getsize(video_path) > 10000 else None,
         "assemble_generating": production_tasks.get(task_assemble_key, {}).get("status") == "running",
@@ -1069,6 +1083,15 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
         custom_prompt = ""
 
     image_prompt = custom_prompt if custom_prompt else scene.get("description", "")
+
+    character_id = scene.get("character_id")
+    character_img = None
+    if character_id:
+        char = get_character_by_id(int(character_id))
+        if char:
+            if char.get("description") and not custom_prompt:
+                image_prompt = f"{image_prompt}. Character: {char['description']}"
+            character_img = char.get("image_face") or char.get("image_bust") or char.get("image_path")
 
     production_tasks[task_key] = {"status": "running", "error": ""}
 
@@ -1350,7 +1373,11 @@ async def api_production_assemble(request: Request, drama_id: int):
             from app.services.video.subtitle_generator import generate_subtitle
             from app.services.video.video_generator import edit_video
 
-            subtitle_path = generate_subtitle(scenes, drama_id)
+            existing_sub = f"app/static/subtitle/drama_{drama_id}.srt"
+            if os.path.exists(existing_sub) and os.path.getsize(existing_sub) > 10:
+                subtitle_path = existing_sub
+            else:
+                subtitle_path = generate_subtitle(scenes, drama_id)
             final_video = edit_video(scene_videos, audio_path, drama_id, subtitle_path=subtitle_path)
             update_drama(drama_id, video_url=final_video, status="ready")
             production_tasks[task_key] = {"status": "done", "error": ""}
@@ -1361,6 +1388,51 @@ async def api_production_assemble(request: Request, drama_id: int):
     thread.start()
 
     return JSONResponse({"message": "Video assembly started", "status": "running"})
+
+
+@router.post("/api/production/{drama_id}/subtitle")
+async def api_production_subtitle(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+    if not scenes:
+        return JSONResponse({"error": "シーンがありません"}, status_code=400)
+
+    task_key = _get_production_task_key(drama_id, "subtitle")
+    if production_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already generating"}, status_code=409)
+
+    production_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_subtitle():
+        try:
+            from app.services.video.subtitle_generator import generate_subtitle
+            result = generate_subtitle(scenes, drama_id)
+            if result and os.path.exists(result):
+                production_tasks[task_key] = {"status": "done", "error": ""}
+            else:
+                production_tasks[task_key] = {"status": "error", "error": "字幕生成に失敗しました"}
+        except Exception as e:
+            production_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_subtitle, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "Subtitle generation started", "status": "running"})
 
 
 @router.post("/api/production/{drama_id}/save-script")
@@ -1399,6 +1471,23 @@ async def api_production_save_theme(request: Request, drama_id: int):
     return JSONResponse({"success": True})
 
 
+@router.post("/api/production/{drama_id}/generate-theme")
+async def api_production_generate_theme(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "ドラマが見つかりません"}, status_code=404)
+
+    result = generate_theme_only(genre=drama.get("genre", "CEOドラマ"))
+    theme_text = result.get("theme", "") if isinstance(result, dict) else str(result)
+    if theme_text:
+        update_drama(drama_id, theme=theme_text)
+    return JSONResponse({"success": True, "theme": theme_text})
+
+
 @router.post("/api/production/{drama_id}/generate-script")
 async def api_production_generate_script(request: Request, drama_id: int):
     user = get_current_user(request)
@@ -1409,10 +1498,14 @@ async def api_production_generate_script(request: Request, drama_id: int):
     if not drama:
         return JSONResponse({"error": "ドラマが見つかりません"}, status_code=404)
 
-    body = await request.json()
-    theme = body.get("theme", "").strip()
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    theme = body.get("theme", "").strip() or (drama.get("theme") or "").strip()
     if not theme:
-        return JSONResponse({"error": "テーマが必要です"}, status_code=400)
+        return JSONResponse({"error": "テーマが必要です。先にテーマを設定してください。"}, status_code=400)
 
     task_key = _get_production_task_key(drama_id, "script")
     if production_tasks.get(task_key, {}).get("status") == "running":
