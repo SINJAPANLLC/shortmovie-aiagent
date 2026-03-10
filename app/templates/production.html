@@ -190,12 +190,15 @@
                             </div>
                             <div style="flex:1;min-width:80px">
                                 <label style="font-size:0.65rem;color:var(--text-secondary)">キャラクター</label>
-                                <select class="scene-character" data-scene="{{ sn }}" data-testid="select-character-{{ sn }}" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
-                                    <option value="">指定なし</option>
+                                <div class="scene-characters-wrap" data-scene="{{ sn }}" data-testid="select-character-{{ sn }}" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--border);border-radius:6px;background:var(--bg-primary);min-height:28px">
+                                    {% set sel_ids = scene.get('character_ids', []) if scene.get('character_ids') else ([scene.get('character_id')] if scene.get('character_id') else []) %}
                                     {% for ch in characters %}
-                                    <option value="{{ ch.id }}" {% if scene.get('character_id') == ch.id %}selected{% endif %}>{{ ch.name }} ({{ ch.role or '?' }})</option>
+                                    <label style="display:flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.7rem;cursor:pointer;background:var(--bg-card);border:1px solid var(--border);white-space:nowrap;user-select:none">
+                                        <input type="checkbox" class="scene-char-cb" data-scene="{{ sn }}" value="{{ ch.id }}" {% if ch.id in sel_ids %}checked{% endif %} style="width:12px;height:12px;margin:0">
+                                        {{ ch.name }} ({{ ch.role or '?' }})
+                                    </label>
                                     {% endfor %}
-                                </select>
+                                </div>
                             </div>
                             <div style="flex:1;min-width:80px">
                                 <label style="font-size:0.65rem;color:var(--text-secondary)">感情</label>
@@ -929,7 +932,10 @@ document.getElementById('btn-save-script').addEventListener('click', function() 
         var emotion = card.querySelector('.scene-emotion') ? card.querySelector('.scene-emotion').value : '';
         var duration = card.querySelector('.scene-duration') ? parseInt(card.querySelector('.scene-duration').value) || 6 : 6;
         var desc = card.querySelector('.scene-desc') ? card.querySelector('.scene-desc').value : '';
-        var charId = card.querySelector('.scene-character') ? card.querySelector('.scene-character').value : '';
+        var charIds = [];
+        card.querySelectorAll('.scene-char-cb:checked').forEach(function(cb) {
+            charIds.push(parseInt(cb.value));
+        });
         var sceneObj = {
             scene_number: sn,
             narration: narration,
@@ -938,7 +944,10 @@ document.getElementById('btn-save-script').addEventListener('click', function() 
             duration: duration,
             description: desc
         };
-        if (charId) sceneObj.character_id = parseInt(charId);
+        if (charIds.length > 0) {
+            sceneObj.character_ids = charIds;
+            sceneObj.character_id = charIds[0];
+        }
         scenes.push(sceneObj);
     });
 

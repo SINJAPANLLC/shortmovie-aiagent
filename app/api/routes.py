@@ -1257,10 +1257,25 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
     else:
         all_chars = get_characters()
 
+    character_ids = scene.get("character_ids", [])
     character_id = scene.get("character_id")
+    if not character_ids and character_id:
+        character_ids = [character_id]
     character_img = None
 
-    if "+" in speaker and not custom_prompt:
+    if character_ids and not custom_prompt:
+        char_descs = []
+        for cid in character_ids:
+            ch = get_character_by_id(int(cid))
+            if ch:
+                scene_characters.append(ch)
+                if ch.get("description"):
+                    char_descs.append(f"{ch.get('role', ch['name'])}: {ch['description']}")
+                if not character_img:
+                    character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
+        if char_descs:
+            image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
+    elif "+" in speaker and not custom_prompt:
         speaker_parts = [sp.strip() for sp in speaker.split("+")]
         for sp in speaker_parts:
             if sp == "ナレーション":
@@ -1279,12 +1294,6 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
                     character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
             if char_descs:
                 image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
-    elif character_id:
-        char = get_character_by_id(int(character_id))
-        if char:
-            if char.get("description") and not custom_prompt:
-                image_prompt = f"{image_prompt}。登場人物: {char.get('role', char['name'])}: {char['description']}"
-            character_img = char.get("image_face") or char.get("image_bust") or char.get("image_path")
     elif speaker and speaker != "ナレーション" and not custom_prompt:
         for ch in all_chars:
             if ch.get("role") == speaker or ch.get("name") == speaker:
