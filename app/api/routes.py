@@ -1367,10 +1367,58 @@ async def api_production_scene_video(request: Request, drama_id: int, scene_num:
     try:
         body = await request.json()
         custom_prompt = body.get("prompt", "").strip()
+        req_char_ids = body.get("character_ids", [])
     except Exception:
         custom_prompt = ""
+        req_char_ids = []
 
     video_prompt = custom_prompt if custom_prompt else scene.get("description", "")
+
+    character_ids = req_char_ids if req_char_ids else scene.get("character_ids", [])
+    character_id = scene.get("character_id")
+    if not character_ids and character_id:
+        character_ids = [character_id]
+
+    series_id = drama.get("series_id")
+    if series_id:
+        all_chars = get_characters_by_series(series_id)
+    else:
+        all_chars = get_characters()
+
+    scene_characters = []
+    if character_ids:
+        for cid in character_ids:
+            for ch in all_chars:
+                if ch["id"] == cid:
+                    scene_characters.append(ch)
+                    break
+
+    speaker = scene.get("speaker", "")
+    if not scene_characters and speaker:
+        for ch in all_chars:
+            if ch.get("name") == speaker:
+                scene_characters.append(ch)
+                break
+
+    char_image_urls = []
+    base_url = str(request.base_url).rstrip("/")
+    for ch in scene_characters:
+        img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path") or ""
+        if img:
+            if img.startswith("/static/"):
+                char_image_urls.append(f"{base_url}{img}")
+            elif img.startswith("http"):
+                char_image_urls.append(img)
+            else:
+                char_image_urls.append(f"{base_url}/static/{img}")
+
+    char_descs = []
+    for ch in scene_characters:
+        desc = ch.get("description", "")
+        if desc:
+            char_descs.append(f"{ch.get('role', ch.get('name', ''))}: {desc}")
+    if char_descs:
+        video_prompt = f"{video_prompt}。登場人物: {', '.join(char_descs)}"
 
     production_tasks[task_key] = {"status": "running", "error": ""}
 
@@ -1386,7 +1434,8 @@ async def api_production_scene_video(request: Request, drama_id: int, scene_num:
                 drama_id=drama_id,
                 reference_image=ref_image,
                 emotion=scene.get("emotion", ""),
-                duration=float(scene.get("duration", 6))
+                duration=float(scene.get("duration", 6)),
+                character_image_urls=char_image_urls if char_image_urls else None
             )
             if result and os.path.exists(result):
                 production_tasks[task_key] = {"status": "done", "error": ""}
