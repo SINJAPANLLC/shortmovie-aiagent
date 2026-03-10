@@ -1098,6 +1098,8 @@ async def production_page(request: Request, drama_id: int):
                 series = s
                 break
         characters = get_characters_by_series(drama["series_id"])
+    else:
+        characters = get_characters()
 
     subtitle_path = f"app/static/subtitle/drama_{drama_id}.srt"
 

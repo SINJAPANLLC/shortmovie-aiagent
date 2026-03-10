@@ -161,12 +161,31 @@
                             <div style="flex:1;min-width:80px">
                                 <label style="font-size:0.65rem;color:var(--text-secondary)">話者</label>
                                 <select class="scene-speaker" data-scene="{{ sn }}" data-testid="select-speaker-{{ sn }}" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                                    {% if characters %}
+                                    {% for ch in characters %}
+                                    <option value="{{ ch.role or ch.name }}" {% if scene.speaker == (ch.role or ch.name) %}selected{% endif %}>{{ ch.role or ch.name }}</option>
+                                    {% endfor %}
+                                    {% for ch in characters %}
+                                    {% for ch2 in characters %}
+                                    {% if ch.id != ch2.id %}
+                                    {% set combo = (ch.role or ch.name) + '+' + (ch2.role or ch2.name) %}
+                                    <option value="{{ combo }}" {% if scene.speaker == combo %}selected{% endif %}>{{ combo }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% endfor %}
+                                    <option value="ナレーション" {% if scene.speaker == 'ナレーション' %}selected{% endif %}>ナレーション</option>
+                                    {% for ch in characters %}
+                                    {% set combo_n = (ch.role or ch.name) + '+ナレーション' %}
+                                    <option value="{{ combo_n }}" {% if scene.speaker == combo_n %}selected{% endif %}>{{ combo_n }}</option>
+                                    {% endfor %}
+                                    {% else %}
                                     <option value="主人公" {% if scene.speaker == '主人公' %}selected{% endif %}>主人公</option>
                                     <option value="CEO" {% if scene.speaker == 'CEO' %}selected{% endif %}>CEO</option>
                                     <option value="主人公+CEO" {% if scene.speaker == '主人公+CEO' %}selected{% endif %}>主人公+CEO</option>
                                     <option value="ナレーション" {% if scene.speaker == 'ナレーション' %}selected{% endif %}>ナレーション</option>
                                     <option value="主人公+ナレーション" {% if scene.speaker == '主人公+ナレーション' %}selected{% endif %}>主人公+ナレーション</option>
                                     <option value="CEO+ナレーション" {% if scene.speaker == 'CEO+ナレーション' %}selected{% endif %}>CEO+ナレーション</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div style="flex:1;min-width:80px">
