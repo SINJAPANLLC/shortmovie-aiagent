@@ -62,7 +62,7 @@ def _download_asset(url: str, output_path: str) -> bool:
     return False
 
 
-def generate_image_luma(prompt: str, output_path: str, aspect_ratio: str = "9:16") -> bool:
+def generate_image_luma(prompt: str, output_path: str, aspect_ratio: str = "9:16", character_image_url: str = None) -> bool:
     api_key = _get_api_key()
     if not api_key:
         return False
@@ -73,6 +73,8 @@ def generate_image_luma(prompt: str, output_path: str, aspect_ratio: str = "9:16
             "aspect_ratio": aspect_ratio,
             "model": "photon-1",
         }
+        if character_image_url:
+            body["image_ref"] = [{"url": character_image_url, "weight": 0.85}]
         with httpx.Client(timeout=60) as client:
             resp = client.post(
                 f"{LUMA_API_BASE}/generations/image",

@@ -1297,6 +1297,18 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
             if char_descs:
                 image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
 
+    char_image_urls = []
+    base_url = str(request.base_url).rstrip("/")
+    for ch in scene_characters:
+        img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path") or ""
+        if img:
+            if img.startswith("/static/"):
+                char_image_urls.append(f"{base_url}{img}")
+            elif img.startswith("http"):
+                char_image_urls.append(img)
+            else:
+                char_image_urls.append(f"{base_url}/static/{img}")
+
     production_tasks[task_key] = {"status": "running", "error": ""}
 
     def run_image_gen():
@@ -1304,7 +1316,8 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
             from app.services.video.scene_generator import _generate_scene_specific_image
             result = _generate_scene_specific_image(
                 image_prompt,
-                drama_id, scene_num
+                drama_id, scene_num,
+                character_image_urls=char_image_urls if char_image_urls else None
             )
             if result:
                 production_tasks[task_key] = {"status": "done", "error": ""}
