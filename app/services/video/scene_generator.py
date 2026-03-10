@@ -160,8 +160,7 @@ def _is_kling_available() -> bool:
 
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
                          reference_image: str = None, progress_callback=None,
-                         emotion: str = "", duration: float = 6,
-                         character_image_urls: list = None) -> str:
+                         emotion: str = "", duration: float = 6) -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -169,8 +168,7 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
 
     scene_image = _generate_scene_specific_image(
-        scene_description, drama_id, scene_number, progress_callback,
-        character_image_urls=character_image_urls
+        scene_description, drama_id, scene_number, progress_callback
     )
 
     kling_ref = scene_image or reference_image
@@ -194,14 +192,8 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
         except Exception as e:
             logger.warning(f"Scene {scene_number}: Kling AI failed: {e}")
 
-    scene_image_url = None
-    if scene_image:
-        scene_image_url = character_image_urls[0] if character_image_urls else None
-
     if is_luma_available():
-        luma_ref = scene_image_url
-        ref_label = " (キャラ参照あり)" if luma_ref else ""
-        progress_callback(5, f"シーン{scene_number}: AI動画生成中 (Luma Dream Machine{ref_label})...")
+        progress_callback(5, f"シーン{scene_number}: AI動画生成中 (Luma Dream Machine)...")
         luma_prompt = (
             f"{scene_description}, cinematic, dramatic lighting, "
             "photorealistic, vertical 9:16, film quality, emotional scene"
@@ -213,7 +205,6 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
             prompt=luma_prompt,
             output_path=output_path,
             aspect_ratio="9:16",
-            image_url=luma_ref,
         )
         if luma_success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
             final = _ensure_duration(output_path, duration)
