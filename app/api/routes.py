@@ -1532,17 +1532,57 @@ async def api_production_thumbnail(request: Request, drama_id: int):
     try:
         body = await request.json()
         custom_prompt = body.get("prompt", "").strip()
+        req_char_ids = body.get("character_ids", [])
     except Exception:
         custom_prompt = ""
+        req_char_ids = []
 
     if custom_prompt:
         update_drama(drama_id, thumbnail_prompt=custom_prompt)
+
+    series_id = drama.get("series_id")
+    if series_id:
+        all_chars = get_characters_by_series(series_id)
+    else:
+        all_chars = get_characters()
+
+    scene_characters = []
+    if req_char_ids:
+        for cid in req_char_ids:
+            for ch in all_chars:
+                if ch["id"] == cid:
+                    scene_characters.append(ch)
+                    break
+
+    char_image_urls = []
+    base_url = str(request.base_url).rstrip("/")
+    for ch in scene_characters:
+        img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path") or ""
+        if img:
+            if img.startswith("/static/"):
+                char_image_urls.append(f"{base_url}{img}")
+            elif img.startswith("http"):
+                char_image_urls.append(img)
+            else:
+                char_image_urls.append(f"{base_url}/static/{img}")
+
+    char_descs = []
+    for ch in scene_characters:
+        desc = ch.get("description", "")
+        if desc:
+            char_descs.append(f"{ch.get('role', ch.get('name', ''))}: {desc}")
 
     task_key = _get_production_task_key(drama_id, "thumbnail")
     if production_tasks.get(task_key, {}).get("status") == "running":
         return JSONResponse({"error": "Already generating"}, status_code=409)
 
     production_tasks[task_key] = {"status": "running", "error": ""}
+
+    thumb_prompt = custom_prompt if custom_prompt else None
+    if thumb_prompt and char_descs:
+        thumb_prompt = f"{thumb_prompt}。登場人物: {', '.join(char_descs)}"
+    elif not thumb_prompt and char_descs:
+        thumb_prompt = None
 
     def run_thumb_gen():
         try:
@@ -1552,7 +1592,8 @@ async def api_production_thumbnail(request: Request, drama_id: int):
                 genre=drama.get("genre", "CEOドラマ"),
                 drama_id=drama_id,
                 episode_number=drama.get("series_episode") or drama.get("episode_number"),
-                custom_prompt=custom_prompt if custom_prompt else None,
+                custom_prompt=thumb_prompt,
+                character_image_url=char_image_urls[0] if char_image_urls else None,
             )
             if result and os.path.exists(result):
                 update_drama(drama_id, thumbnail_url=result)

@@ -105,7 +105,7 @@ def generate_character_image(character_description: str, drama_id: int, progress
     return _create_placeholder_image(output_path, "Character", drama_id)
 
 
-def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None, custom_prompt: str = None) -> str:
+def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: str = None, progress_callback=None, episode_number: int = None, custom_prompt: str = None, character_image_url: str = None) -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -115,7 +115,8 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
     progress_callback(3, f"サムネイル画像を生成中...")
 
     if is_luma_available():
-        progress_callback(3, f"サムネイル画像を生成中 (Luma Photon)...")
+        ref_label = " (キャラ参照あり)" if character_image_url else ""
+        progress_callback(3, f"サムネイル画像を生成中 (Luma Photon{ref_label})...")
         if custom_prompt:
             luma_prompt = custom_prompt
         else:
@@ -132,7 +133,7 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
                 "photorealistic, high quality, vertical 9:16"
             )
         luma_bg_path = output_path.replace(".png", "_luma_bg.png")
-        if generate_image_luma(luma_prompt, luma_bg_path, aspect_ratio="9:16"):
+        if generate_image_luma(luma_prompt, luma_bg_path, aspect_ratio="9:16", character_image_url=character_image_url):
             result = _generate_thumbnail_ffmpeg(title, drama_id, output_path, luma_bg_path, episode_number)
             if os.path.exists(luma_bg_path) and luma_bg_path != output_path:
                 os.remove(luma_bg_path)

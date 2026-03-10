@@ -437,6 +437,22 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
                 <div>
                     <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">サムネイル</div>
+                    {% if characters %}
+                    <div style="margin-bottom:6px">
+                        <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">キャラクター選択</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:3px">
+                            {% for ch in characters %}
+                            <label style="display:flex;align-items:center;gap:4px;font-size:0.7rem;cursor:pointer;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-primary)">
+                                <input type="checkbox" class="thumb-char-cb" value="{{ ch.id }}" data-testid="thumb-char-{{ ch.id }}" checked>
+                                {% if ch.image_face or ch.image_bust or ch.image_path %}
+                                <img src="{{ ch.image_face or ch.image_bust or ch.image_path }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+                                {% endif %}
+                                {{ ch.name }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                     <div style="margin-bottom:6px">
                         <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">サムネイルプロンプト</label>
                         <textarea id="thumb-prompt-edit" data-testid="thumb-prompt" rows="4" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:5px;font-size:0.7rem;resize:vertical;font-family:inherit;line-height:1.4;margin-top:2px" placeholder="空欄の場合、デフォルトプロンプトが使用されます">{{ drama.thumbnail_prompt or '' }}</textarea>
@@ -894,13 +910,15 @@ document.getElementById('btn-gen-thumb').addEventListener('click', function() {
     var preview = document.getElementById('thumb-preview');
     var promptEl = document.getElementById('thumb-prompt-edit');
     var thumbPrompt = promptEl ? promptEl.value.trim() : '';
+    var charIds = [];
+    document.querySelectorAll('.thumb-char-cb:checked').forEach(function(cb) { charIds.push(parseInt(cb.value)); });
     btn.disabled = true;
     btn.textContent = '生成中...';
     preview.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.82rem;color:var(--text-secondary)">生成中...</span></div>';
     fetch('/api/production/' + DRAMA_ID + '/thumbnail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: thumbPrompt })
+        body: JSON.stringify({ prompt: thumbPrompt, character_ids: charIds })
     })
     .then(handleGenResponse)
     .then(function() { startPolling(); })
