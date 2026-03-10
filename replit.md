@@ -158,5 +158,20 @@ app/
 - `ADMIN_PASSWORD` - Admin password (Kazuya8008)
 - `NEON_DATABASE_URL` or `DATABASE_URL` - PostgreSQL connection string
 
+## VPS Deployment
+- **Server**: 212.85.24.206 (srv1087935)
+- **Domain**: https://shortmovie-aiagent-sinjapan.site
+- **App directory**: /var/www/shortmovie-aiagent
+- **Process management**: systemd (`shortmovie-ai.service`)
+- **Port**: 5006
+- **Nginx**: リバースプロキシ (/etc/nginx/sites-available/shortmovie-aiagent)
+- **SSL**: Let's Encrypt (certbot, 自動更新)
+- **管理コマンド**:
+  - `systemctl restart shortmovie-ai` — アプリ再起動
+  - `systemctl status shortmovie-ai` — ステータス確認
+  - `journalctl -u shortmovie-ai -f` — ログ確認
+  - `cd /var/www/shortmovie-aiagent && git pull && systemctl restart shortmovie-ai` — コード更新
+- **GitHub**: https://github.com/SINJAPANLLC/shortmovie-aiagent.git
+
 ## Workflow
 - `Start application` runs `python main.py` on port 5000
