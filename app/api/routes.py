@@ -1295,6 +1295,20 @@ async def api_production_scene_audio(request: Request, drama_id: int, scene_num:
     if not narration:
         return JSONResponse({"error": "このシーンにセリフがありません"}, status_code=400)
 
+    try:
+        body = await request.json()
+        voice_settings = body.get("voice_settings", None)
+    except Exception:
+        voice_settings = None
+
+    if voice_settings:
+        scene["voice_settings"] = voice_settings
+        try:
+            script_json = json.dumps(script_data, ensure_ascii=False)
+            update_drama(drama_id, script=script_json)
+        except Exception:
+            pass
+
     task_key = _get_production_task_key(drama_id, "scene_audio", scene_num)
     if production_tasks.get(task_key, {}).get("status") == "running":
         return JSONResponse({"error": "Already generating"}, status_code=409)
@@ -1308,7 +1322,8 @@ async def api_production_scene_audio(request: Request, drama_id: int, scene_num:
                 narration=narration,
                 speaker=scene.get("speaker", "ナレーション"),
                 drama_id=drama_id,
-                scene_num=scene_num
+                scene_num=scene_num,
+                voice_settings=voice_settings,
             )
             if result and os.path.exists(result):
                 production_tasks[task_key] = {"status": "done", "error": ""}

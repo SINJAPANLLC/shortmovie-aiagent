@@ -147,8 +147,14 @@ def _split_scene_narration(narration: str, scene_speaker: str) -> list:
     return segments
 
 
-def _generate_segment_audio(client, role: str, text: str, segment_path: str) -> str:
+def _generate_segment_audio(client, role: str, text: str, segment_path: str, voice_overrides: dict = None) -> str:
     profile = VOICE_PROFILES.get(role, VOICE_PROFILES["narrator"])
+
+    settings = dict(profile["settings"])
+    if voice_overrides:
+        for k in ("speed", "stability", "similarity_boost", "style"):
+            if k in voice_overrides:
+                settings[k] = float(voice_overrides[k])
 
     for attempt in range(MAX_RETRIES):
         try:
@@ -156,7 +162,7 @@ def _generate_segment_audio(client, role: str, text: str, segment_path: str) -> 
                 voice_id=profile["voice_id"],
                 text=text,
                 model_id="eleven_v3",
-                voice_settings=profile["settings"]
+                voice_settings=settings
             )
             with open(segment_path, "wb") as f:
                 for chunk in audio_gen:
@@ -312,7 +318,7 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
         raise
 
 
-def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num: int) -> str:
+def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num: int, voice_settings: dict = None) -> str:
     os.makedirs(AUDIO_DIR, exist_ok=True)
     output_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_scene_{scene_num}.mp3")
 
@@ -349,7 +355,7 @@ def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num:
                     temp_files.append(sil_path)
 
             seg_path = os.path.join(AUDIO_DIR, f"scene_{drama_id}_{scene_num}_seg_{i}.mp3")
-            _generate_segment_audio(client, role, text, seg_path)
+            _generate_segment_audio(client, role, text, seg_path, voice_overrides=voice_settings)
             final_paths.append(seg_path)
             temp_files.append(seg_path)
             prev_role = role
