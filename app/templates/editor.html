@@ -192,7 +192,7 @@ var TOTAL_SCENES = {{ scenes|length }};
 var editorPollTimer = null;
 
 (function loadBgmList() {
-    fetch('/api/bgm/list').then(function(r) { return r.json(); }).then(function(data) {
+    fetch('/api/bgm').then(function(r) { return r.json(); }).then(function(data) {
         var sel = document.getElementById('editor-bgm-select');
         (data.files || []).forEach(function(f) {
             var opt = document.createElement('option');
