@@ -68,6 +68,8 @@ SPEAKER_ROLE_MAP = {
 }
 
 
+CHARACTER_VOICE_IDS = {}
+
 def _load_character_voice_map():
     try:
         from app.db.database import get_characters
@@ -75,13 +77,17 @@ def _load_character_voice_map():
         for ch in chars:
             name = ch.get("name", "")
             role = ch.get("role", "")
-            if name and name not in SPEAKER_ROLE_MAP:
-                if role in SPEAKER_ROLE_MAP:
-                    SPEAKER_ROLE_MAP[name] = SPEAKER_ROLE_MAP[role]
-                elif any(k in role for k in ("女", "妻", "彼女", "主人公", "ヒロイン", "秘書")):
-                    SPEAKER_ROLE_MAP[name] = "female"
-                elif any(k in role for k in ("男", "夫", "彼", "CEO", "社長", "部長")):
-                    SPEAKER_ROLE_MAP[name] = "male"
+            voice_id = ch.get("voice_id", "")
+            if name:
+                if voice_id:
+                    CHARACTER_VOICE_IDS[name] = voice_id
+                if name not in SPEAKER_ROLE_MAP:
+                    if role in SPEAKER_ROLE_MAP:
+                        SPEAKER_ROLE_MAP[name] = SPEAKER_ROLE_MAP[role]
+                    elif any(k in role for k in ("女", "妻", "彼女", "主人公", "ヒロイン", "秘書")):
+                        SPEAKER_ROLE_MAP[name] = "female"
+                    elif any(k in role for k in ("男", "夫", "彼", "CEO", "社長", "部長")):
+                        SPEAKER_ROLE_MAP[name] = "male"
     except Exception:
         pass
 
@@ -150,7 +156,7 @@ def _split_scene_narration(narration: str, scene_speaker: str) -> list:
             if role == "narrator" and raw_speaker not in ("ナレーション", "ナレーター"):
                 role = _classify_speaker_role(scene_speaker)
 
-        segments.append({"role": role, "text": dialogue})
+        segments.append({"role": role, "text": dialogue, "speaker": raw_speaker})
         last_end = match.end()
 
     if last_end < len(narration):
@@ -165,8 +171,13 @@ def _split_scene_narration(narration: str, scene_speaker: str) -> list:
     return segments
 
 
-def _generate_segment_audio(client, role: str, text: str, segment_path: str, voice_overrides: dict = None) -> str:
+def _generate_segment_audio(client, role: str, text: str, segment_path: str, voice_overrides: dict = None, speaker_name: str = "") -> str:
     profile = VOICE_PROFILES.get(role, VOICE_PROFILES["narrator"])
+    voice_id = profile["voice_id"]
+
+    if speaker_name and speaker_name in CHARACTER_VOICE_IDS:
+        voice_id = CHARACTER_VOICE_IDS[speaker_name]
+        logger.info(f"Using custom voice_id '{voice_id}' for speaker '{speaker_name}'")
 
     settings = dict(profile["settings"])
     if voice_overrides:
@@ -177,7 +188,7 @@ def _generate_segment_audio(client, role: str, text: str, segment_path: str, voi
     for attempt in range(MAX_RETRIES):
         try:
             audio_gen = client.text_to_speech.convert(
-                voice_id=profile["voice_id"],
+                voice_id=voice_id,
                 text=text,
                 model_id="eleven_v3",
                 voice_settings=settings
@@ -315,7 +326,7 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
                     final_paths.append(sil)
                     temp_files.append(sil)
 
-            _generate_segment_audio(client, segment["role"], segment["text"], seg_path)
+            _generate_segment_audio(client, segment["role"], segment["text"], seg_path, speaker_name=segment.get("speaker", ""))
             final_paths.append(seg_path)
             temp_files.append(seg_path)
             prev_role = segment["role"]
@@ -375,7 +386,7 @@ def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num:
                     temp_files.append(sil_path)
 
             seg_path = os.path.join(AUDIO_DIR, f"scene_{drama_id}_{scene_num}_seg_{i}.mp3")
-            _generate_segment_audio(client, role, text, seg_path, voice_overrides=voice_settings)
+            _generate_segment_audio(client, role, text, seg_path, voice_overrides=voice_settings, speaker_name=segment.get("speaker", ""))
             final_paths.append(seg_path)
             temp_files.append(seg_path)
             prev_role = role

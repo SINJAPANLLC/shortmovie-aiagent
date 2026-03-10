@@ -71,7 +71,7 @@
         <div class="card" data-testid="card-character-{{ char.id }}" style="padding:16px;position:relative">
             <div style="display:flex;gap:12px;align-items:flex-start">
                 {% if char.image_path %}
-                <img src="/{{ char.image_path | replace('app/static/', 'static/') }}" 
+                <img src="{{ char.image_path if char.image_path.startswith('/static/') else '/' + char.image_path.replace('app/static/', 'static/') }}" 
                      onerror="this.style.display='none'"
                      style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0" data-testid="img-character-{{ char.id }}">
                 {% else %}
@@ -163,7 +163,8 @@ function editCharacter(id) {
     document.getElementById('char-voice').value = c.voice_id;
     document.getElementById('char-series').value = c.series_id;
     if (c.image_path) {
-        document.getElementById('image-preview').innerHTML = '<img src="/' + c.image_path.replace('app/static/', 'static/') + '" style="max-height:100px;border-radius:8px">';
+        var imgSrc = c.image_path.startsWith('/static/') ? c.image_path : '/' + c.image_path.replace('app/static/', 'static/');
+        document.getElementById('image-preview').innerHTML = '<img src="' + imgSrc + '" style="max-height:100px;border-radius:8px">';
     } else {
         document.getElementById('image-preview').innerHTML = '';
     }
