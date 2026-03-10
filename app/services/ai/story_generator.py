@@ -78,15 +78,15 @@ TikTokやYouTube Shortsで何百万回も再生される45秒ドラマを書い�
 - 説明的な文章（「彼は悲しんだ」→ ×）。代わりに行動で見せる
 - 長いナレーション（映像で見せる。言葉で説明しない）
 
-【映像description（英語）の書き方】
-各シーンのdescriptionは、動画生成AIへの指示です。
+【画像description（日本語）の書き方】
+各シーンのdescriptionは、画像生成AIへの指示です。日本語で書いてください。
 各シーンで異なる構図・場所・アングルを使い、映像に変化をつけてください:
-- シーンごとに異なるカメラアングル（close-up, wide shot, over-shoulder, low angle等）
-- シーンごとに異なる場所や背景（オフィス, カフェ, 車内, 雨の路上, エレベーター等）
-- 照明の変化（warm golden light, cold blue light, sunset backlight等）
-- 表情や仕草の描写（tears, trembling hands, clenched jaw等）
-- 必ず "vertical 9:16 composition, 1080x1920, cinematic, photorealistic" を含める
-- 40〜60 words
+- シーンごとに異なるカメラアングル（クローズアップ、ワイドショット、肩越しショット、ローアングル等）
+- シーンごとに異なる場所や背景（オフィス、カフェ、車内、雨の路上、エレベーター等）
+- 照明の変化（温かい金色の光、冷たい青い光、夕日の逆光等）
+- 表情や仕草の描写（涙、震える手、食いしばった歯等）
+- 必ず「縦型9:16構図、1080x1920、シネマティック、フォトリアリスティック」を含める
+- 40〜80文字
 
 以下のJSON形式で返してください:
 {{
@@ -95,9 +95,9 @@ TikTokやYouTube Shortsで何百万回も再生される45秒ドラマを書い�
         {{
             "scene_number": 1,
             "duration": 6,
-            "description": "English visual description for AI video generation (40-60 words, unique camera angle + location + lighting + expression for each scene)",
+            "description": "日本語の画像プロンプト（40〜80文字、シーンごとに異なるカメラアングル+場所+照明+表情）",
             "narration": "このシーンのセリフ（主人公「セリフ」CEO「セリフ」等）",
-            "speaker": "主人公 or CEO or ナレーション",
+            "speaker": "主人公 or CEO or 主人公+CEO or ナレーション or 主人公+ナレーション or CEO+ナレーション",
             "emotion": "感情（例: 緊張、衝撃、切なさ）"
         }}
     ]
@@ -137,11 +137,11 @@ TikTokやYouTube Shortsで何百万回も再生される45秒ドラマを書い�
     return {
         "narration": "CEO「君、泣いてたよね」ナレーション「エレベーターで隣に立った男が、そう言った」主人公「え...誰...？」ナレーション「誰にも見せたことのない涙を、この人は見ていた」CEO「大丈夫じゃなくていい」主人公「...なんで、そんなこと言うんですか」ナレーション「翌朝、出社した彼女の目の前に、昨日の男が立っていた。名札には『CEO』の文字」続く...",
         "scenes": [
-            {"scene_number": 1, "duration": 5, "description": "Extreme close-up of a man's lips speaking in elevator, dramatic side lighting, luxury glass elevator with city view, vertical 9:16 composition, 1080x1920, cinematic shallow depth of field", "narration": "CEO「君、泣いてたよね」", "speaker": "CEO", "emotion": "衝撃"},
-            {"scene_number": 2, "duration": 5, "description": "Over-the-shoulder shot of beautiful Japanese woman looking up at tall handsome man in suit, elevator interior with warm golden lighting, eyes wide with surprise, vertical 9:16 composition, 1080x1920", "narration": "ナレーション「エレベーターで隣に立った男が、そう言った」主人公「え...誰...？」", "speaker": "主人公", "emotion": "動揺"},
-            {"scene_number": 3, "duration": 6, "description": "Close-up of woman's face, eyes glistening with unshed tears, soft diffused lighting, glass elevator descending with city lights behind, emotional vulnerability, vertical 9:16 composition, 1080x1920", "narration": "ナレーション「誰にも見せたことのない涙を、この人は見ていた」", "speaker": "ナレーション", "emotion": "切なさ"},
-            {"scene_number": 4, "duration": 6, "description": "Medium shot of CEO gently smiling, warm backlight from city skyline at dusk, luxury suit, slight smile that reaches his eyes, slow dolly in, vertical 9:16 composition, 1080x1920", "narration": "CEO「大丈夫じゃなくていい」", "speaker": "CEO", "emotion": "温かさ"},
-            {"scene_number": 5, "duration": 6, "description": "Close-up of woman's hands trembling, soft morning light, modern office lobby background, vertical 9:16 composition, 1080x1920", "narration": "主人公「...なんで、そんなこと言うんですか」", "speaker": "主人公", "emotion": "緊張"},
-            {"scene_number": 6, "duration": 5, "description": "Dramatic slow dolly in on CEO standing at reception, low angle looking up, cold blue office light, woman's shocked reflection in glass wall, name plate reading CEO visible, cliffhanger composition, vertical 9:16, 1080x1920", "narration": "ナレーション「翌朝、出社した彼女の目の前に、昨日の男が立っていた。名札には『CEO』の文字」続く...", "speaker": "ナレーション", "emotion": "衝撃"},
+            {"scene_number": 1, "duration": 5, "description": "エレベーター内で話す男性の唇のクローズアップ、ドラマチックなサイドライト、都市の眺望が見える高級ガラスエレベーター、縦型9:16構図、1080x1920、シネマティック、浅い被写界深度", "narration": "CEO「君、泣いてたよね」", "speaker": "CEO", "emotion": "衝撃"},
+            {"scene_number": 2, "duration": 5, "description": "スーツ姿の長身ハンサムな男性を見上げる美しい日本人女性の肩越しショット、温かい金色の照明のエレベーター内、驚きで見開いた目、縦型9:16構図、1080x1920、フォトリアリスティック", "narration": "ナレーション「エレベーターで隣に立った男が、そう言った」主人公「え...誰...？」", "speaker": "主人公+ナレーション", "emotion": "動揺"},
+            {"scene_number": 3, "duration": 6, "description": "女性の顔のクローズアップ、涙が光る目、柔らかい拡散光、都市の夜景を背に下降するガラスエレベーター、感情的な脆さ、縦型9:16構図、1080x1920、シネマティック", "narration": "ナレーション「誰にも見せたことのない涙を、この人は見ていた」", "speaker": "ナレーション", "emotion": "切なさ"},
+            {"scene_number": 4, "duration": 6, "description": "優しく微笑むCEOのミディアムショット、夕暮れの都市スカイラインからの温かい逆光、高級スーツ、目まで届く微笑み、ゆっくりドリーイン、縦型9:16構図、1080x1920、シネマティック", "narration": "CEO「大丈夫じゃなくていい」", "speaker": "CEO", "emotion": "温かさ"},
+            {"scene_number": 5, "duration": 6, "description": "震える女性の手のクローズアップ、柔らかい朝の光、モダンなオフィスロビーの背景、縦型9:16構図、1080x1920、フォトリアリスティック、シネマティック", "narration": "主人公「...なんで、そんなこと言うんですか」", "speaker": "主人公", "emotion": "緊張"},
+            {"scene_number": 6, "duration": 5, "description": "受付に立つCEOへのドラマチックなローアングル、冷たい青いオフィスの光、ガラス壁に映る女性の驚いた表情、CEO名札が見える、クリフハンガー構図、縦型9:16、1080x1920、シネマティック", "narration": "ナレーション「翌朝、出社した彼女の目の前に、昨日の男が立っていた。名札には『CEO』の文字」続く...", "speaker": "ナレーション", "emotion": "衝撃"},
         ]
     }

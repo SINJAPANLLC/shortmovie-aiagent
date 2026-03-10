@@ -100,8 +100,9 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                     {% for ch in characters %}
                     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px">
-                        {% if ch.image_face or ch.image_bust or ch.image_path %}
-                        <img src="/static/{{ (ch.image_face or ch.image_bust or ch.image_path)|replace('app/static/','') }}" style="width:24px;height:24px;border-radius:50%;object-fit:cover">
+                        {% set cimg = (ch.image_face or ch.image_bust or ch.image_path or '') %}
+                        {% if cimg %}
+                        <img src="{{ cimg if cimg.startswith('/static/') else '/static/' ~ cimg|replace('app/static/','') }}" style="width:24px;height:24px;border-radius:50%;object-fit:cover">
                         {% endif %}
                         <span style="font-size:0.8rem;font-weight:500">{{ ch.name }}</span>
                         <span style="font-size:0.7rem;color:var(--text-secondary)">({{ ch.role or '?' }})</span>
@@ -138,8 +139,8 @@
                                 <textarea class="scene-narration" data-scene="{{ sn }}" data-testid="textarea-narration-{{ sn }}" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;resize:vertical;margin-top:3px;font-family:inherit;line-height:1.5">{{ scene.narration or '' }}</textarea>
                             </div>
                             <div>
-                                <label style="font-size:0.7rem;color:var(--text-secondary);font-weight:600">映像プロンプト</label>
-                                <textarea class="scene-desc" data-scene="{{ sn }}" data-testid="textarea-desc-{{ sn }}" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;resize:vertical;margin-top:3px;font-family:inherit;line-height:1.4" placeholder="画像・動画生成に使うプロンプト">{{ scene.description or '' }}</textarea>
+                                <label style="font-size:0.7rem;color:var(--text-secondary);font-weight:600">画像プロンプト</label>
+                                <textarea class="scene-desc" data-scene="{{ sn }}" data-testid="textarea-desc-{{ sn }}" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;resize:vertical;margin-top:3px;font-family:inherit;line-height:1.4" placeholder="画像生成に使うプロンプト（日本語）">{{ scene.description or '' }}</textarea>
                             </div>
                         </div>
 
@@ -149,7 +150,10 @@
                                 <select class="scene-speaker" data-scene="{{ sn }}" data-testid="select-speaker-{{ sn }}" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
                                     <option value="主人公" {% if scene.speaker == '主人公' %}selected{% endif %}>主人公</option>
                                     <option value="CEO" {% if scene.speaker == 'CEO' %}selected{% endif %}>CEO</option>
+                                    <option value="主人公+CEO" {% if scene.speaker == '主人公+CEO' %}selected{% endif %}>主人公+CEO</option>
                                     <option value="ナレーション" {% if scene.speaker == 'ナレーション' %}selected{% endif %}>ナレーション</option>
+                                    <option value="主人公+ナレーション" {% if scene.speaker == '主人公+ナレーション' %}selected{% endif %}>主人公+ナレーション</option>
+                                    <option value="CEO+ナレーション" {% if scene.speaker == 'CEO+ナレーション' %}selected{% endif %}>CEO+ナレーション</option>
                                 </select>
                             </div>
                             <div style="flex:1;min-width:80px">
