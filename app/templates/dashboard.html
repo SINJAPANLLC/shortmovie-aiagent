@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+{% block title %}ダッシュボード - CEOの扉{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>CEOの扉 ダッシュボード</h1>
+    <p>AI自動生成ショートドラマ | シリーズ形式 × 毎日3本投稿</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_dramas }}</div>
+        <div class="stat-label">総ドラマ数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ published_count }}</div>
+        <div class="stat-label">公開済み</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "{:,}".format(total_views) }}</div>
+        <div class="stat-label">総再生数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "{:,}".format(total_likes) }}</div>
+        <div class="stat-label">総いいね</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_series or 0 }}</div>
+        <div class="stat-label">シリーズ数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">
+            {% if youtube_connected %}<span style="color:var(--success)">接続</span>{% else %}<span style="color:var(--text-secondary)">未接続</span>{% endif %}
+        </div>
+        <div class="stat-label">YouTube</div>
+    </div>
+</div>
+
+{% if active_series %}
+<div class="card" style="margin:20px 0;padding:16px 20px;border-left:4px solid var(--primary)">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+            <h3 style="margin:0;font-size:1rem;color:var(--primary)">現在のシリーズ: {{ active_series.name }}</h3>
+            <p style="margin:4px 0 0;font-size:0.85rem;color:var(--text-secondary)">{{ active_series.description or '' }}</p>
+        </div>
+        <div style="text-align:right">
+            <span style="font-size:1.4rem;font-weight:700;color:var(--primary)">{{ active_series.current_episode }}/{{ active_series.total_episodes }}</span>
+            <div style="font-size:0.75rem;color:var(--text-secondary)">エピソード進捗</div>
+        </div>
+    </div>
+    <div class="progress-bar-container" style="margin-top:10px;height:6px">
+        <div class="progress-bar" style="width:{{ (active_series.current_episode / active_series.total_episodes * 100)|int }}%"></div>
+    </div>
+</div>
+{% else %}
+<div class="card" style="margin:20px 0;padding:16px 20px;border-left:4px solid var(--warning, #f59e0b)">
+    <p style="margin:0;font-size:0.9rem;color:var(--text-secondary)">シリーズ未作成 — 最初のエピソード生成時に新しいシリーズが自動的に作成されます。</p>
+</div>
+{% endif %}
+
+<div class="tab-nav">
+    <button class="tab-btn active" data-tab="tab-pipeline">パイプライン</button>
+    <button class="tab-btn" data-tab="tab-ai-logs">AI思考ログ</button>
+    <button class="tab-btn" data-tab="tab-analytics">AI分析</button>
+    <button class="tab-btn" data-tab="tab-usage">API使用量</button>
+</div>
+
+<div id="tab-pipeline" class="tab-content active">
+    <div class="section">
+        <div class="section-header">
+            <h2>パイプライン</h2>
+            <button id="btn-generate-dash" class="btn btn-primary" {% if pipeline_running %}disabled{% endif %}>
+                {% if pipeline_running %}生成中...{% else %}新エピソード生成{% endif %}
+            </button>
+        </div>
+
+        <div id="pipeline-progress" style="{% if not pipeline_running %}display:none{% endif %}">
+            <div class="progress-header">
+                <span id="progress-title">パイプライン実行中...</span>
+                <span id="progress-time" style="font-size:0.8rem;color:var(--text-secondary)"></span>
+            </div>
+
+            <div class="pipeline-step-tracker" id="step-tracker">
+                <div class="step-item" data-step="0"><span class="step-dot"></span><span class="step-name">初期化</span></div>
+                <div class="step-item" data-step="1"><span class="step-dot"></span><span class="step-name">テーマ</span></div>
+                <div class="step-item" data-step="2"><span class="step-dot"></span><span class="step-name">脚本</span></div>
+                <div class="step-item" data-step="3"><span class="step-dot"></span><span class="step-name">画像(SD)</span></div>
+                <div class="step-item" data-step="4"><span class="step-dot"></span><span class="step-name">シーン分割</span></div>
+                <div class="step-item" data-step="5"><span class="step-dot"></span><span class="step-name">動画(Kling)</span></div>
+                <div class="step-item" data-step="6"><span class="step-dot"></span><span class="step-name">音声(EL)</span></div>
+                <div class="step-item" data-step="7"><span class="step-dot"></span><span class="step-name">編集(FFmpeg)</span></div>
+                <div class="step-item" data-step="8"><span class="step-dot"></span><span class="step-name">投稿(YT/TT)</span></div>
+                <div class="step-item" data-step="9"><span class="step-dot"></span><span class="step-name">完了</span></div>
+            </div>
+
+            <div class="progress-bar-container" style="margin:16px 0">
+                <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+            </div>
+
+            <div class="pipeline-log-box" id="pipeline-log-box">
+                <div class="log-entries" id="log-entries"></div>
+            </div>
+        </div>
+
+        <div id="pipeline-result" style="{% if not last_result or pipeline_running %}display:none{% endif %}">
+            {% if last_result and not pipeline_running %}
+                {% if last_result.success %}
+                <div class="alert alert-success">エピソード生成完了: {{ last_result.title }}</div>
+                {% else %}
+                <div class="alert alert-error">エラー: {{ last_result.error }}</div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <h2>最近のドラマ</h2>
+            <a href="/dramas" class="btn btn-secondary spa-link">すべて表示</a>
+        </div>
+
+        {% if dramas %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>タイトル</th>
+                        <th>ジャンル</th>
+                        <th>ステータス</th>
+                        <th>再生数</th>
+                        <th>作成日</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for drama in dramas %}
+                    <tr onclick="location.href='/dramas/{{ drama.id }}'" class="clickable-row">
+                        <td>{{ drama.id }}</td>
+                        <td>{{ drama.title or '-' }}</td>
+                        <td><span class="badge badge-draft">{{ drama.genre or '-' }}</span></td>
+                        <td>
+                            <span class="badge badge-{{ drama.status or 'draft' }}">
+                                {{ drama.status or 'draft' }}
+                            </span>
+                        </td>
+                        <td>{{ "{:,}".format(drama.views or 0) }}</td>
+                        <td>{{ drama.created_at.strftime('%Y/%m/%d') if drama.created_at else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>まだエピソードがありません。「新エピソード生成」ボタンで最初のエピソードを作成しましょう。</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <h2>ジャンル分布</h2>
+        </div>
+        {% if genre_counts %}
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            {% for genre, count in genre_counts.items() %}
+            <div class="stat-card" style="min-width:120px;flex:1">
+                <div class="stat-value">{{ count }}</div>
+                <div class="stat-label">{{ genre }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><p>データがありません</p></div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-ai-logs" class="tab-content">
+    <div class="section">
+        <h2>AI思考ログ</h2>
+        <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem">AIが各ステップで使用したプロンプトとレスポンスを確認できます。</p>
+
+        {% if ai_logs %}
+        {% for log in ai_logs %}
+        <div class="card" style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div>
+                    <span class="badge badge-published">{{ log.step }}</span>
+                    {% if log.drama_id %}
+                    <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:8px">ドラマID: {{ log.drama_id }}</span>
+                    {% endif %}
+                </div>
+                <span style="font-size:0.8rem;color:var(--text-secondary)">{{ log.created_at.strftime('%Y/%m/%d %H:%M') if log.created_at else '' }}</span>
+            </div>
+
+            <details style="margin-bottom:8px">
+                <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--accent);padding:6px 0">プロンプト (入力)</summary>
+                <pre style="background:var(--bg-primary);padding:12px;border-radius:8px;font-size:0.8rem;white-space:pre-wrap;word-wrap:break-word;margin-top:8px;border:1px solid var(--border);max-height:300px;overflow-y:auto">{{ log.prompt }}</pre>
+            </details>
+
+            <details>
+                <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--success);padding:6px 0">レスポンス (出力)</summary>
+                <pre style="background:var(--bg-primary);padding:12px;border-radius:8px;font-size:0.8rem;white-space:pre-wrap;word-wrap:break-word;margin-top:8px;border:1px solid var(--border);max-height:300px;overflow-y:auto">{{ log.response }}</pre>
+            </details>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <p>まだAIログがありません。エピソードを生成するとAIの思考過程がここに記録されます。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-analytics" class="tab-content">
+    <div class="section">
+        <h2>AI改善分析</h2>
+        <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem">投稿済みドラマのパフォーマンスをAIが分析し、改善提案を行います。</p>
+
+        <button id="btn-run-analysis" class="btn btn-primary" style="margin-bottom:20px">AI分析を実行</button>
+
+        <div id="analysis-result" style="display:none">
+            <div class="improvement-card" id="analysis-content"></div>
+        </div>
+
+        <div id="analysis-loading" style="display:none">
+            <div class="status-running">
+                <div class="spinner"></div>
+                <span>AIが分析中です。しばらくお待ちください...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>ドラマ別パフォーマンス</h2>
+        {% if all_dramas %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>タイトル</th>
+                        <th>ジャンル</th>
+                        <th>再生数</th>
+                        <th>いいね</th>
+                        <th>ステータス</th>
+                        <th>作成日</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for drama in all_dramas %}
+                    <tr>
+                        <td>
+                            {% if drama.youtube_id %}
+                            <a href="https://youtube.com/shorts/{{ drama.youtube_id }}" target="_blank">{{ drama.title or '-' }}</a>
+                            {% else %}
+                            {{ drama.title or '-' }}
+                            {% endif %}
+                        </td>
+                        <td><span class="badge badge-draft">{{ drama.genre or '-' }}</span></td>
+                        <td>{{ "{:,}".format(drama.views or 0) }}</td>
+                        <td>{{ "{:,}".format(drama.likes or 0) }}</td>
+                        <td><span class="badge badge-{{ drama.status or 'draft' }}">{{ drama.status or 'draft' }}</span></td>
+                        <td>{{ drama.created_at.strftime('%Y/%m/%d') if drama.created_at else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>まだドラマがありません。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="tab-usage" class="tab-content">
+    <div class="section">
+        <h2>API使用量モニター</h2>
+        <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem">Claude API、ElevenLabs API、Kling API の現在の使用状況を確認できます。</p>
+        <button id="btn-refresh-usage" class="btn btn-primary" style="margin-bottom:20px">使用量を更新</button>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="usage-panels">
+            <div class="card" id="usage-claude">
+                <h3 style="margin-bottom:12px">Claude API (AI生成)</h3>
+                <div id="claude-usage-content">
+                    {% if has_anthropic %}
+                    <p style="color:var(--success);font-weight:500;margin-bottom:8px">✓ API キー設定済み</p>
+                    <p style="color:var(--text-secondary);font-size:0.85rem">「使用量を更新」ボタンで最新の使用量を取得</p>
+                    {% else %}
+                    <p style="color:var(--error);font-weight:500">✗ ANTHROPIC_API_KEY 未設定</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card" id="usage-elevenlabs">
+                <h3 style="margin-bottom:12px">ElevenLabs (音声生成)</h3>
+                <div id="el-usage-content">
+                    {% if has_elevenlabs %}
+                    <p style="color:var(--success);font-weight:500;margin-bottom:8px">✓ API キー設定済み</p>
+                    <p style="color:var(--text-secondary);font-size:0.85rem">「使用量を更新」ボタンで最新の使用量を取得</p>
+                    {% else %}
+                    <p style="color:var(--error);font-weight:500">✗ ELEVENLABS_API_KEY 未設定</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card" id="usage-kling">
+                <h3 style="margin-bottom:12px">Kling API (動画生成)</h3>
+                <div id="kling-usage-content">
+                    {% if has_kling %}
+                    <p style="color:var(--success);font-weight:500">✓ API キー設定済み</p>
+                    {% else %}
+                    <p style="color:var(--error);font-weight:500;margin-bottom:8px">✗ KLING_API_KEY 未設定</p>
+                    <p style="color:var(--text-secondary);font-size:0.85rem">未設定の場合、プレースホルダー動画で代替されます</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>API設定状況</h2>
+        <div class="settings-grid">
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>Claude AI</h3>
+                    {% if has_anthropic %}<span class="badge badge-published">設定済み</span>{% else %}<span class="badge badge-error">未設定</span>{% endif %}
+                </div>
+                <p class="setting-desc">テーマ生成、脚本生成、改善分析に使用</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>Kling API</h3>
+                    {% if has_kling %}<span class="badge badge-published">設定済み</span>{% else %}<span class="badge badge-error">未設定</span>{% endif %}
+                </div>
+                <p class="setting-desc">各シーンの動画を自動生成</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>ElevenLabs</h3>
+                    {% if has_elevenlabs %}<span class="badge badge-published">設定済み</span>{% else %}<span class="badge badge-error">未設定</span>{% endif %}
+                </div>
+                <p class="setting-desc">ナレーション音声を自動生成</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>Stable Diffusion</h3>
+                    {% if has_stability %}<span class="badge badge-published">設定済み</span>{% else %}<span class="badge badge-error">未設定</span>{% endif %}
+                </div>
+                <p class="setting-desc">キャラクター・サムネイル画像を生成</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>YouTube</h3>
+                    {% if youtube_connected %}<span class="badge badge-published">接続済み</span>{% else %}<span class="badge badge-draft">未接続</span>{% endif %}
+                </div>
+                <p class="setting-desc">YouTube Shortsに自動投稿</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <h3>TikTok</h3>
+                    {% if has_tiktok %}<span class="badge badge-published">接続済み</span>{% else %}<span class="badge badge-draft">未接続</span>{% endif %}
+                </div>
+                <p class="setting-desc">TikTokに自動投稿</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var tabBtns = document.querySelectorAll('.tab-btn');
+    var tabContents = document.querySelectorAll('.tab-content');
+    tabBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            tabBtns.forEach(function(b) { b.classList.remove('active'); });
+            tabContents.forEach(function(c) { c.classList.remove('active'); });
+            btn.classList.add('active');
+            var target = document.getElementById(btn.dataset.tab);
+            if (target) target.classList.add('active');
+        });
+    });
+
+    var btnGen = document.getElementById('btn-generate-dash');
+    var progressDiv = document.getElementById('pipeline-progress');
+    var resultDiv = document.getElementById('pipeline-result');
+
+    btnGen.addEventListener('click', function() {
+        if (btnGen.disabled) return;
+        btnGen.disabled = true;
+        btnGen.textContent = '生成中...';
+        progressDiv.style.display = 'block';
+        resultDiv.style.display = 'none';
+
+        fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.error) {
+                resultDiv.innerHTML = '<div class="alert alert-error">' + data.error + '</div>';
+                resultDiv.style.display = 'block';
+                progressDiv.style.display = 'none';
+                btnGen.disabled = false;
+                btnGen.textContent = '新エピソード生成';
+            } else {
+                pollPipeline();
+            }
+        })
+        .catch(function() {
+            btnGen.disabled = false;
+            btnGen.textContent = '新しいドラマを生成';
+        });
+    });
+
+    function pollPipeline() {
+        var interval = setInterval(function() {
+            fetch('/api/pipeline-status')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var bar = document.getElementById('progress-bar');
+                var logBox = document.getElementById('log-entries');
+                var tracker = document.getElementById('step-tracker');
+
+                if (bar) bar.style.width = Math.round((data.current_step / data.total_steps) * 100) + '%';
+
+                if (tracker) {
+                    tracker.querySelectorAll('.step-item').forEach(function(el) {
+                        var s = parseInt(el.dataset.step);
+                        el.classList.remove('step-done', 'step-active');
+                        if (s < data.current_step) el.classList.add('step-done');
+                        else if (s === data.current_step && data.running) el.classList.add('step-active');
+                    });
+                }
+
+                if (logBox && data.logs) {
+                    logBox.innerHTML = data.logs.map(function(l) {
+                        return '<div class="log-entry"><span class="log-time">' + l.time + '</span><span class="log-msg">' + l.message + '</span></div>';
+                    }).join('');
+                    var parent = logBox.parentElement;
+                    if (parent) parent.scrollTop = parent.scrollHeight;
+                }
+
+                if (!data.running) {
+                    clearInterval(interval);
+                    btnGen.disabled = false;
+                    btnGen.textContent = '新エピソード生成';
+                    if (data.last_result) {
+                        if (data.last_result.success) {
+                            resultDiv.innerHTML = '<div class="alert alert-success">エピソード生成完了: ' + (data.last_result.title || '') + '</div>';
+                        } else {
+                            resultDiv.innerHTML = '<div class="alert alert-error">エラー: ' + (data.last_result.error || '') + '</div>';
+                        }
+                        resultDiv.style.display = 'block';
+                    }
+                }
+            })
+            .catch(function() {});
+        }, 3000);
+    }
+
+    {% if pipeline_running %}
+    pollPipeline();
+    {% endif %}
+
+    var btnAnalysis = document.getElementById('btn-run-analysis');
+    if (btnAnalysis) {
+        btnAnalysis.addEventListener('click', function() {
+            btnAnalysis.disabled = true;
+            btnAnalysis.textContent = '分析中...';
+            document.getElementById('analysis-loading').style.display = 'block';
+            document.getElementById('analysis-result').style.display = 'none';
+
+            fetch('/api/analyze', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                document.getElementById('analysis-loading').style.display = 'none';
+                var content = document.getElementById('analysis-content');
+                content.innerHTML =
+                    '<div class="improvement-item"><h4>分析結果</h4><p>' + (data.analysis || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>高パフォーマンスの共通点</h4><p>' + (data.top_performing_pattern || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>フック改善</h4><p>' + (data.hook_improvement || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>ストーリー改善</h4><p>' + (data.story_improvement || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>タイトル改善</h4><p>' + (data.title_improvement || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>次のテーマ推奨</h4><p>' + (data.next_theme_recommendation || 'N/A') + '</p></div>' +
+                    '<div class="improvement-item"><h4>エンゲージメント施策</h4><p>' + (data.engagement_tips || 'N/A') + '</p></div>';
+                document.getElementById('analysis-result').style.display = 'block';
+                btnAnalysis.disabled = false;
+                btnAnalysis.textContent = 'AI分析を実行';
+            })
+            .catch(function() {
+                document.getElementById('analysis-loading').style.display = 'none';
+                btnAnalysis.disabled = false;
+                btnAnalysis.textContent = 'AI分析を実行';
+            });
+        });
+    }
+
+    var btnUsage = document.getElementById('btn-refresh-usage');
+    if (btnUsage) {
+        btnUsage.addEventListener('click', function() {
+            btnUsage.disabled = true;
+            btnUsage.textContent = '読み込み中...';
+            fetch('/api/usage')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.elevenlabs) {
+                    var elDiv = document.getElementById('el-usage-content');
+                    elDiv.innerHTML =
+                        '<p style="margin-bottom:6px"><strong>プラン:</strong> ' + data.elevenlabs.tier + '</p>' +
+                        '<p style="margin-bottom:6px"><strong>使用文字数:</strong> ' + data.elevenlabs.used.toLocaleString() + ' / ' + data.elevenlabs.limit.toLocaleString() + '</p>' +
+                        '<p style="margin-bottom:6px"><strong>残り:</strong> ' + data.elevenlabs.remaining.toLocaleString() + ' 文字</p>' +
+                        '<div class="goal-bar" style="margin-top:8px"><div class="goal-fill" style="width:' + Math.round(data.elevenlabs.used / data.elevenlabs.limit * 100) + '%"></div></div>' +
+                        (data.elevenlabs.reset_date ? '<p style="margin-top:6px;font-size:0.8rem;color:var(--text-secondary)">リセット日: ' + data.elevenlabs.reset_date + '</p>' : '');
+                }
+                if (data.claude) {
+                    var clDiv = document.getElementById('claude-usage-content');
+                    clDiv.innerHTML =
+                        '<p style="margin-bottom:6px"><strong>リクエスト上限:</strong> ' + data.claude.requests_limit + '</p>' +
+                        '<p style="margin-bottom:6px"><strong>リクエスト残り:</strong> ' + data.claude.requests_remaining + '</p>';
+                }
+                if (data.kling) {
+                    var klDiv = document.getElementById('kling-usage-content');
+                    klDiv.innerHTML = '<p style="font-weight:500;color:' + (data.kling.configured ? 'var(--success)' : 'var(--error)') + '">' +
+                        (data.kling.configured ? '✓ API キー設定済み' : '✗ 未設定（プレースホルダー動画を使用）') + '</p>';
+                }
+                btnUsage.disabled = false;
+                btnUsage.textContent = '使用量を更新';
+            })
+            .catch(function() {
+                btnUsage.disabled = false;
+                btnUsage.textContent = '使用量を更新';
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}

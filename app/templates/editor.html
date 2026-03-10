@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+{% block title %}動画編集 - {{ drama.title or 'Drama' }}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1 data-testid="text-editor-title" style="font-size:1.3rem">動画エディタ</h1>
+        <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px">
+            {{ drama.title or '無題' }} — 第{{ drama.series_episode or drama.episode_number or '?' }}話
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="/production/{{ drama.id }}" class="btn btn-secondary spa-link" data-testid="link-back-production" style="font-size:0.85rem">← プロダクション</a>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:16px">
+    <div>
+        <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:10px 16px;background:var(--bg-hover);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                <span style="font-weight:600;font-size:0.9rem">タイムライン</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <span id="timeline-duration" data-testid="text-timeline-duration" style="font-size:0.78rem;color:var(--text-secondary)">0.0秒</span>
+                    <button class="btn btn-secondary" data-testid="btn-reset-order" onclick="resetOrder()" style="font-size:0.72rem;padding:3px 10px">順序リセット</button>
+                </div>
+            </div>
+            <div id="timeline-container" data-testid="timeline-container" style="padding:12px;min-height:200px">
+                {% for scene in scenes %}
+                {% set sa = scene_assets[loop.index0] if loop.index0 < scene_assets|length else {} %}
+                <div class="timeline-clip" data-scene="{{ scene.scene_number }}" data-original-index="{{ loop.index0 }}" data-duration="{{ scene.duration or 5 }}" draggable="true" data-testid="clip-scene-{{ scene.scene_number }}">
+                    <div class="clip-drag-handle" title="ドラッグで並び替え">⠿</div>
+                    <div class="clip-toggle">
+                        <input type="checkbox" class="clip-enabled" data-testid="toggle-scene-{{ scene.scene_number }}" checked onchange="updateTimeline()">
+                    </div>
+                    <div class="clip-preview" onclick="previewScene({{ scene.scene_number }})">
+                        {% if sa.has_video %}
+                        <video src="{{ sa.video_url }}" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;border-radius:4px"></video>
+                        {% elif sa.has_image %}
+                        <img src="{{ sa.image_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">
+                        {% else %}
+                        <div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--bg-hover);border-radius:4px;font-size:0.7rem;color:var(--text-secondary)">No Media</div>
+                        {% endif %}
+                    </div>
+                    <div class="clip-info">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                            <span style="font-weight:600;font-size:0.82rem">シーン {{ scene.scene_number }}</span>
+                            {% if scene.emotion %}
+                            <span style="font-size:0.65rem;background:var(--accent);color:#fff;padding:1px 6px;border-radius:3px">{{ scene.emotion }}</span>
+                            {% endif %}
+                            <span style="font-size:0.72rem;color:var(--text-secondary)">{{ scene.speaker or 'ナレーション' }}</span>
+                        </div>
+                        <div style="font-size:0.72rem;color:var(--text-secondary);line-height:1.4;max-height:2.8em;overflow:hidden">{{ (scene.narration or '')[:80] }}{% if (scene.narration or '')|length > 80 %}...{% endif %}</div>
+                        <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+                            <div style="display:flex;align-items:center;gap:4px">
+                                <label style="font-size:0.68rem;color:var(--text-secondary);white-space:nowrap">開始:</label>
+                                <input type="number" class="clip-trim-start" data-testid="trim-start-{{ scene.scene_number }}" value="0" min="0" step="0.1" style="width:55px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:0.72rem" onchange="updateTimeline()">
+                                <span style="font-size:0.65rem;color:var(--text-secondary)">秒</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:4px">
+                                <label style="font-size:0.68rem;color:var(--text-secondary);white-space:nowrap">終了:</label>
+                                <input type="number" class="clip-trim-end" data-testid="trim-end-{{ scene.scene_number }}" value="{{ scene.duration or 5 }}" min="0" step="0.1" style="width:55px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:0.72rem" onchange="updateTimeline()">
+                                <span style="font-size:0.65rem;color:var(--text-secondary)">秒</span>
+                            </div>
+                            <span class="clip-effective-duration" style="font-size:0.72rem;font-weight:600;color:var(--accent)">{{ scene.duration or 5 }}s</span>
+                        </div>
+                    </div>
+                    <div class="clip-actions">
+                        <button class="btn btn-secondary" data-testid="btn-preview-{{ scene.scene_number }}" onclick="previewScene({{ scene.scene_number }})" style="font-size:0.68rem;padding:3px 8px" title="プレビュー">▶</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="card" style="padding:0;overflow:hidden;position:sticky;top:72px">
+            <div style="padding:10px 16px;background:var(--bg-hover);border-bottom:1px solid var(--border)">
+                <span style="font-weight:600;font-size:0.9rem">プレビュー</span>
+            </div>
+            <div style="padding:12px">
+                <div id="preview-player" data-testid="preview-player" style="background:#000;border-radius:6px;overflow:hidden;aspect-ratio:9/16;max-height:400px;display:flex;align-items:center;justify-content:center">
+                    {% if has_final_video %}
+                    <video id="preview-video" src="{{ final_video_url }}" controls style="width:100%;height:100%;object-fit:contain" data-testid="video-preview"></video>
+                    {% else %}
+                    <span style="color:#666;font-size:0.8rem">動画を選択してください</span>
+                    {% endif %}
+                </div>
+                <div style="margin-top:8px;font-size:0.72rem;color:var(--text-secondary);text-align:center">
+                    <span id="preview-label" data-testid="text-preview-label">{% if has_final_video %}完成動画{% else %}プレビューなし{% endif %}</span>
+                </div>
+            </div>
+
+            <div style="padding:0 12px 12px">
+                <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px">BGM設定</div>
+                <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:10px">
+                    <select id="editor-bgm-select" data-testid="editor-bgm-select" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:0.75rem;background:var(--bg-primary);margin-bottom:6px">
+                        <option value="">BGMなし</option>
+                    </select>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <label style="font-size:0.7rem;color:var(--text-secondary);white-space:nowrap">音量:</label>
+                        <input type="range" id="editor-bgm-volume" data-testid="editor-bgm-volume" min="0" max="50" value="15" style="flex:1">
+                        <span id="editor-bgm-volume-label" style="font-size:0.7rem;color:var(--text-secondary);min-width:28px">15%</span>
+                    </div>
+                </div>
+
+                <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px">字幕</div>
+                <div style="margin-bottom:10px">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;cursor:pointer">
+                        <input type="checkbox" id="editor-subtitle" data-testid="editor-subtitle" {% if has_subtitle %}checked{% endif %}>
+                        字幕を焼き込む
+                    </label>
+                </div>
+
+                <button id="btn-editor-assemble" class="btn btn-primary" data-testid="btn-editor-assemble" onclick="assembleEdited()" style="width:100%;font-size:0.85rem;padding:10px">
+                    編集内容で動画を組み立てる
+                </button>
+                <div id="editor-status" data-testid="editor-status" style="margin-top:6px;font-size:0.78rem;text-align:center;min-height:20px"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline-clip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: var(--bg-card);
+    transition: box-shadow 0.2s, opacity 0.2s, border-color 0.2s;
+    cursor: default;
+}
+.timeline-clip:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+.timeline-clip.disabled {
+    opacity: 0.4;
+}
+.timeline-clip.dragging {
+    opacity: 0.5;
+    border-color: var(--accent);
+    box-shadow: 0 4px 16px var(--shadow);
+}
+.timeline-clip.drag-over {
+    border-top: 3px solid var(--accent);
+}
+.clip-drag-handle {
+    cursor: grab;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    user-select: none;
+    padding: 0 2px;
+}
+.clip-drag-handle:active {
+    cursor: grabbing;
+}
+.clip-toggle {
+    flex-shrink: 0;
+}
+.clip-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+.clip-preview {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--bg-hover);
+}
+.clip-info {
+    flex: 1;
+    min-width: 0;
+}
+.clip-actions {
+    flex-shrink: 0;
+}
+</style>
+
+<script>
+var DRAMA_ID = {{ drama.id }};
+var TOTAL_SCENES = {{ scenes|length }};
+var editorPollTimer = null;
+
+(function loadBgmList() {
+    fetch('/api/bgm').then(function(r) { return r.json(); }).then(function(data) {
+        var sel = document.getElementById('editor-bgm-select');
+        (data.files || []).forEach(function(f) {
+            var opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = f;
+            sel.appendChild(opt);
+        });
+    }).catch(function() {});
+})();
+
+document.getElementById('editor-bgm-volume').addEventListener('input', function() {
+    document.getElementById('editor-bgm-volume-label').textContent = this.value + '%';
+});
+
+function getClipOrder() {
+    var clips = document.querySelectorAll('#timeline-container .timeline-clip');
+    var order = [];
+    clips.forEach(function(clip) {
+        var sceneNum = parseInt(clip.dataset.scene);
+        var enabled = clip.querySelector('.clip-enabled').checked;
+        var trimStart = parseFloat(clip.querySelector('.clip-trim-start').value) || 0;
+        var trimEnd = parseFloat(clip.querySelector('.clip-trim-end').value) || parseFloat(clip.dataset.duration);
+        var duration = parseFloat(clip.dataset.duration);
+        order.push({
+            scene_number: sceneNum,
+            enabled: enabled,
+            trim_start: Math.max(0, trimStart),
+            trim_end: Math.min(duration, trimEnd),
+            original_duration: duration
+        });
+    });
+    return order;
+}
+
+function updateTimeline() {
+    var order = getClipOrder();
+    var totalDuration = 0;
+    order.forEach(function(item) {
+        var clip = document.querySelector('.timeline-clip[data-scene="' + item.scene_number + '"]');
+        if (!clip) return;
+        var effectiveDur = Math.max(0, item.trim_end - item.trim_start);
+        clip.querySelector('.clip-effective-duration').textContent = effectiveDur.toFixed(1) + 's';
+        if (item.enabled) {
+            clip.classList.remove('disabled');
+            totalDuration += effectiveDur;
+        } else {
+            clip.classList.add('disabled');
+        }
+    });
+    document.getElementById('timeline-duration').textContent = totalDuration.toFixed(1) + '秒';
+}
+
+function resetOrder() {
+    var container = document.getElementById('timeline-container');
+    var clips = Array.from(container.querySelectorAll('.timeline-clip'));
+    clips.sort(function(a, b) {
+        return parseInt(a.dataset.originalIndex) - parseInt(b.dataset.originalIndex);
+    });
+    clips.forEach(function(clip) {
+        clip.querySelector('.clip-enabled').checked = true;
+        var dur = clip.dataset.duration;
+        clip.querySelector('.clip-trim-start').value = '0';
+        clip.querySelector('.clip-trim-end').value = dur;
+        container.appendChild(clip);
+    });
+    updateTimeline();
+}
+
+function previewScene(sceneNum) {
+    var clip = document.querySelector('.timeline-clip[data-scene="' + sceneNum + '"]');
+    if (!clip) return;
+    var video = clip.querySelector('.clip-preview video');
+    var img = clip.querySelector('.clip-preview img');
+    var playerDiv = document.getElementById('preview-player');
+    var label = document.getElementById('preview-label');
+
+    if (video) {
+        var src = video.getAttribute('src');
+        playerDiv.innerHTML = '<video id="preview-video" src="' + src + '" controls autoplay style="width:100%;height:100%;object-fit:contain" data-testid="video-preview"></video>';
+        label.textContent = 'シーン ' + sceneNum + ' プレビュー';
+    } else if (img) {
+        var src = img.getAttribute('src');
+        playerDiv.innerHTML = '<img src="' + src + '" style="width:100%;height:100%;object-fit:contain">';
+        label.textContent = 'シーン ' + sceneNum + ' 画像';
+    }
+}
+
+var dragSrcEl = null;
+function initDragDrop() {
+    var container = document.getElementById('timeline-container');
+
+    container.addEventListener('dragstart', function(e) {
+        var clip = e.target.closest('.timeline-clip');
+        if (!clip) return;
+        dragSrcEl = clip;
+        clip.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', clip.dataset.scene);
+    });
+
+    container.addEventListener('dragend', function(e) {
+        var clip = e.target.closest('.timeline-clip');
+        if (clip) clip.classList.remove('dragging');
+        document.querySelectorAll('.timeline-clip').forEach(function(c) {
+            c.classList.remove('drag-over');
+        });
+        dragSrcEl = null;
+    });
+
+    container.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        var clip = e.target.closest('.timeline-clip');
+        if (!clip || clip === dragSrcEl) return;
+        document.querySelectorAll('.timeline-clip').forEach(function(c) {
+            c.classList.remove('drag-over');
+        });
+        clip.classList.add('drag-over');
+    });
+
+    container.addEventListener('drop', function(e) {
+        e.preventDefault();
+        var targetClip = e.target.closest('.timeline-clip');
+        if (!targetClip || !dragSrcEl || targetClip === dragSrcEl) return;
+
+        var allClips = Array.from(container.querySelectorAll('.timeline-clip'));
+        var dragIdx = allClips.indexOf(dragSrcEl);
+        var targetIdx = allClips.indexOf(targetClip);
+
+        if (dragIdx < targetIdx) {
+            targetClip.parentNode.insertBefore(dragSrcEl, targetClip.nextSibling);
+        } else {
+            targetClip.parentNode.insertBefore(dragSrcEl, targetClip);
+        }
+
+        document.querySelectorAll('.timeline-clip').forEach(function(c) {
+            c.classList.remove('drag-over');
+        });
+        updateTimeline();
+    });
+}
+
+function assembleEdited() {
+    var btn = document.getElementById('btn-editor-assemble');
+    var statusEl = document.getElementById('editor-status');
+    var order = getClipOrder();
+
+    var enabledScenes = order.filter(function(s) { return s.enabled; });
+    if (enabledScenes.length === 0) {
+        statusEl.textContent = 'シーンが選択されていません';
+        statusEl.style.color = 'var(--error)';
+        return;
+    }
+
+    var bgmSelect = document.getElementById('editor-bgm-select');
+    var bgmVolume = parseInt(document.getElementById('editor-bgm-volume').value) / 100;
+    var includeSubtitle = document.getElementById('editor-subtitle').checked;
+
+    btn.disabled = true;
+    btn.textContent = '組み立て中...';
+    statusEl.textContent = 'FFmpegで動画を組み立て中...';
+    statusEl.style.color = 'var(--accent)';
+
+    fetch('/api/editor/' + DRAMA_ID + '/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            scene_order: enabledScenes.map(function(s) {
+                return {
+                    scene_number: s.scene_number,
+                    trim_start: s.trim_start,
+                    trim_end: s.trim_end
+                };
+            }),
+            bgm_file: bgmSelect.value,
+            bgm_volume: bgmVolume,
+            include_subtitle: includeSubtitle
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            btn.disabled = false;
+            btn.textContent = '編集内容で動画を組み立てる';
+            statusEl.textContent = 'エラー: ' + data.error;
+            statusEl.style.color = 'var(--error)';
+            return;
+        }
+        startEditorPolling();
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = '編集内容で動画を組み立てる';
+        statusEl.textContent = '通信エラー: ' + err.message;
+        statusEl.style.color = 'var(--error)';
+    });
+}
+
+function startEditorPolling() {
+    if (editorPollTimer) clearInterval(editorPollTimer);
+    editorPollTimer = setInterval(function() {
+        fetch('/api/editor/' + DRAMA_ID + '/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var statusEl = document.getElementById('editor-status');
+            if (data.status === 'done') {
+                clearInterval(editorPollTimer);
+                editorPollTimer = null;
+                var btn = document.getElementById('btn-editor-assemble');
+                btn.disabled = false;
+                btn.textContent = '編集内容で動画を組み立てる';
+                statusEl.textContent = '動画の組み立てが完了しました';
+                statusEl.style.color = 'var(--success)';
+                var playerDiv = document.getElementById('preview-player');
+                var t = Date.now();
+                playerDiv.innerHTML = '<video id="preview-video" src="/static/videos/drama_' + DRAMA_ID + '.mp4?t=' + t + '" controls style="width:100%;height:100%;object-fit:contain" data-testid="video-preview"></video>';
+                document.getElementById('preview-label').textContent = '完成動画';
+            } else if (data.status === 'error') {
+                clearInterval(editorPollTimer);
+                editorPollTimer = null;
+                var btn = document.getElementById('btn-editor-assemble');
+                btn.disabled = false;
+                btn.textContent = '編集内容で動画を組み立てる';
+                statusEl.textContent = 'エラー: ' + (data.error || '不明なエラー');
+                statusEl.style.color = 'var(--error)';
+            } else {
+                statusEl.textContent = '処理中...';
+            }
+        })
+        .catch(function() {});
+    }, 2000);
+}
+
+initDragDrop();
+updateTimeline();
+</script>
+{% endblock %}

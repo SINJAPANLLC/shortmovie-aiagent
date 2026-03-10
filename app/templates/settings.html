@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}設定 - CEOの扉{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>設定</h1>
+    <p>API接続状況</p>
+</div>
+
+{% if request.query_params.get('success') == 'youtube_connected' %}
+<div class="alert alert-success">YouTube アカウントが正常に連携されました</div>
+{% endif %}
+{% if request.query_params.get('error') %}
+<div class="alert alert-error">
+    {% if request.query_params.get('error') == 'youtube_denied' %}
+        YouTube 認証が拒否されました。
+    {% elif request.query_params.get('error') == 'youtube_auth_failed' %}
+        YouTube 認証の開始に失敗しました。
+    {% else %}
+        エラーが発生しました。
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="settings-grid">
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Claude AI（脚本生成）</h3>
+            {% if has_anthropic %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">テーマ・脚本・台詞の自動生成に使用</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_anthropic else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_anthropic else '✗' }}</span>
+                <span>ANTHROPIC_API_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Luma AI（画像・動画生成）</h3>
+            {% if has_luma %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">Photon（シーン画像・サムネイル）/ Ray-2（動画）に使用</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_luma else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_luma else '✗' }}</span>
+                <span>LUMA_API_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Kling AI（動画生成）</h3>
+            {% if has_kling %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">image2video でシーン画像から動画を生成</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_kling else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_kling else '✗' }}</span>
+                <span>KLING_ACCESS_KEY / KLING_SECRET_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>ElevenLabs（音声生成）</h3>
+            {% if has_elevenlabs %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">ナレーション・キャラクターボイスの生成に使用</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_elevenlabs else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_elevenlabs else '✗' }}</span>
+                <span>ELEVENLABS_API_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Stability AI（画像生成・予備）</h3>
+            {% if has_stability %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-draft">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">Lumaフォールバック時のサムネイル・キャラ画像生成</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_stability else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_stability else '✗' }}</span>
+                <span>STABILITY_API_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>YouTube 連携</h3>
+            {% if youtube_connected %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-draft">未接続</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">YouTube Shorts への動画投稿に使用</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if yt_has_client_id else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_client_id else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_CLIENT_ID</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_client_secret else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_client_secret else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_CLIENT_SECRET</span>
+            </div>
+            <div class="env-item {{ 'env-ok' if yt_has_refresh_token else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if yt_has_refresh_token else '✗' }}</span>
+                <span>YOUTUBE_OAUTH_REFRESH_TOKEN</span>
+            </div>
+        </div>
+        {% if youtube_connected %}
+        <a href="/auth/youtube" class="btn btn-secondary" style="margin-top:8px">再連携する</a>
+        {% elif yt_has_client_id and yt_has_client_secret %}
+        <a href="/auth/youtube" class="btn btn-primary" style="margin-top:8px">YouTube アカウントを連携</a>
+        {% endif %}
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>TikTok 連携</h3>
+            {% if has_tiktok %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-draft">未接続</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">TikTokへの動画投稿（Cookie認証）</p>
+
+        {% if has_tiktok %}
+        <div class="env-checklist">
+            <div class="env-item env-ok">
+                <span class="env-icon">✓</span>
+                <span>TikTok Cookie（sessionid）保存済み</span>
+            </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:8px" data-testid="btn-tiktok-disconnect" onclick="disconnectTiktok()">連携を解除</button>
+        <button class="btn btn-primary" style="margin-top:8px;margin-left:8px" data-testid="btn-tiktok-update" onclick="document.getElementById('tiktok-cookie-form').style.display='block'">Cookieを更新</button>
+        {% endif %}
+
+        <div id="tiktok-cookie-form" style="margin-top:12px;{% if has_tiktok %}display:none{% endif %}">
+            <textarea id="tiktok-cookies-input" data-testid="input-tiktok-cookies" rows="4" style="width:100%;font-size:12px;font-family:monospace;padding:8px;border:1px solid var(--border);border-radius:6px;resize:vertical;" placeholder='[{"name":"sessionid","value":"xxx","domain":".tiktok.com",...}, ...]'></textarea>
+            <button class="btn btn-primary" style="margin-top:8px" data-testid="btn-tiktok-save" onclick="saveTiktokCookies()">Cookie を保存して連携</button>
+            <span id="tiktok-save-status" style="margin-left:12px;font-size:13px;"></span>
+        </div>
+    </div>
+</div>
+
+<div class="section" style="margin-top:24px">
+    <h2>API使用量</h2>
+    <button id="btn-refresh-usage" class="btn btn-primary btn-sm" data-testid="btn-refresh-usage" style="margin-bottom:16px">使用量を更新</button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="usage-panels">
+        <div class="card" id="usage-el"><h3 style="margin-bottom:8px">ElevenLabs</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
+        <div class="card" id="usage-claude"><h3 style="margin-bottom:8px">Claude API</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
+        <div class="card" id="usage-kling"><h3 style="margin-bottom:8px">Kling API</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
+    </div>
+</div>
+
+<script>
+function saveTiktokCookies() {
+    var input = document.getElementById('tiktok-cookies-input');
+    var status = document.getElementById('tiktok-save-status');
+    var raw = input.value.trim();
+    if (!raw) {
+        status.textContent = 'Cookieデータを入力してください';
+        status.style.color = '#e53935';
+        return;
+    }
+    var cookies;
+    try {
+        cookies = JSON.parse(raw);
+    } catch(e) {
+        status.textContent = 'JSON形式が正しくありません';
+        status.style.color = '#e53935';
+        return;
+    }
+    status.textContent = '保存中...';
+    status.style.color = '#888';
+    fetch('/api/tiktok/cookies', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cookies: cookies})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            status.textContent = data.message;
+            status.style.color = '#00897b';
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            status.textContent = data.error || 'エラーが発生しました';
+            status.style.color = '#e53935';
+        }
+    })
+    .catch(function() {
+        status.textContent = '通信エラー';
+        status.style.color = '#e53935';
+    });
+}
+
+function disconnectTiktok() {
+    if (!confirm('TikTokの連携を解除しますか？')) return;
+    fetch('/api/tiktok/disconnect', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) location.reload();
+    });
+}
+
+document.getElementById('btn-refresh-usage').addEventListener('click', function() {
+    this.disabled = true;
+    this.textContent = '読み込み中...';
+    fetch('/api/usage')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.elevenlabs) {
+            document.getElementById('usage-el').innerHTML = '<h3 style="margin-bottom:8px">ElevenLabs</h3>' +
+                '<p>プラン: ' + data.elevenlabs.tier + '</p>' +
+                '<p>使用: ' + data.elevenlabs.used.toLocaleString() + ' / ' + data.elevenlabs.limit.toLocaleString() + ' 文字</p>' +
+                '<p>残り: ' + data.elevenlabs.remaining.toLocaleString() + ' 文字</p>';
+        }
+        if (data.claude) {
+            document.getElementById('usage-claude').innerHTML = '<h3 style="margin-bottom:8px">Claude API</h3>' +
+                '<p>リクエスト残り: ' + data.claude.requests_remaining + '</p>';
+        }
+        if (data.kling) {
+            document.getElementById('usage-kling').innerHTML = '<h3 style="margin-bottom:8px">Kling API</h3>' +
+                '<p>設定: ' + (data.kling.configured ? '設定済み' : '未設定') + '</p>';
+        }
+        document.getElementById('btn-refresh-usage').disabled = false;
+        document.getElementById('btn-refresh-usage').textContent = '使用量を更新';
+    })
+    .catch(function() {
+        document.getElementById('btn-refresh-usage').disabled = false;
+        document.getElementById('btn-refresh-usage').textContent = '使用量を更新';
+    });
+});
+</script>
+{% endblock %}

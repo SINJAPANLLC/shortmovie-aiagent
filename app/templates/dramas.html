@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}ドラマ一覧 - CEOの扉{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1>ドラマ一覧</h1>
+        <p>生成された全てのAIショートドラマ</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="btn-add-episode" class="btn btn-primary" data-testid="btn-add-episode" style="font-size:0.85rem" onclick="addEpisode()">+ エピソード追加</button>
+        <a href="/generate" class="btn btn-secondary spa-link" data-testid="link-generate" style="font-size:0.85rem">自動生成</a>
+    </div>
+</div>
+
+{% if dramas %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>タイトル</th>
+                <th>ジャンル</th>
+                <th>シーン数</th>
+                <th>ステータス</th>
+                <th>YouTube</th>
+                <th>再生数</th>
+                <th>いいね</th>
+                <th>作成日</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for drama in dramas %}
+            <tr onclick="location.href='/dramas/{{ drama.id }}'" class="clickable-row">
+                <td>{{ drama.id }}</td>
+                <td>{{ drama.title or '-' }}</td>
+                <td><span class="badge badge-draft">{{ drama.genre or '-' }}</span></td>
+                <td>{{ drama.scene_count or 0 }}</td>
+                <td>
+                    <span class="badge badge-{{ drama.status or 'draft' }}">
+                        {{ drama.status or 'draft' }}
+                    </span>
+                </td>
+                <td>
+                    {% if drama.youtube_id %}
+                    <a href="https://youtube.com/shorts/{{ drama.youtube_id }}" target="_blank" onclick="event.stopPropagation()">
+                        {{ drama.youtube_id[:8] }}...
+                    </a>
+                    {% else %}-{% endif %}
+                </td>
+                <td>{{ "{:,}".format(drama.views or 0) }}</td>
+                <td>{{ "{:,}".format(drama.likes or 0) }}</td>
+                <td>{{ drama.created_at.strftime('%Y/%m/%d %H:%M') if drama.created_at else '-' }}</td>
+                <td>
+                    <button class="btn btn-secondary btn-delete-drama" data-id="{{ drama.id }}" data-title="{{ drama.title or '' }}" data-testid="btn-delete-drama-{{ drama.id }}" onclick="event.stopPropagation();deleteDrama({{ drama.id }}, '{{ (drama.title or '')|e }}')" style="font-size:0.7rem;padding:2px 8px;color:var(--error)">削除</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>まだドラマがありません。</p>
+    <a href="/generate" class="btn btn-primary spa-link">ドラマを生成する</a>
+</div>
+{% endif %}
+
+<script>
+window.deleteDrama = async function(id, title) {
+    if (!confirm('「' + title + '」を削除しますか？\n関連する画像・動画・音声ファイルも全て削除されます。')) return;
+    try {
+        var res = await fetch('/api/dramas/' + id, { method: 'DELETE' });
+        var data = await res.json();
+        if (data.success) {
+            var row = document.querySelector('button[data-id="' + id + '"]');
+            if (row) row.closest('tr').remove();
+        } else {
+            alert('エラー: ' + (data.error || '削除に失敗しました'));
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+    }
+};
+
+window.addEpisode = async function() {
+    var btn = document.getElementById('btn-add-episode');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '追加中...';
+    try {
+        var res = await fetch('/api/dramas/add-episode', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        var data = await res.json();
+        if (data.success) {
+            window.location.href = '/production/' + data.drama_id;
+        } else {
+            alert('エラー: ' + (data.error || '追加に失敗しました'));
+            btn.disabled = false;
+            btn.textContent = '+ エピソード追加';
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '+ エピソード追加';
+    }
+};
+</script>
+{% endblock %}

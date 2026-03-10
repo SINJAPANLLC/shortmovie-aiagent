@@ -1,0 +1,306 @@
+import os
+import subprocess
+import logging
+
+logger = logging.getLogger(__name__)
+
+OUTPUT_DIR = "app/static/videos"
+BGM_DIR = "app/static/bgm"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+BGM_PATH = os.path.join(BGM_DIR, "ambient_sleep.mp3")
+
+
+def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path: str = None, bgm_path: str = None, bgm_volume: float = 0.15) -> str:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    output_path = os.path.join(OUTPUT_DIR, f"drama_{drama_id}.mp4")
+
+    if not scene_videos:
+        raise RuntimeError("No scene videos to edit")
+
+    concat_list = os.path.join(OUTPUT_DIR, f"concat_{drama_id}.txt")
+    with open(concat_list, "w") as f:
+        for vp in scene_videos:
+            f.write(f"file '{os.path.abspath(vp)}'\n")
+
+    concat_output = os.path.join(OUTPUT_DIR, f"concat_{drama_id}.mp4")
+    cmd_concat = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", concat_list,
+        "-c", "copy",
+        concat_output
+    ]
+    result = subprocess.run(cmd_concat, capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        logger.error(f"FFmpeg concat error: {result.stderr}")
+        raise RuntimeError(f"Video concat failed: {result.stderr[:500]}")
+
+    has_narration = audio_path and os.path.exists(audio_path)
+    actual_bgm = bgm_path if bgm_path and os.path.exists(bgm_path) else (BGM_PATH if os.path.exists(BGM_PATH) else None)
+    has_bgm = actual_bgm is not None
+
+    bgm_vol = max(0.0, min(1.0, bgm_volume))
+
+    if has_narration and has_bgm:
+        mixed_audio = os.path.join(OUTPUT_DIR, f"mixed_audio_{drama_id}.mp3")
+        cmd_mix = [
+            "ffmpeg", "-y",
+            "-i", audio_path,
+            "-stream_loop", "-1", "-i", actual_bgm,
+            "-filter_complex",
+            f"[0:a]volume=1.0[narration];[1:a]volume={bgm_vol}[bgm];[narration][bgm]amix=inputs=2:duration=first:dropout_transition=3[out]",
+            "-map", "[out]",
+            "-ac", "2",
+            "-ar", "44100",
+            mixed_audio
+        ]
+        mix_result = subprocess.run(cmd_mix, capture_output=True, text=True, timeout=120)
+        if mix_result.returncode == 0:
+            logger.info(f"BGM mixed with narration (volume={bgm_vol})")
+            final_audio = mixed_audio
+        else:
+            logger.warning(f"BGM mix failed, using narration only: {mix_result.stderr[:200]}")
+            final_audio = audio_path
+            mixed_audio = None
+    elif has_narration:
+        final_audio = audio_path
+        mixed_audio = None
+    elif has_bgm:
+        final_audio = actual_bgm
+        mixed_audio = None
+    else:
+        final_audio = None
+        mixed_audio = None
+
+    inputs = ["-i", concat_output]
+    map_args = []
+    if final_audio:
+        inputs += ["-i", final_audio]
+        map_args = ["-map", "0:v", "-map", "1:a", "-shortest"]
+
+    vf_filters = ["scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"]
+
+    if subtitle_path and os.path.exists(subtitle_path):
+        safe_sub_path = os.path.abspath(subtitle_path).replace("\\", "/").replace(":", "\\:")
+        sub_style = (
+            "FontName=Noto Serif CJK JP,"
+            "FontSize=16,"
+            "PrimaryColour=&H00FFFFFF,"
+            "OutlineColour=&H96000000,"
+            "BackColour=&H00000000,"
+            "BorderStyle=3,"
+            "Outline=3,"
+            "Shadow=0,"
+            "MarginV=100,"
+            "MarginL=80,"
+            "MarginR=80,"
+            "Alignment=2,"
+            "Bold=0"
+        )
+        vf_filters.append(f"subtitles='{safe_sub_path}':force_style='{sub_style}'")
+        logger.info(f"Burning subtitles from: {subtitle_path}")
+
+    vf_string = ",".join(vf_filters)
+
+    cmd_final = ["ffmpeg", "-y"] + inputs + map_args + [
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-vf", vf_string,
+        output_path
+    ]
+
+    result = subprocess.run(cmd_final, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        logger.error(f"FFmpeg final edit error: {result.stderr}")
+        raise RuntimeError(f"Final video edit failed: {result.stderr[:500]}")
+
+    for f_path in [concat_list, concat_output]:
+        if os.path.exists(f_path):
+            os.remove(f_path)
+    if mixed_audio and os.path.exists(mixed_audio):
+        os.remove(mixed_audio)
+
+    logger.info(f"Final video generated: {output_path}")
+    return output_path
+
+
+def edit_video_custom(scene_clips: list, audio_path: str, drama_id: int, subtitle_path: str = None, bgm_path: str = None, bgm_volume: float = 0.15) -> str:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    output_path = os.path.join(OUTPUT_DIR, f"drama_{drama_id}.mp4")
+
+    if not scene_clips:
+        raise RuntimeError("No scene clips provided")
+
+    trimmed_parts = []
+    for i, clip in enumerate(scene_clips):
+        clip_path = clip["path"]
+        trim_start = max(0, float(clip.get("trim_start", 0)))
+        trim_end = float(clip.get("trim_end", 0)) if clip.get("trim_end") else None
+
+        if not os.path.exists(clip_path):
+            raise RuntimeError(f"Video file not found: {clip_path}")
+
+        if trim_end is not None and trim_end <= trim_start:
+            logger.warning(f"Invalid trim range for clip {i}: start={trim_start}, end={trim_end}, using full clip")
+            trimmed_parts.append(clip_path)
+            continue
+
+        needs_trim = trim_start > 0.05 or (trim_end is not None and trim_end > 0)
+
+        if needs_trim:
+            trimmed_path = os.path.join(OUTPUT_DIR, f"trim_{drama_id}_{i}.mp4")
+            cmd_trim = [
+                "ffmpeg", "-y",
+                "-i", clip_path,
+                "-ss", str(trim_start),
+            ]
+            if trim_end is not None:
+                cmd_trim += ["-to", str(trim_end)]
+            cmd_trim += [
+                "-c", "copy",
+                "-avoid_negative_ts", "make_zero",
+                trimmed_path
+            ]
+            result = subprocess.run(cmd_trim, capture_output=True, text=True, timeout=60)
+            if result.returncode != 0:
+                logger.warning(f"Trim failed for clip {i}, using original: {result.stderr[:200]}")
+                trimmed_parts.append(clip_path)
+            else:
+                trimmed_parts.append(trimmed_path)
+        else:
+            trimmed_parts.append(clip_path)
+
+    concat_list = os.path.join(OUTPUT_DIR, f"concat_{drama_id}.txt")
+    with open(concat_list, "w") as f:
+        for vp in trimmed_parts:
+            f.write(f"file '{os.path.abspath(vp)}'\n")
+
+    concat_output = os.path.join(OUTPUT_DIR, f"concat_{drama_id}.mp4")
+    cmd_concat = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", concat_list,
+        "-c", "copy",
+        concat_output
+    ]
+    result = subprocess.run(cmd_concat, capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        logger.error(f"FFmpeg concat error: {result.stderr}")
+        raise RuntimeError(f"Video concat failed: {result.stderr[:500]}")
+
+    has_narration = audio_path and os.path.exists(audio_path)
+    actual_bgm = bgm_path if bgm_path and os.path.exists(bgm_path) else (BGM_PATH if os.path.exists(BGM_PATH) else None)
+    has_bgm = actual_bgm is not None
+
+    bgm_vol = max(0.0, min(1.0, bgm_volume))
+
+    if has_narration and has_bgm:
+        mixed_audio = os.path.join(OUTPUT_DIR, f"mixed_audio_{drama_id}.mp3")
+        cmd_mix = [
+            "ffmpeg", "-y",
+            "-i", audio_path,
+            "-stream_loop", "-1", "-i", actual_bgm,
+            "-filter_complex",
+            f"[0:a]volume=1.0[narration];[1:a]volume={bgm_vol}[bgm];[narration][bgm]amix=inputs=2:duration=first:dropout_transition=3[out]",
+            "-map", "[out]",
+            "-ac", "2",
+            "-ar", "44100",
+            mixed_audio
+        ]
+        mix_result = subprocess.run(cmd_mix, capture_output=True, text=True, timeout=120)
+        if mix_result.returncode == 0:
+            logger.info(f"BGM mixed (volume={bgm_vol})")
+            final_audio = mixed_audio
+        else:
+            logger.warning(f"BGM mix failed: {mix_result.stderr[:200]}")
+            final_audio = audio_path
+            mixed_audio = None
+    elif has_narration:
+        final_audio = audio_path
+        mixed_audio = None
+    elif has_bgm:
+        final_audio = actual_bgm
+        mixed_audio = None
+    else:
+        final_audio = None
+        mixed_audio = None
+
+    inputs = ["-i", concat_output]
+    map_args = []
+    if final_audio:
+        inputs += ["-i", final_audio]
+        map_args = ["-map", "0:v", "-map", "1:a", "-shortest"]
+
+    vf_filters = ["scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"]
+
+    if subtitle_path and os.path.exists(subtitle_path):
+        safe_sub_path = os.path.abspath(subtitle_path).replace("\\", "/").replace(":", "\\:")
+        sub_style = (
+            "FontName=Noto Serif CJK JP,"
+            "FontSize=16,"
+            "PrimaryColour=&H00FFFFFF,"
+            "OutlineColour=&H96000000,"
+            "BackColour=&H00000000,"
+            "BorderStyle=3,"
+            "Outline=3,"
+            "Shadow=0,"
+            "MarginV=100,"
+            "MarginL=80,"
+            "MarginR=80,"
+            "Alignment=2,"
+            "Bold=0"
+        )
+        vf_filters.append(f"subtitles='{safe_sub_path}':force_style='{sub_style}'")
+
+    vf_string = ",".join(vf_filters)
+
+    cmd_final = ["ffmpeg", "-y"] + inputs + map_args + [
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-vf", vf_string,
+        output_path
+    ]
+
+    result = subprocess.run(cmd_final, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        logger.error(f"FFmpeg final edit error: {result.stderr}")
+        raise RuntimeError(f"Final video edit failed: {result.stderr[:500]}")
+
+    for f_path in [concat_list, concat_output]:
+        if os.path.exists(f_path):
+            os.remove(f_path)
+    if mixed_audio and os.path.exists(mixed_audio):
+        os.remove(mixed_audio)
+    for i in range(len(scene_clips)):
+        trim_path = os.path.join(OUTPUT_DIR, f"trim_{drama_id}_{i}.mp4")
+        if os.path.exists(trim_path):
+            os.remove(trim_path)
+
+    logger.info(f"Custom edited video: {output_path}")
+    return output_path
+
+
+def create_placeholder_video(drama_id: int, duration: float = 45) -> str:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    output_path = os.path.join(OUTPUT_DIR, f"drama_{drama_id}.mp4")
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi",
+        "-i", f"color=c=0x1a2e2e:s=1080x1920:d={duration}",
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        output_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError(f"Placeholder video creation failed: {result.stderr[:300]}")
+
+    return output_path

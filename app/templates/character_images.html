@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}キャラクター画像選択 - CEOの扉{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>キャラクター画像選択</h1>
+    <p style="color:#546e7a; margin-top:8px;">各キャラクターに顔アップ・バストショット・全身の画像を設定してシーンごとに自動で使い分けます</p>
+</div>
+
+<div style="background:white; border-radius:12px; padding:24px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.1); border-left:4px solid #00897b;">
+    <h2 style="color:#00897b; font-size:1.2rem; margin-bottom:16px;">画像を生成する</h2>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:1; min-width:250px;">
+            <label style="font-size:0.85rem; color:#546e7a; display:block; margin-bottom:4px;">キャラクター</label>
+            <select id="gen-char" data-testid="select-gen-char" style="width:100%; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem;">
+                {% for char in characters %}
+                <option value="{{ char.id }}" data-name="{{ char.name }}">{{ char.name }}（{{ char.role }}）</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex:0 0 140px;">
+            <label style="font-size:0.85rem; color:#546e7a; display:block; margin-bottom:4px;">ショットタイプ</label>
+            <select id="gen-shot" data-testid="select-gen-shot" style="width:100%; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem;">
+                <option value="face">顔アップ (1:1)</option>
+                <option value="bust" selected>バストショット (3:4)</option>
+                <option value="fullbody">全身 (9:16)</option>
+            </select>
+        </div>
+    </div>
+    <div style="margin-top:12px;">
+        <label style="font-size:0.85rem; color:#546e7a; display:block; margin-bottom:4px;">プロンプト（見た目の説明を日本語or英語で入力）</label>
+        <textarea id="gen-prompt" data-testid="input-gen-prompt" rows="3" style="width:100%; padding:10px 12px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem; resize:vertical; box-sizing:border-box;" placeholder="例: 26歳の日本人女性、ダークブラウンの髪をローポニーテール、白ブラウスにネイビーカーディガン、優しい笑顔、オフィス背景"></textarea>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+        <button id="gen-btn" data-testid="btn-generate-image" onclick="generateImage()" style="padding:10px 24px; background:#00897b; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:600;">生成する</button>
+        <span id="gen-status" style="font-size:0.85rem; color:#546e7a;"></span>
+    </div>
+    <div id="gen-result" style="margin-top:16px; display:none;">
+        <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;" id="gen-result-inner"></div>
+    </div>
+</div>
+
+{% for char in characters %}
+<div style="background:white; border-radius:12px; padding:24px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    <h2 style="color:#00897b; font-size:1.3rem; margin-bottom:8px;">{{ char.name }}（{{ char.role }}）</h2>
+    <p style="color:#78909c; font-size:0.9rem; margin-bottom:16px;">{{ char.description }}</p>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+        {% set current_face = char.image_face or '' %}
+        {% set current_bust = char.image_bust or '' %}
+        {% set current_fullbody = char.image_fullbody or '' %}
+        <div style="background:{{ '#c8e6c9' if current_face else '#e0f2f1' }}; padding:8px 16px; border-radius:8px; font-size:0.85rem;" data-testid="status-face-{{ char.id }}">
+            <strong>顔:</strong>
+            {% if current_face %}
+            <img src="{{ current_face }}" style="width:32px;height:32px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-left:4px;">
+            {{ current_face.split('/')[-1] }}
+            {% else %}
+            未設定
+            {% endif %}
+        </div>
+        <div style="background:{{ '#c8e6c9' if current_bust else '#e0f2f1' }}; padding:8px 16px; border-radius:8px; font-size:0.85rem;" data-testid="status-bust-{{ char.id }}">
+            <strong>バスト:</strong>
+            {% if current_bust %}
+            <img src="{{ current_bust }}" style="width:32px;height:32px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-left:4px;">
+            {{ current_bust.split('/')[-1] }}
+            {% else %}
+            未設定
+            {% endif %}
+        </div>
+        <div style="background:{{ '#c8e6c9' if current_fullbody else '#e0f2f1' }}; padding:8px 16px; border-radius:8px; font-size:0.85rem;" data-testid="status-fullbody-{{ char.id }}">
+            <strong>全身:</strong>
+            {% if current_fullbody %}
+            <img src="{{ current_fullbody }}" style="width:32px;height:32px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-left:4px;">
+            {{ current_fullbody.split('/')[-1] }}
+            {% else %}
+            未設定
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+        {% for img in images %}
+            {% set name_lower = char.name | lower %}
+            {% set fname_lower = img.filename | lower %}
+            {% if (name_lower == '美咲' and 'misaki' in fname_lower) or (name_lower == '涼介' and 'ryosuke' in fname_lower) or (name_lower == '美咲' and 'gen_美咲' in fname_lower) or (name_lower == '涼介' and 'gen_涼介' in fname_lower) or ('option' not in fname_lower and 'misaki' not in fname_lower and 'ryosuke' not in fname_lower and 'drama_' not in fname_lower and 'series_' not in fname_lower and 'gen_美咲' not in fname_lower and 'gen_涼介' not in fname_lower) %}
+            <div style="background:#fafafa; border-radius:8px; padding:12px; text-align:center; width:180px; border:1px solid #e0e0e0;">
+                <img src="{{ img.url }}" alt="{{ img.filename }}" style="width:100%; border-radius:6px; margin-bottom:8px; max-height:240px; object-fit:cover;" data-testid="img-{{ img.filename }}">
+                <div style="font-size:0.75rem; color:#546e7a; margin-bottom:6px; word-break:break-all;">{{ img.filename }}</div>
+                <div style="display:flex; flex-direction:column; gap:3px;">
+                    <button class="set-img-btn" data-char-id="{{ char.id }}" data-type="image_face" data-path="{{ img.url }}" data-testid="btn-face-{{ img.filename }}" style="font-size:0.72rem; padding:4px 6px; background:#00897b; color:white; border:none; border-radius:4px; cursor:pointer;">顔に設定</button>
+                    <button class="set-img-btn" data-char-id="{{ char.id }}" data-type="image_bust" data-path="{{ img.url }}" data-testid="btn-bust-{{ img.filename }}" style="font-size:0.72rem; padding:4px 6px; background:#00796b; color:white; border:none; border-radius:4px; cursor:pointer;">バストに設定</button>
+                    <button class="set-img-btn" data-char-id="{{ char.id }}" data-type="image_fullbody" data-path="{{ img.url }}" data-testid="btn-full-{{ img.filename }}" style="font-size:0.72rem; padding:4px 6px; background:#00695c; color:white; border:none; border-radius:4px; cursor:pointer;">全身に設定</button>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<div style="margin-top:24px;">
+    <a href="/characters" class="btn btn-secondary" data-testid="link-back-characters">← キャラクター管理に戻る</a>
+</div>
+
+<div id="toast" style="display:none; position:fixed; bottom:24px; right:24px; background:#00897b; color:white; padding:16px 24px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.2); z-index:9999; font-weight:600;"></div>
+
+<script>
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+document.querySelectorAll('.set-img-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const charId = this.dataset.charId;
+        const type = this.dataset.type;
+        const path = this.dataset.path;
+        const typeLabel = {image_face:'顔', image_bust:'バスト', image_fullbody:'全身'}[type];
+
+        try {
+            const body = {};
+            body[type] = path;
+            const resp = await fetch('/api/characters/' + charId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(typeLabel + '画像を設定しました');
+                this.textContent = '✓ 設定済み';
+                this.style.background = '#2e7d32';
+            } else {
+                alert('エラー: ' + (data.error || '設定に失敗しました'));
+            }
+        } catch(e) {
+            alert('通信エラー: ' + e.message);
+        }
+    });
+});
+
+async function generateImage() {
+    const charSelect = document.getElementById('gen-char');
+    const charId = charSelect.value;
+    const charName = charSelect.options[charSelect.selectedIndex].dataset.name;
+    const shotType = document.getElementById('gen-shot').value;
+    const prompt = document.getElementById('gen-prompt').value.trim();
+    const status = document.getElementById('gen-status');
+    const btn = document.getElementById('gen-btn');
+
+    if (!prompt) {
+        alert('プロンプトを入力してください');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    status.textContent = '生成中... (30秒ほどかかります)';
+
+    try {
+        const resp = await fetch('/api/characters/generate-image', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                prompt: prompt,
+                char_name: charName,
+                shot_type: shotType
+            })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            status.textContent = '生成完了！';
+            const resultDiv = document.getElementById('gen-result');
+            const inner = document.getElementById('gen-result-inner');
+            resultDiv.style.display = 'block';
+
+            const shotLabel = {face:'顔', bust:'バスト', fullbody:'全身'}[shotType];
+            const typeKey = {face:'image_face', bust:'image_bust', fullbody:'image_fullbody'}[shotType];
+
+            const card = document.createElement('div');
+            card.style.cssText = 'background:#fafafa; border-radius:8px; padding:12px; text-align:center; width:200px; border:2px solid #00897b;';
+            card.innerHTML = `
+                <img src="${data.url}" style="width:100%; border-radius:6px; margin-bottom:8px; max-height:280px; object-fit:cover;">
+                <div style="font-size:0.8rem; color:#546e7a; margin-bottom:8px;">${data.filename}</div>
+                <button onclick="setGenImage('${charId}', '${typeKey}', '${data.url}', this)" style="font-size:0.8rem; padding:6px 12px; background:#00897b; color:white; border:none; border-radius:4px; cursor:pointer; width:100%;">${shotLabel}として${charName}に設定</button>
+            `;
+            inner.prepend(card);
+            showToast('画像を生成しました');
+        } else {
+            status.textContent = 'エラー: ' + data.error;
+        }
+    } catch(e) {
+        status.textContent = 'エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+async function setGenImage(charId, typeKey, url, btn) {
+    const typeLabel = {image_face:'顔', image_bust:'バスト', image_fullbody:'全身'}[typeKey];
+    try {
+        const body = {};
+        body[typeKey] = url;
+        const resp = await fetch('/api/characters/' + charId, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(typeLabel + '画像を設定しました');
+            btn.textContent = '✓ 設定済み';
+            btn.style.background = '#2e7d32';
+        } else {
+            alert('エラー: ' + (data.error || '失敗'));
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

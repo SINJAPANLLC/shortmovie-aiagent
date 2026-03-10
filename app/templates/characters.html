@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}キャラクター管理 - CEOの扉{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>キャラクター管理</h1>
+    <p>ドラマで使うキャラクターを設定・管理</p>
+</div>
+
+<div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3>キャラクター一覧</h3>
+        <div style="display:flex;gap:8px;">
+            <a href="/character-images" class="btn btn-secondary btn-sm" data-testid="link-character-images">📸 画像選択</a>
+            <button class="btn btn-primary btn-sm" data-testid="btn-add-character" onclick="showAddForm()">＋ 新規追加</button>
+        </div>
+    </div>
+
+    <div id="add-form" style="display:none;margin-bottom:24px">
+        <div class="card" style="padding:20px">
+            <h4 style="margin-bottom:16px" id="form-title">キャラクター追加</h4>
+            <input type="hidden" id="edit-id" value="">
+            <div class="form-group">
+                <label for="char-name">名前</label>
+                <input type="text" id="char-name" data-testid="input-char-name" placeholder="例: 美咲、涼介" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-role">役割</label>
+                <select id="char-role" data-testid="select-char-role" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+                    <option value="主人公">主人公（ヒロイン）</option>
+                    <option value="CEO">CEO（相手役）</option>
+                    <option value="親友">親友</option>
+                    <option value="秘書">秘書</option>
+                    <option value="サブキャラ">サブキャラ</option>
+                    <option value="ライバル">ライバル</option>
+                    <option value="ナレーション">ナレーション</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-desc">説明・性格</label>
+                <textarea id="char-desc" data-testid="input-char-desc" rows="3" placeholder="例: 26歳のOL。明るく前向きだが、恋愛には不器用。過去のトラウマを抱えている。" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;resize:vertical"></textarea>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-appearance">外見描写（英語推奨・画像生成用）</label>
+                <textarea id="char-appearance" data-testid="input-char-appearance" rows="3" placeholder="例: 26 year old Japanese woman, dark brown hair in low ponytail, delicate oval face, warm brown eyes, fair skin, slim build" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;resize:vertical"></textarea>
+                <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">画像生成AIに渡す外見の具体的な描写。髪型・顔立ち・体型・年齢を英語で詳しく書くとキャラが固定されます。</p>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-voice">ElevenLabs Voice ID（任意）</label>
+                <input type="text" id="char-voice" data-testid="input-char-voice" placeholder="例: fUjY9K2nAIwlALOwSiwc（空欄=デフォルト）" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+                <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">ElevenLabsの音声IDを指定。キャラごとに異なる声を使えます。</p>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-series">所属シリーズ（任意）</label>
+                <select id="char-series" data-testid="select-char-series" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+                    <option value="">全シリーズ共通</option>
+                    {% for s in all_series %}
+                    <option value="{{ s.id }}">{{ s.name }}{% if s.status == 'active' %} (現在){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <label for="char-image">キャラクター画像</label>
+                <input type="file" id="char-image" data-testid="input-char-image" accept="image/*" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem">
+                <p style="margin-top:4px;font-size:0.8rem;color:var(--text-secondary)">PNG/JPG画像をアップロード。動画生成でこの顔を使います。</p>
+                <div id="image-preview" style="margin-top:8px"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+                <button class="btn btn-primary" data-testid="btn-save-character" onclick="saveCharacter()">保存</button>
+                <button class="btn btn-secondary" onclick="hideAddForm()">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    {% if characters %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+        {% for char in characters %}
+        <div class="card" data-testid="card-character-{{ char.id }}" style="padding:16px;position:relative">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+                {% if char.image_path %}
+                <img src="{{ char.image_path if char.image_path.startswith('/static/') else '/' + char.image_path.replace('app/static/', 'static/') }}" 
+                     onerror="this.style.display='none'"
+                     style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0" data-testid="img-character-{{ char.id }}">
+                {% else %}
+                <div style="width:80px;height:80px;border-radius:12px;background:var(--bg-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:2rem;color:var(--text-secondary)">👤</div>
+                {% endif %}
+                <div style="flex:1;min-width:0">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <h4 style="margin:0;font-size:1.05rem" data-testid="text-char-name-{{ char.id }}">{{ char.name }}</h4>
+                        <span class="badge badge-{{ 'published' if char.role == '主人公' else ('draft' if char.role == 'CEO' else 'generating') }}" style="font-size:0.7rem">{{ char.role }}</span>
+                    </div>
+                    {% if char.description %}
+                    <p style="font-size:0.82rem;color:var(--text-secondary);margin-top:6px;line-height:1.5" data-testid="text-char-desc-{{ char.id }}">{{ char.description[:120] }}{% if char.description|length > 120 %}...{% endif %}</p>
+                    {% endif %}
+                    {% if char.appearance %}
+                    <p style="font-size:0.78rem;color:#455a64;margin-top:4px;font-style:italic;line-height:1.4" data-testid="text-char-appearance-{{ char.id }}">🎨 {{ char.appearance[:100] }}{% if char.appearance|length > 100 %}...{% endif %}</p>
+                    {% endif %}
+                    {% if char.voice_id %}
+                    <p style="font-size:0.75rem;color:var(--accent);margin-top:4px">🔊 Voice: {{ char.voice_id[:16] }}...</p>
+                    {% endif %}
+                    {% set img_count = [char.image_face, char.image_bust, char.image_fullbody] | select | list | length %}
+                    {% if img_count > 0 %}
+                    <p style="font-size:0.75rem;color:#00897b;margin-top:4px">📸 画像 {{ img_count }}/3 設定済（{{ '顔' if char.image_face else '' }}{{ ' バスト' if char.image_bust else '' }}{{ ' 全身' if char.image_fullbody else '' }}）</p>
+                    {% endif %}
+                    <div style="display:flex;gap:6px;margin-top:10px">
+                        <button class="btn btn-secondary btn-sm" data-testid="btn-edit-{{ char.id }}" onclick="editCharacter({{ char.id }})">編集</button>
+                        <button class="btn btn-sm" data-testid="btn-delete-{{ char.id }}" onclick="deleteCharacter({{ char.id }}, '{{ char.name }}')" style="background:var(--error);color:#fff">削除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="text-align:center;padding:40px">
+        <p style="font-size:1.1rem;color:var(--text-secondary);margin-bottom:16px">まだキャラクターが登録されていません</p>
+        <p style="font-size:0.9rem;color:var(--text-secondary)">キャラクターを追加すると、ドラマ生成時にそのキャラクター設定が脚本に反映されます。</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>使い方</h3>
+    <div class="card" style="padding:20px">
+        <ul style="font-size:0.9rem;line-height:2;color:var(--text-secondary);padding-left:20px">
+            <li>キャラクターの<strong>名前・役割・性格</strong>を設定すると、脚本生成に反映されます</li>
+            <li><strong>ElevenLabs Voice ID</strong>を設定すると、キャラクターごとに異なる声で音声生成します</li>
+            <li><strong>画像</strong>をアップロードすると、そのキャラクターの顔で動画シーンを生成します</li>
+            <li>「全シリーズ共通」にすると、どのシリーズでも同じキャラクターが使えます</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+var characterData = {};
+{% for char in characters %}
+characterData[{{ char.id }}] = {
+    name: "{{ char.name }}",
+    role: "{{ char.role }}",
+    description: {{ char.description | tojson }},
+    appearance: {{ (char.appearance or '') | tojson }},
+    voice_id: "{{ char.voice_id or '' }}",
+    series_id: "{{ char.series_id or '' }}",
+    image_path: "{{ char.image_path or '' }}"
+};
+{% endfor %}
+
+function showAddForm() {
+    document.getElementById('add-form').style.display = 'block';
+    document.getElementById('form-title').textContent = 'キャラクター追加';
+    document.getElementById('edit-id').value = '';
+    document.getElementById('char-name').value = '';
+    document.getElementById('char-role').value = '主人公';
+    document.getElementById('char-desc').value = '';
+    document.getElementById('char-appearance').value = '';
+    document.getElementById('char-voice').value = '';
+    document.getElementById('char-series').value = '';
+    document.getElementById('image-preview').innerHTML = '';
+    window.scrollTo({top: document.getElementById('add-form').offsetTop - 80, behavior: 'smooth'});
+}
+
+function hideAddForm() {
+    document.getElementById('add-form').style.display = 'none';
+}
+
+function editCharacter(id) {
+    var c = characterData[id];
+    if (!c) return;
+    document.getElementById('add-form').style.display = 'block';
+    document.getElementById('form-title').textContent = 'キャラクター編集: ' + c.name;
+    document.getElementById('edit-id').value = id;
+    document.getElementById('char-name').value = c.name;
+    document.getElementById('char-role').value = c.role;
+    document.getElementById('char-desc').value = c.description || '';
+    document.getElementById('char-appearance').value = c.appearance || '';
+    document.getElementById('char-voice').value = c.voice_id;
+    document.getElementById('char-series').value = c.series_id;
+    if (c.image_path) {
+        var imgSrc = c.image_path.startsWith('/static/') ? c.image_path : '/' + c.image_path.replace('app/static/', 'static/');
+        document.getElementById('image-preview').innerHTML = '<img src="' + imgSrc + '" style="max-height:100px;border-radius:8px">';
+    } else {
+        document.getElementById('image-preview').innerHTML = '';
+    }
+    window.scrollTo({top: document.getElementById('add-form').offsetTop - 80, behavior: 'smooth'});
+}
+
+function saveCharacter() {
+    var editId = document.getElementById('edit-id').value;
+    var name = document.getElementById('char-name').value.trim();
+    if (!name) { alert('名前を入力してください'); return; }
+
+    var fileInput = document.getElementById('char-image');
+    var file = fileInput.files[0];
+
+    function doSave(imagePath) {
+        var payload = {
+            name: name,
+            role: document.getElementById('char-role').value,
+            description: document.getElementById('char-desc').value.trim(),
+            appearance: document.getElementById('char-appearance').value.trim(),
+            voice_id: document.getElementById('char-voice').value.trim(),
+            series_id: document.getElementById('char-series').value || null
+        };
+        if (imagePath) payload.image_path = imagePath;
+
+        var url = editId ? '/api/characters/' + editId : '/api/characters';
+        var method = editId ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || '保存に失敗しました');
+            }
+        })
+        .catch(function() { alert('通信エラーが発生しました'); });
+    }
+
+    if (file) {
+        var formData = new FormData();
+        formData.append('image', file);
+        fetch('/api/characters/upload-image', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.path) {
+                doSave(data.path);
+            } else {
+                alert(data.error || '画像アップロードに失敗');
+            }
+        })
+        .catch(function() { alert('画像アップロードに失敗しました'); });
+    } else {
+        doSave(null);
+    }
+}
+
+function deleteCharacter(id, name) {
+    if (!confirm('「' + name + '」を削除しますか？')) return;
+    fetch('/api/characters/' + id, { method: 'DELETE' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) location.reload();
+        else alert(data.error || '削除に失敗しました');
+    })
+    .catch(function() { alert('通信エラー'); });
+}
+
+document.getElementById('char-image').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            document.getElementById('image-preview').innerHTML = '<img src="' + ev.target.result + '" style="max-height:100px;border-radius:8px">';
+        };
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+{% endblock %}

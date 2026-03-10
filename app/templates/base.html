@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00897b">
+    <title>{% block title %}CEOの扉 - AI Short Drama Generator{% endblock %}</title>
+    <style>html{background:#f0f9f8}body{background:#f0f9f8;color:#1a2e2e;margin:0;padding:0}</style>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% if user %}
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="nav-logo">▶</span>
+            <span class="nav-title">CEOの扉</span>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard" class="nav-link spa-link">ダッシュボード</a>
+            <a href="/series" class="nav-link spa-link">シリーズ</a>
+            <a href="/dramas" class="nav-link spa-link">ドラマ一覧</a>
+            <a href="/production" class="nav-link spa-link" id="nav-production">プロダクション</a>
+            <a href="/characters" class="nav-link spa-link">キャラクター</a>
+            <a href="/settings" class="nav-link spa-link">設定</a>
+            <a href="/logout" class="nav-link nav-logout">ログアウト</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="container" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if user %}
+    <script>
+    (function() {
+        var mainEl = document.getElementById('main-content');
+        function setActiveNav() {
+            var path = location.pathname;
+            document.querySelectorAll('.nav-link').forEach(function(l) {
+                l.classList.remove('active');
+                if (l.getAttribute('href') === path) l.classList.add('active');
+            });
+            var prodNav = document.getElementById('nav-production');
+            if (prodNav) {
+                if (path.indexOf('/production') === 0) {
+                    prodNav.classList.add('active');
+                }
+            }
+        }
+        setActiveNav();
+
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a.spa-link');
+            if (!link) return;
+            var href = link.getAttribute('href');
+            if (!href) return;
+            e.preventDefault();
+            mainEl.style.opacity = '0.4';
+            mainEl.style.transition = 'opacity 0.15s';
+            fetch(href, { credentials: 'same-origin' })
+                .then(function(res) {
+                    var finalUrl = new URL(res.url).pathname;
+                    return res.text().then(function(t) { return { html: t, finalUrl: finalUrl }; });
+                })
+                .then(function(r) {
+                    var html = r.html;
+                    var navTo = r.finalUrl || href;
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    var newContent = doc.getElementById('main-content');
+                    var newTitle = doc.querySelector('title');
+                    if (newContent) mainEl.innerHTML = newContent.innerHTML;
+                    if (newTitle) document.title = newTitle.textContent;
+                    history.pushState(null, '', navTo);
+                    var scripts = mainEl.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        var newScript = document.createElement('script');
+                        newScript.textContent = oldScript.textContent;
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                    mainEl.style.opacity = '1';
+                    window.scrollTo(0, 0);
+                    setActiveNav();
+                })
+                .catch(function() { window.location.href = href; });
+        });
+
+        window.addEventListener('popstate', function() {
+            fetch(location.pathname, { credentials: 'same-origin' })
+                .then(function(res) { return res.text(); })
+                .then(function(html) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    var newContent = doc.getElementById('main-content');
+                    var newTitle = doc.querySelector('title');
+                    if (newContent) mainEl.innerHTML = newContent.innerHTML;
+                    if (newTitle) document.title = newTitle.textContent;
+                    var scripts = mainEl.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        var newScript = document.createElement('script');
+                        newScript.textContent = oldScript.textContent;
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                    setActiveNav();
+                })
+                .catch(function() { location.reload(); });
+        });
+    })();
+    </script>
+    {% endif %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>
