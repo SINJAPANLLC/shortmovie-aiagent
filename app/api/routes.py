@@ -1807,6 +1807,18 @@ async def api_production_assemble(request: Request, drama_id: int):
     if production_tasks.get(task_key, {}).get("status") == "running":
         return JSONResponse({"error": "Already assembling"}, status_code=409)
 
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    bgm_file = body.get("bgm_file", "")
+    bgm_volume = float(body.get("bgm_volume", 0.15))
+    bgm_path = None
+    if bgm_file:
+        bgm_path = os.path.join("app/static/bgm", bgm_file)
+        if not os.path.exists(bgm_path):
+            bgm_path = None
+
     production_tasks[task_key] = {"status": "running", "error": ""}
 
     def run_assemble():
@@ -1819,7 +1831,7 @@ async def api_production_assemble(request: Request, drama_id: int):
                 subtitle_path = existing_sub
             else:
                 subtitle_path = generate_subtitle(scenes, drama_id)
-            final_video = edit_video(scene_videos, audio_path, drama_id, subtitle_path=subtitle_path)
+            final_video = edit_video(scene_videos, audio_path, drama_id, subtitle_path=subtitle_path, bgm_path=bgm_path, bgm_volume=bgm_volume)
             update_drama(drama_id, video_url=final_video, status="ready")
             production_tasks[task_key] = {"status": "done", "error": ""}
         except Exception as e:
@@ -2003,3 +2015,59 @@ async def api_production_generate_script(request: Request, drama_id: int):
         return JSONResponse({"error": task_status.get("error", "脚本生成に失敗しました")}, status_code=500)
     else:
         return JSONResponse({"success": True, "message": "脚本生成中です。しばらくお待ちください。"})
+
+
+@router.get("/api/bgm")
+async def api_bgm_list(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    bgm_dir = "app/static/bgm"
+    os.makedirs(bgm_dir, exist_ok=True)
+    files = []
+    for f in sorted(os.listdir(bgm_dir)):
+        if f.lower().endswith((".mp3", ".wav", ".m4a", ".ogg")):
+            fpath = os.path.join(bgm_dir, f)
+            size_kb = round(os.path.getsize(fpath) / 1024)
+            files.append({"filename": f, "url": f"/static/bgm/{f}", "size_kb": size_kb})
+    return JSONResponse(files)
+
+
+@router.post("/api/bgm/upload")
+async def api_bgm_upload(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        return JSONResponse({"error": "ファイルが必要です"}, status_code=400)
+
+    filename = file.filename.replace(" ", "_")
+    if not filename.lower().endswith((".mp3", ".wav", ".m4a", ".ogg")):
+        return JSONResponse({"error": "MP3/WAV/M4A/OGG形式のみ対応"}, status_code=400)
+
+    bgm_dir = "app/static/bgm"
+    os.makedirs(bgm_dir, exist_ok=True)
+    save_path = os.path.join(bgm_dir, filename)
+    content = await file.read()
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    return JSONResponse({"success": True, "filename": filename, "url": f"/static/bgm/{filename}"})
+
+
+@router.delete("/api/bgm/{filename}")
+async def api_bgm_delete(request: Request, filename: str):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    fpath = os.path.join("app/static/bgm", filename)
+    if not os.path.exists(fpath):
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    os.remove(fpath)
+    return JSONResponse({"success": True})

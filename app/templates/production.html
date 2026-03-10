@@ -485,6 +485,29 @@
                     </div>
                 </div>
                 <div>
+                    <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">BGM設定</div>
+                    <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                            <select id="bgm-select" data-testid="bgm-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:0.78rem;background:var(--bg-primary)">
+                                <option value="">BGMなし</option>
+                            </select>
+                            <button id="btn-bgm-play" data-testid="btn-bgm-play" class="btn btn-secondary" style="font-size:0.72rem;padding:4px 10px" onclick="toggleBgmPreview()">試聴</button>
+                        </div>
+                        <audio id="bgm-audio-preview" style="display:none"></audio>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                            <label style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap">音量:</label>
+                            <input type="range" id="bgm-volume" data-testid="bgm-volume" min="0" max="50" value="15" style="flex:1">
+                            <span id="bgm-volume-label" style="font-size:0.72rem;color:var(--text-secondary);min-width:30px">15%</span>
+                        </div>
+                        <div style="display:flex;gap:4px">
+                            <label class="btn btn-secondary" data-testid="btn-bgm-upload" style="flex:1;font-size:0.72rem;text-align:center;cursor:pointer;margin:0;padding:4px 8px">
+                                BGMアップロード
+                                <input type="file" id="bgm-upload-input" accept=".mp3,.wav,.m4a,.ogg" style="display:none">
+                            </label>
+                            <button id="btn-bgm-delete" class="btn btn-secondary" data-testid="btn-bgm-delete" style="font-size:0.72rem;padding:4px 8px;color:var(--error)" onclick="deleteBgm()">削除</button>
+                        </div>
+                    </div>
+
                     <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">最終動画</div>
                     <div id="final-video-preview" data-testid="final-video-preview" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden">
                         {% if has_final_video %}
@@ -996,7 +1019,13 @@ document.getElementById('btn-assemble').addEventListener('click', function() {
     btn.disabled = true;
     btn.textContent = '組み立て中...';
     document.getElementById('assemble-error').textContent = '';
-    fetch('/api/production/' + DRAMA_ID + '/assemble', { method: 'POST' })
+    var bgmFile = document.getElementById('bgm-select').value;
+    var bgmVolume = parseInt(document.getElementById('bgm-volume').value) / 100;
+    fetch('/api/production/' + DRAMA_ID + '/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bgm_file: bgmFile, bgm_volume: bgmVolume })
+    })
     .then(handleGenResponse)
     .then(function() { startPolling(); })
     .catch(function(e) {
@@ -1005,6 +1034,72 @@ document.getElementById('btn-assemble').addEventListener('click', function() {
         btn.textContent = '動画を組み立てる';
     });
 });
+
+function loadBgmList() {
+    fetch('/api/bgm').then(function(r) { return r.json(); }).then(function(files) {
+        if (!Array.isArray(files)) return;
+        var sel = document.getElementById('bgm-select');
+        var current = sel.value;
+        sel.innerHTML = '<option value="">BGMなし</option>';
+        files.forEach(function(f) {
+            var opt = document.createElement('option');
+            opt.value = f.filename;
+            opt.textContent = f.filename + ' (' + f.size_kb + 'KB)';
+            sel.appendChild(opt);
+        });
+        if (current) sel.value = current;
+        if (!sel.value && files.length > 0) sel.value = files[0].filename;
+    }).catch(function() {});
+}
+loadBgmList();
+
+document.getElementById('bgm-volume').addEventListener('input', function() {
+    document.getElementById('bgm-volume-label').textContent = this.value + '%';
+});
+
+function toggleBgmPreview() {
+    var audio = document.getElementById('bgm-audio-preview');
+    var btn = document.getElementById('btn-bgm-play');
+    var sel = document.getElementById('bgm-select');
+    if (!sel.value) return;
+    if (!audio.paused) {
+        audio.pause();
+        btn.textContent = '試聴';
+        return;
+    }
+    audio.src = '/static/bgm/' + sel.value;
+    audio.volume = parseInt(document.getElementById('bgm-volume').value) / 100;
+    audio.play();
+    btn.textContent = '停止';
+    audio.onended = function() { btn.textContent = '試聴'; };
+}
+
+document.getElementById('bgm-upload-input').addEventListener('change', function() {
+    var file = this.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/api/bgm/upload', { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            loadBgmList();
+            setTimeout(function() { document.getElementById('bgm-select').value = data.filename; }, 300);
+        } else {
+            alert(data.error || 'アップロード失敗');
+        }
+    });
+    this.value = '';
+});
+
+function deleteBgm() {
+    var sel = document.getElementById('bgm-select');
+    if (!sel.value) return;
+    if (!confirm('「' + sel.value + '」を削除しますか？')) return;
+    fetch('/api/bgm/' + sel.value, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { if (data.success) loadBgmList(); });
+}
 
 document.getElementById('btn-save-script').addEventListener('click', function() {
     var btn = this;
@@ -1246,7 +1341,14 @@ document.getElementById('btn-batch-all').addEventListener('click', function() {
                                 startPolling();
                                 waitForGlobalTask('thumbnail', function() {
                                     showBatchStatus('ステップ 6/6: 最終動画を組み立て中...');
-                                    fetch('/api/production/' + DRAMA_ID + '/assemble', { method: 'POST' })
+                                    fetch('/api/production/' + DRAMA_ID + '/assemble', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            bgm_file: document.getElementById('bgm-select').value,
+                                            bgm_volume: parseInt(document.getElementById('bgm-volume').value) / 100
+                                        })
+                                    })
                                     .then(handleGenResponse)
                                     .then(function() {
                                         startPolling();

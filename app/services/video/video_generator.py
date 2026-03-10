@@ -11,7 +11,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 BGM_PATH = os.path.join(BGM_DIR, "ambient_sleep.mp3")
 
 
-def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path: str = None) -> str:
+def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path: str = None, bgm_path: str = None, bgm_volume: float = 0.15) -> str:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, f"drama_{drama_id}.mp4")
 
@@ -37,16 +37,19 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         raise RuntimeError(f"Video concat failed: {result.stderr[:500]}")
 
     has_narration = audio_path and os.path.exists(audio_path)
-    has_bgm = os.path.exists(BGM_PATH)
+    actual_bgm = bgm_path if bgm_path and os.path.exists(bgm_path) else (BGM_PATH if os.path.exists(BGM_PATH) else None)
+    has_bgm = actual_bgm is not None
+
+    bgm_vol = max(0.0, min(1.0, bgm_volume))
 
     if has_narration and has_bgm:
         mixed_audio = os.path.join(OUTPUT_DIR, f"mixed_audio_{drama_id}.mp3")
         cmd_mix = [
             "ffmpeg", "-y",
             "-i", audio_path,
-            "-stream_loop", "-1", "-i", BGM_PATH,
+            "-stream_loop", "-1", "-i", actual_bgm,
             "-filter_complex",
-            "[0:a]volume=1.0[narration];[1:a]volume=0.15[bgm];[narration][bgm]amix=inputs=2:duration=first:dropout_transition=3[out]",
+            f"[0:a]volume=1.0[narration];[1:a]volume={bgm_vol}[bgm];[narration][bgm]amix=inputs=2:duration=first:dropout_transition=3[out]",
             "-map", "[out]",
             "-ac", "2",
             "-ar", "44100",
@@ -54,7 +57,7 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         ]
         mix_result = subprocess.run(cmd_mix, capture_output=True, text=True, timeout=120)
         if mix_result.returncode == 0:
-            logger.info("BGM mixed with narration successfully")
+            logger.info(f"BGM mixed with narration (volume={bgm_vol})")
             final_audio = mixed_audio
         else:
             logger.warning(f"BGM mix failed, using narration only: {mix_result.stderr[:200]}")
@@ -64,7 +67,7 @@ def edit_video(scene_videos: list, audio_path: str, drama_id: int, subtitle_path
         final_audio = audio_path
         mixed_audio = None
     elif has_bgm:
-        final_audio = BGM_PATH
+        final_audio = actual_bgm
         mixed_audio = None
     else:
         final_audio = None

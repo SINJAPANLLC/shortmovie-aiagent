@@ -20,32 +20,32 @@ SILENCE_SCENE_BREAK = 0.7
 VOICE_PROFILES = {
     "female": {
         "voice_id": "pFZP5JQG7iQjIQuC4Bku",
-        "label": "Lily (女性・ドラマティック)",
+        "label": "Lily (女性・感情演技)",
         "settings": {
-            "stability": 0.20,
-            "similarity_boost": 0.90,
-            "style": 0.85,
-            "speed": 0.88
+            "stability": 0.15,
+            "similarity_boost": 0.92,
+            "style": 0.95,
+            "speed": 0.92
         }
     },
     "male": {
         "voice_id": "JBFqnCBsd6RMkjVDRZzb",
-        "label": "George (男性・低音)",
+        "label": "George (男性・低音演技)",
         "settings": {
-            "stability": 0.22,
-            "similarity_boost": 0.90,
-            "style": 0.80,
-            "speed": 0.85
+            "stability": 0.15,
+            "similarity_boost": 0.92,
+            "style": 0.90,
+            "speed": 0.90
         }
     },
     "narrator": {
         "voice_id": "EXAVITQu4vr4xnSDxMaL",
-        "label": "Sarah (ナレーター・物語)",
+        "label": "Sarah (ナレーション・ドラマ調)",
         "settings": {
-            "stability": 0.35,
-            "similarity_boost": 0.85,
-            "style": 0.65,
-            "speed": 0.88
+            "stability": 0.25,
+            "similarity_boost": 0.88,
+            "style": 0.80,
+            "speed": 0.90
         }
     },
 }
@@ -55,6 +55,8 @@ SPEAKER_ROLE_MAP = {
     "ヒロイン": "female",
     "彼女": "female",
     "妻": "female",
+    "親友": "female",
+    "秘書": "male",
     "CEO": "male",
     "社長": "male",
     "上司": "male",
