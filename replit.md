@@ -42,6 +42,16 @@
   - サムネイル生成 + 最終動画の組み立て (FFmpeg + 字幕 + BGM)
   - 「全工程を自動実行(⑤→⑨)」ボタンで画像→動画→音声→字幕→サムネイル→組み立てを一括実行
   - ドラマ切り替えセレクタ、脚本編集、リアルタイム進捗ポーリング、プログレスバー
+- **動画エディタ** (/editor/{drama_id}): 完成動画の編集ページ
+  - タイムラインビュー（全シーンをクリップとして表示）
+  - ドラッグ&ドロップでシーンの並び替え
+  - シーンごとのトリミング（開始/終了時間を秒単位で指定）
+  - シーンの有効/無効トグル（不要なシーンをスキップ）
+  - シーン別プレビュー再生
+  - BGM設定（ファイル選択＋音量調整）
+  - 字幕焼き込みON/OFF
+  - 編集内容で動画を再組み立て（FFmpeg）
+  - プロダクションの⑨動画結合ステップからリンク
 - 新API: POST /api/generate-script (脚本のみ), POST /api/generate-video/{id} (動画のみ), PUT /api/dramas/{id}/script (脚本編集)
 - パイプラインはスレッドロック(pipeline_lock)で保護。手動実行とスケジューラの同時実行を防止
 - 字幕: SRT形式で各シーンのナレーションから自動生成 → FFmpegで動画に焼き込み（Noto Serif CJK JP明朝体, FontSize=18, 半透明黒背景, MarginV=80, max 18文字/チャンク）
@@ -113,6 +123,8 @@ app/
     drama_detail.html            # Drama detail view
     generate.html                # 2-step generation: script-only + edit → video, or full auto
     characters.html              # Character management (CRUD + image upload + voice ID)
+    production.html              # 10-step production studio
+    editor.html                  # Video editor (timeline, trim, reorder, re-assemble)
     settings.html                # API settings + usage (6 service cards)
   static/
     css/style.css                # Turquoise theme

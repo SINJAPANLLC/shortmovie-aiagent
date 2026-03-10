@@ -1831,7 +1831,8 @@ async def api_production_assemble(request: Request, drama_id: int):
     bgm_volume = float(body.get("bgm_volume", 0.15))
     bgm_path = None
     if bgm_file:
-        bgm_path = os.path.join("app/static/bgm", bgm_file)
+        safe_bgm = os.path.basename(bgm_file)
+        bgm_path = os.path.join("app/static/bgm", safe_bgm)
         if not os.path.exists(bgm_path):
             bgm_path = None
 
@@ -2081,9 +2082,164 @@ async def api_bgm_delete(request: Request, filename: str):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    fpath = os.path.join("app/static/bgm", filename)
+    safe_name = os.path.basename(filename)
+    fpath = os.path.join("app/static/bgm", safe_name)
     if not os.path.exists(fpath):
         return JSONResponse({"error": "Not found"}, status_code=404)
 
     os.remove(fpath)
     return JSONResponse({"success": True})
+
+
+@router.get("/editor/{drama_id}", response_class=HTMLResponse)
+async def editor_page(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        raise HTTPException(status_code=404, detail="Drama not found")
+
+    import json
+    script_data = {}
+    if drama.get("script"):
+        try:
+            script_data = json.loads(drama["script"]) if isinstance(drama["script"], str) else drama["script"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scenes = script_data.get("scenes", [])
+
+    scene_assets = []
+    for s in scenes:
+        sn = s.get("scene_number", 0)
+        img_path = f"app/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png"
+        vid_path = f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4"
+        scene_assets.append({
+            "scene_number": sn,
+            "has_image": os.path.exists(img_path),
+            "image_url": f"/static/scene_images/drama_{drama_id}_scene_{sn}_ai.png" if os.path.exists(img_path) else None,
+            "has_video": os.path.exists(vid_path) and os.path.getsize(vid_path) > 5000,
+            "video_url": f"/static/scenes/drama_{drama_id}_scene_{sn}.mp4?t={int(os.path.getmtime(vid_path))}" if os.path.exists(vid_path) and os.path.getsize(vid_path) > 5000 else None,
+        })
+
+    video_path = f"app/static/videos/drama_{drama_id}.mp4"
+    subtitle_path = f"app/static/subtitle/drama_{drama_id}.srt"
+
+    return templates.TemplateResponse("editor.html", {
+        "request": request,
+        "user": user,
+        "drama": drama,
+        "scenes": scenes,
+        "scene_assets": scene_assets,
+        "has_final_video": os.path.exists(video_path),
+        "final_video_url": f"/static/videos/drama_{drama_id}.mp4?t={int(os.path.getmtime(video_path))}" if os.path.exists(video_path) else None,
+        "has_subtitle": os.path.exists(subtitle_path),
+    })
+
+
+editor_tasks = {}
+
+@router.post("/api/editor/{drama_id}/assemble")
+async def api_editor_assemble(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid request"}, status_code=400)
+
+    scene_order = body.get("scene_order", [])
+    if not scene_order:
+        return JSONResponse({"error": "シーンが指定されていません"}, status_code=400)
+
+    missing = []
+    for item in scene_order:
+        sn = item.get("scene_number", 0)
+        vid_path = f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4"
+        if not os.path.exists(vid_path) or os.path.getsize(vid_path) < 5000:
+            missing.append(sn)
+
+    if missing:
+        return JSONResponse({"error": f"シーン {', '.join(map(str, missing))} の動画がありません"}, status_code=400)
+
+    audio_path = f"app/static/audio/drama_{drama_id}.mp3"
+    if not os.path.exists(audio_path):
+        return JSONResponse({"error": "音声がまだ生成されていません"}, status_code=400)
+
+    task_key = f"editor_{drama_id}"
+    if editor_tasks.get(task_key, {}).get("status") == "running":
+        return JSONResponse({"error": "Already assembling"}, status_code=409)
+
+    bgm_file = body.get("bgm_file", "")
+    bgm_volume = float(body.get("bgm_volume", 0.15))
+    include_subtitle = body.get("include_subtitle", True)
+
+    bgm_path = None
+    if bgm_file:
+        safe_bgm = os.path.basename(bgm_file)
+        bgm_path = os.path.join("app/static/bgm", safe_bgm)
+        if not os.path.exists(bgm_path):
+            bgm_path = None
+
+    editor_tasks[task_key] = {"status": "running", "error": ""}
+
+    def run_editor_assemble():
+        try:
+            from app.services.video.video_generator import edit_video_custom
+
+            scene_clips = []
+            for item in scene_order:
+                sn = item["scene_number"]
+                ts = float(item.get("trim_start", 0))
+                te = float(item.get("trim_end", 0))
+                clip_data = {
+                    "path": f"app/static/scenes/drama_{drama_id}_scene_{sn}.mp4",
+                    "trim_start": ts,
+                }
+                if te > 0:
+                    clip_data["trim_end"] = te
+                scene_clips.append(clip_data)
+
+            subtitle_path_val = None
+            if include_subtitle:
+                sub_path = f"app/static/subtitle/drama_{drama_id}.srt"
+                if os.path.exists(sub_path) and os.path.getsize(sub_path) > 10:
+                    subtitle_path_val = sub_path
+
+            final_video = edit_video_custom(
+                scene_clips=scene_clips,
+                audio_path=audio_path,
+                drama_id=drama_id,
+                subtitle_path=subtitle_path_val,
+                bgm_path=bgm_path,
+                bgm_volume=bgm_volume
+            )
+            update_drama(drama_id, video_url=final_video, status="ready")
+            editor_tasks[task_key] = {"status": "done", "error": ""}
+        except Exception as e:
+            logger.error(f"Editor assemble error: {e}")
+            editor_tasks[task_key] = {"status": "error", "error": str(e)}
+
+    thread = threading.Thread(target=run_editor_assemble, daemon=True)
+    thread.start()
+
+    return JSONResponse({"message": "Editor assembly started", "status": "running"})
+
+
+@router.get("/api/editor/{drama_id}/status")
+async def api_editor_status(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    task_key = f"editor_{drama_id}"
+    task = editor_tasks.get(task_key, {"status": "idle", "error": ""})
+    return JSONResponse(task)
