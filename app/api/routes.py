@@ -346,6 +346,7 @@ async def settings_page(request: Request):
         "has_elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
         "has_kling": bool(os.environ.get("KLING_ACCESS_KEY") and os.environ.get("KLING_SECRET_KEY")) or bool(os.environ.get("KLING_API_KEY")),
         "has_stability": bool(os.environ.get("STABILITY_API_KEY")),
+        "has_luma": bool(os.environ.get("LUMA_API_KEY")),
         "has_tiktok": is_tiktok_rpa_connected(),
         "yt_has_client_id": has_client_id,
         "yt_has_client_secret": has_client_secret,

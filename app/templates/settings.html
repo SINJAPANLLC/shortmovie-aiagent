@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>設定</h1>
-    <p>API接続とサービス設定</p>
+    <p>API接続状況</p>
 </div>
 
 {% if request.query_params.get('success') == 'youtube_connected' %}
@@ -25,97 +25,91 @@
 <div class="settings-grid">
     <div class="setting-card">
         <div class="setting-header">
-            <h3>Claude AI</h3>
+            <h3>Claude AI（脚本生成）</h3>
             {% if has_anthropic %}
-            <span class="badge badge-published">設定済み</span>
+            <span class="badge badge-published">接続中</span>
             {% else %}
             <span class="badge badge-error">未設定</span>
             {% endif %}
         </div>
-        <p class="setting-desc">テーマ生成、脚本生成に使用します。</p>
-        <p class="setting-status">
-            {% if has_anthropic %}ANTHROPIC_API_KEY が設定されています。
-            {% else %}ANTHROPIC_API_KEY を環境変数に設定してください。{% endif %}
-        </p>
-    </div>
-
-    <div class="setting-card">
-        <div class="setting-header">
-            <h3>Kling API</h3>
-            {% if has_kling %}
-            <span class="badge badge-published">設定済み</span>
-            {% else %}
-            <span class="badge badge-error">未設定</span>
-            {% endif %}
-        </div>
-        <p class="setting-desc">AIショートドラマの各シーン動画を生成します。</p>
-        <p class="setting-status">
-            {% if has_kling %}Kling APIキーが設定されています。
-            {% else %}KLING_ACCESS_KEY と KLING_SECRET_KEY を環境変数に設定してください。{% endif %}
-        </p>
-    </div>
-
-    <div class="setting-card">
-        <div class="setting-header">
-            <h3>ElevenLabs 音声生成</h3>
-            {% if has_elevenlabs %}
-            <span class="badge badge-published">設定済み</span>
-            {% else %}
-            <span class="badge badge-error">未設定</span>
-            {% endif %}
-        </div>
-        <p class="setting-desc">ナレーション音声の生成に使用します。</p>
-        <p class="setting-status">
-            {% if has_elevenlabs %}ELEVENLABS_API_KEY が設定されています。
-            {% else %}ELEVENLABS_API_KEY を環境変数に設定してください。{% endif %}
-        </p>
-    </div>
-
-    <div class="setting-card">
-        <div class="setting-header">
-            <h3>Stable Diffusion (画像生成)</h3>
-            {% if has_stability %}
-            <span class="badge badge-published">設定済み</span>
-            {% else %}
-            <span class="badge badge-error">未設定</span>
-            {% endif %}
-        </div>
-        <p class="setting-desc">キャラクター画像とサムネイルを自動生成します。</p>
-        <p class="setting-status">
-            {% if has_stability %}STABILITY_API_KEY が設定されています。
-            {% else %}STABILITY_API_KEY を環境変数に設定してください。{% endif %}
-        </p>
-    </div>
-
-    <div class="setting-card">
-        <div class="setting-header">
-            <h3>TikTok 連携</h3>
-            {% if has_tiktok %}
-            <span class="badge badge-published">接続済み</span>
-            {% else %}
-            <span class="badge badge-draft">未接続</span>
-            {% endif %}
-        </div>
-        <p class="setting-desc">TikTokにブラウザ自動操作（RPA）で動画を投稿します。</p>
-        <p class="setting-desc" style="font-size:12px;color:#888;margin-top:4px;">
-            ブラウザでTikTokにログイン → Cookie書き出し拡張機能（EditThisCookie等）で .tiktok.com のCookieをJSON形式でエクスポート → 下に貼り付けて保存。
-        </p>
-
-        {% if has_tiktok %}
+        <p class="setting-desc">テーマ・脚本・台詞の自動生成に使用</p>
         <div class="env-checklist">
-            <div class="env-item env-ok">
-                <span class="env-icon">✓</span>
-                <span>TikTok Cookie（sessionid）保存済み</span>
+            <div class="env-item {{ 'env-ok' if has_anthropic else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_anthropic else '✗' }}</span>
+                <span>ANTHROPIC_API_KEY</span>
             </div>
         </div>
-        <button class="btn btn-secondary" style="margin-top:8px" data-testid="btn-tiktok-disconnect" onclick="disconnectTiktok()">連携を解除</button>
-        <button class="btn btn-primary" style="margin-top:8px;margin-left:8px" data-testid="btn-tiktok-update" onclick="document.getElementById('tiktok-cookie-form').style.display='block'">Cookieを更新</button>
-        {% endif %}
+    </div>
 
-        <div id="tiktok-cookie-form" style="margin-top:12px;{% if has_tiktok %}display:none{% endif %}">
-            <textarea id="tiktok-cookies-input" data-testid="input-tiktok-cookies" rows="6" style="width:100%;font-size:12px;font-family:monospace;padding:8px;border:1px solid #ccc;border-radius:6px;resize:vertical;" placeholder='[{"name":"sessionid","value":"xxx","domain":".tiktok.com",...}, ...]'></textarea>
-            <button class="btn btn-primary" style="margin-top:8px" data-testid="btn-tiktok-save" onclick="saveTiktokCookies()">Cookie を保存して連携</button>
-            <span id="tiktok-save-status" style="margin-left:12px;font-size:13px;"></span>
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Luma AI（画像・動画生成）</h3>
+            {% if has_luma %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">Photon（シーン画像・サムネイル）/ Ray-2（動画）に使用</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_luma else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_luma else '✗' }}</span>
+                <span>LUMA_API_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Kling AI（動画生成）</h3>
+            {% if has_kling %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">image2video でシーン画像から動画を生成</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_kling else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_kling else '✗' }}</span>
+                <span>KLING_ACCESS_KEY / KLING_SECRET_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>ElevenLabs（音声生成）</h3>
+            {% if has_elevenlabs %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-error">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">ナレーション・キャラクターボイスの生成に使用</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_elevenlabs else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_elevenlabs else '✗' }}</span>
+                <span>ELEVENLABS_API_KEY</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>Stability AI（画像生成・予備）</h3>
+            {% if has_stability %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-draft">未設定</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">Lumaフォールバック時のサムネイル・キャラ画像生成</p>
+        <div class="env-checklist">
+            <div class="env-item {{ 'env-ok' if has_stability else 'env-missing' }}">
+                <span class="env-icon">{{ '✓' if has_stability else '✗' }}</span>
+                <span>STABILITY_API_KEY</span>
+            </div>
         </div>
     </div>
 
@@ -123,13 +117,12 @@
         <div class="setting-header">
             <h3>YouTube 連携</h3>
             {% if youtube_connected %}
-            <span class="badge badge-published">接続済み</span>
+            <span class="badge badge-published">接続中</span>
             {% else %}
             <span class="badge badge-draft">未接続</span>
             {% endif %}
         </div>
-        <p class="setting-desc">YouTube Shorts に自動投稿します。</p>
-
+        <p class="setting-desc">YouTube Shorts への動画投稿に使用</p>
         <div class="env-checklist">
             <div class="env-item {{ 'env-ok' if yt_has_client_id else 'env-missing' }}">
                 <span class="env-icon">{{ '✓' if yt_has_client_id else '✗' }}</span>
@@ -144,30 +137,46 @@
                 <span>YOUTUBE_OAUTH_REFRESH_TOKEN</span>
             </div>
         </div>
-
         {% if youtube_connected %}
         <a href="/auth/youtube" class="btn btn-secondary" style="margin-top:8px">再連携する</a>
         {% elif yt_has_client_id and yt_has_client_secret %}
         <a href="/auth/youtube" class="btn btn-primary" style="margin-top:8px">YouTube アカウントを連携</a>
         {% endif %}
     </div>
-</div>
 
-<div class="section" style="margin-top:24px">
-    <h2>投稿スケジュール</h2>
-    <div class="card">
-        <p style="margin-bottom:12px;font-weight:600">1日3本の自動生成</p>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
-            <div style="padding:8px 16px;background:var(--bg-primary);border-radius:8px;font-weight:600;color:var(--accent)">10:00</div>
-            <div style="padding:8px 16px;background:var(--bg-primary);border-radius:8px;font-weight:600;color:var(--accent)">15:00</div>
-            <div style="padding:8px 16px;background:var(--bg-primary);border-radius:8px;font-weight:600;color:var(--accent)">21:00</div>
+    <div class="setting-card">
+        <div class="setting-header">
+            <h3>TikTok 連携</h3>
+            {% if has_tiktok %}
+            <span class="badge badge-published">接続中</span>
+            {% else %}
+            <span class="badge badge-draft">未接続</span>
+            {% endif %}
+        </div>
+        <p class="setting-desc">TikTokへの動画投稿（Cookie認証）</p>
+
+        {% if has_tiktok %}
+        <div class="env-checklist">
+            <div class="env-item env-ok">
+                <span class="env-icon">✓</span>
+                <span>TikTok Cookie（sessionid）保存済み</span>
+            </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:8px" data-testid="btn-tiktok-disconnect" onclick="disconnectTiktok()">連携を解除</button>
+        <button class="btn btn-primary" style="margin-top:8px;margin-left:8px" data-testid="btn-tiktok-update" onclick="document.getElementById('tiktok-cookie-form').style.display='block'">Cookieを更新</button>
+        {% endif %}
+
+        <div id="tiktok-cookie-form" style="margin-top:12px;{% if has_tiktok %}display:none{% endif %}">
+            <textarea id="tiktok-cookies-input" data-testid="input-tiktok-cookies" rows="4" style="width:100%;font-size:12px;font-family:monospace;padding:8px;border:1px solid var(--border);border-radius:6px;resize:vertical;" placeholder='[{"name":"sessionid","value":"xxx","domain":".tiktok.com",...}, ...]'></textarea>
+            <button class="btn btn-primary" style="margin-top:8px" data-testid="btn-tiktok-save" onclick="saveTiktokCookies()">Cookie を保存して連携</button>
+            <span id="tiktok-save-status" style="margin-left:12px;font-size:13px;"></span>
         </div>
     </div>
 </div>
 
 <div class="section" style="margin-top:24px">
     <h2>API使用量</h2>
-    <button id="btn-refresh-usage" class="btn btn-primary btn-sm" style="margin-bottom:16px">使用量を更新</button>
+    <button id="btn-refresh-usage" class="btn btn-primary btn-sm" data-testid="btn-refresh-usage" style="margin-bottom:16px">使用量を更新</button>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="usage-panels">
         <div class="card" id="usage-el"><h3 style="margin-bottom:8px">ElevenLabs</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
         <div class="card" id="usage-claude"><h3 style="margin-bottom:8px">Claude API</h3><p style="color:var(--text-secondary)">ボタンを押して取得</p></div>
