@@ -82,16 +82,6 @@ async def root(request: Request):
     return RedirectResponse(url="/login", status_code=303)
 
 
-@router.get("/download-code-temp")
-async def download_code_temp():
-    import os
-    fpath = "/tmp/shortmovie-aiagent.tar.gz"
-    if os.path.exists(fpath):
-        from fastapi.responses import FileResponse
-        return FileResponse(fpath, filename="shortmovie-aiagent.tar.gz", media_type="application/gzip")
-    return JSONResponse({"error": "not found"}, status_code=404)
-
-
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     user = get_current_user(request)
