@@ -20,31 +20,31 @@ SILENCE_SCENE_BREAK = 0.7
 VOICE_PROFILES = {
     "female": {
         "voice_id": "pFZP5JQG7iQjIQuC4Bku",
-        "label": "Lily (女性・感情演技)",
+        "label": "Lily (女性)",
         "settings": {
-            "stability": 0.35,
-            "similarity_boost": 0.90,
-            "style": 0.70,
+            "stability": 0.65,
+            "similarity_boost": 0.95,
+            "style": 0.30,
             "speed": 0.92
         }
     },
     "male": {
         "voice_id": "JBFqnCBsd6RMkjVDRZzb",
-        "label": "George (男性・低音演技)",
+        "label": "George (男性)",
         "settings": {
-            "stability": 0.35,
-            "similarity_boost": 0.90,
-            "style": 0.65,
+            "stability": 0.65,
+            "similarity_boost": 0.95,
+            "style": 0.25,
             "speed": 0.90
         }
     },
     "narrator": {
         "voice_id": "EXAVITQu4vr4xnSDxMaL",
-        "label": "Sarah (ナレーション・ドラマ調)",
+        "label": "Sarah (ナレーション)",
         "settings": {
-            "stability": 0.45,
-            "similarity_boost": 0.85,
-            "style": 0.55,
+            "stability": 0.70,
+            "similarity_boost": 0.95,
+            "style": 0.20,
             "speed": 0.90
         }
     },
@@ -194,12 +194,14 @@ def _generate_segment_audio(client, role: str, text: str, segment_path: str, voi
             if k in voice_overrides:
                 settings[k] = float(voice_overrides[k])
 
+    logger.info(f"TTS segment: role={role}, speaker={speaker_name}, voice_id={voice_id}, stability={settings.get('stability')}, similarity={settings.get('similarity_boost')}, style={settings.get('style')}, text='{text[:50]}...'")
+
     for attempt in range(MAX_RETRIES):
         try:
             audio_gen = client.text_to_speech.convert(
                 voice_id=voice_id,
                 text=text,
-                model_id="eleven_v3",
+                model_id="eleven_multilingual_v2",
                 voice_settings=settings
             )
             with open(segment_path, "wb") as f:
