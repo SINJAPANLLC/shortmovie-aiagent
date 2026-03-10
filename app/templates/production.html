@@ -800,10 +800,13 @@ document.querySelectorAll('.btn-gen-image').forEach(function(btn) {
         this.disabled = true;
         this.textContent = '生成中...';
         preview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.75rem;color:var(--text-secondary)">生成中...</span></div>';
+        var charIds = [];
+        var sceneCard = document.querySelector('.scene-card[data-scene="' + sn + '"]');
+        if (sceneCard) sceneCard.querySelectorAll('.scene-char-cb:checked').forEach(function(cb) { charIds.push(parseInt(cb.value)); });
         fetch('/api/production/' + DRAMA_ID + '/scene-image/' + sn, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: prompt })
+            body: JSON.stringify({ prompt: prompt, character_ids: charIds })
         })
         .then(handleGenResponse)
         .then(function() { startPolling(); })
@@ -1006,8 +1009,15 @@ function batchGenerate(type, sceneNums, idx, onComplete) {
     var opts = { method: 'POST' };
     if (type === 'image' || type === 'video') {
         var prompt = getScenePrompt(sn);
+        var bodyData = { prompt: prompt };
+        if (type === 'image') {
+            var charIds = [];
+            var sc = document.querySelector('.scene-card[data-scene="' + sn + '"]');
+            if (sc) sc.querySelectorAll('.scene-char-cb:checked').forEach(function(cb) { charIds.push(parseInt(cb.value)); });
+            bodyData.character_ids = charIds;
+        }
         opts.headers = { 'Content-Type': 'application/json' };
-        opts.body = JSON.stringify({ prompt: prompt });
+        opts.body = JSON.stringify(bodyData);
     }
 
     fetch(url, opts)

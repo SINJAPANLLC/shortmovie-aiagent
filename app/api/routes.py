@@ -1244,8 +1244,10 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
     try:
         body = await request.json()
         custom_prompt = body.get("prompt", "").strip()
+        req_char_ids = body.get("character_ids", [])
     except Exception:
         custom_prompt = ""
+        req_char_ids = []
 
     image_prompt = custom_prompt if custom_prompt else scene.get("description", "")
 
@@ -1257,13 +1259,13 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
     else:
         all_chars = get_characters()
 
-    character_ids = scene.get("character_ids", [])
+    character_ids = req_char_ids if req_char_ids else scene.get("character_ids", [])
     character_id = scene.get("character_id")
     if not character_ids and character_id:
         character_ids = [character_id]
     character_img = None
 
-    if character_ids and not custom_prompt:
+    if character_ids:
         char_descs = []
         for cid in character_ids:
             ch = get_character_by_id(int(cid))
@@ -1275,7 +1277,7 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
                     character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
         if char_descs:
             image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
-    elif "+" in speaker and not custom_prompt:
+    elif speaker and speaker != "ナレーション":
         speaker_parts = [sp.strip() for sp in speaker.split("+")]
         for sp in speaker_parts:
             if sp == "ナレーション":
@@ -1294,13 +1296,6 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
                     character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
             if char_descs:
                 image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
-    elif speaker and speaker != "ナレーション" and not custom_prompt:
-        for ch in all_chars:
-            if ch.get("role") == speaker or ch.get("name") == speaker:
-                if ch.get("description"):
-                    image_prompt = f"{image_prompt}。登場人物: {ch.get('role', ch['name'])}: {ch['description']}"
-                character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
-                break
 
     production_tasks[task_key] = {"status": "running", "error": ""}
 
