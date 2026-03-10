@@ -195,7 +195,7 @@
         </div>
         <div style="padding:16px">
             <div id="batch-status-img" style="display:none;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:0.82rem;color:var(--text-primary)"></div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
                 {% for scene in scenes %}
                 {% set sn = scene.scene_number or loop.index %}
                 {% set asset = scene_assets[loop.index0] if loop.index0 < scene_assets|length else {} %}
@@ -203,6 +203,10 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                         <span style="font-size:0.8rem;font-weight:600">シーン {{ sn }}</span>
                         <span style="font-size:0.7rem;color:var(--text-secondary)">{{ scene.emotion or '' }}</span>
+                    </div>
+                    <div style="margin-bottom:6px">
+                        <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">画像プロンプト</label>
+                        <textarea class="img-prompt-edit" data-scene="{{ sn }}" data-testid="img-prompt-{{ sn }}" rows="3" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:5px;font-size:0.72rem;resize:vertical;font-family:inherit;line-height:1.4;margin-top:2px">{{ scene.description or '' }}</textarea>
                     </div>
                     <div id="img-preview-{{ sn }}" data-testid="img-preview-{{ sn }}" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;min-height:100px;display:flex;align-items:center;justify-content:center;overflow:hidden;aspect-ratio:9/16;max-height:240px">
                         {% if asset.has_image %}
@@ -233,7 +237,7 @@
         </div>
         <div style="padding:16px">
             <div id="batch-status-vid" style="display:none;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:0.82rem;color:var(--text-primary)"></div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
                 {% for scene in scenes %}
                 {% set sn = scene.scene_number or loop.index %}
                 {% set asset = scene_assets[loop.index0] if loop.index0 < scene_assets|length else {} %}
@@ -241,6 +245,10 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                         <span style="font-size:0.8rem;font-weight:600">シーン {{ sn }}</span>
                         <span style="font-size:0.7rem;color:var(--text-secondary)">{{ scene.duration or 6 }}秒</span>
+                    </div>
+                    <div style="margin-bottom:6px">
+                        <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">動画プロンプト（画像から動画化時の指示）</label>
+                        <textarea class="vid-prompt-edit" data-scene="{{ sn }}" data-testid="vid-prompt-{{ sn }}" rows="2" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:5px;font-size:0.72rem;resize:vertical;font-family:inherit;line-height:1.4;margin-top:2px" placeholder="空欄の場合、画像プロンプトが使用されます">{{ scene.video_prompt or '' }}</textarea>
                     </div>
                     <div id="vid-preview-{{ sn }}" data-testid="vid-preview-{{ sn }}" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;min-height:100px;display:flex;align-items:center;justify-content:center;overflow:hidden;max-height:240px">
                         {% if asset.has_video %}
@@ -299,6 +307,10 @@
                         <span style="font-size:0.78rem;font-weight:600">シーン {{ sn }}</span>
                         <span style="font-size:0.68rem;color:var(--text-secondary)">{{ scene.speaker or 'ナレーション' }}</span>
                     </div>
+                    <div style="margin-bottom:4px">
+                        <label style="font-size:0.6rem;color:var(--text-secondary);font-weight:600">読み上げテキスト</label>
+                        <div class="audio-narration-display" data-scene="{{ sn }}" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.68rem;color:var(--text-primary);background:var(--bg-card);line-height:1.4;max-height:60px;overflow-y:auto;margin-top:2px">{{ scene.narration or '(未設定)' }}</div>
+                    </div>
                     <div id="scene-audio-preview-{{ sn }}" data-testid="scene-audio-preview-{{ sn }}">
                         {% if asset.has_scene_audio %}
                         <audio src="{{ asset.scene_audio_url }}" controls style="width:100%;height:28px"></audio>
@@ -328,6 +340,19 @@
         </div>
         <div style="padding:16px">
             <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px">シーンのセリフ/ナレーションから SRT 字幕ファイルを生成します。最終動画の組み立て時に自動的に焼き付けます。</p>
+            <div style="margin-bottom:12px">
+                <label style="font-size:0.72rem;color:var(--text-secondary);font-weight:600;margin-bottom:4px;display:block">字幕に使用されるセリフ一覧</label>
+                <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:200px;overflow-y:auto">
+                    {% for scene in scenes %}
+                    {% set sn = scene.scene_number or loop.index %}
+                    <div style="display:flex;gap:6px;margin-bottom:4px;font-size:0.72rem;line-height:1.4">
+                        <span style="color:var(--accent);font-weight:700;flex-shrink:0">{{ sn }}.</span>
+                        <span style="color:var(--text-secondary);flex-shrink:0">[{{ scene.speaker or 'ナレーション' }}]</span>
+                        <span style="color:var(--text-primary)">{{ scene.narration or '(未設定)' }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
             <div id="subtitle-preview" data-testid="subtitle-preview">
                 {% if has_subtitle %}
                 <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:0.82rem;margin-bottom:10px">
@@ -358,6 +383,13 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
                 <div>
                     <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">サムネイル</div>
+                    <div style="margin-bottom:6px">
+                        <label style="font-size:0.65rem;color:var(--text-secondary);font-weight:600">サムネイル生成情報</label>
+                        <div style="padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:0.7rem;color:var(--text-primary);background:var(--bg-primary);line-height:1.4;margin-top:2px">
+                            <div>タイトル: {{ drama.title or '(未設定)' }}</div>
+                            <div>エピソード: 第{{ drama.series_episode or drama.episode_number or '?' }}話</div>
+                        </div>
+                    </div>
                     <div id="thumb-preview" data-testid="thumb-preview" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden">
                         {% if has_thumbnail %}
                         <img src="{{ thumbnail_url }}" style="width:100%;border-radius:6px;max-height:240px;object-fit:contain">
@@ -694,11 +726,23 @@ function getScenePrompt(sn) {
     return desc ? desc.value.trim() : '';
 }
 
+function getImagePrompt(sn) {
+    var el = document.querySelector('.img-prompt-edit[data-scene="' + sn + '"]');
+    if (el && el.value.trim()) return el.value.trim();
+    return getScenePrompt(sn);
+}
+
+function getVideoPrompt(sn) {
+    var el = document.querySelector('.vid-prompt-edit[data-scene="' + sn + '"]');
+    if (el && el.value.trim()) return el.value.trim();
+    return getImagePrompt(sn);
+}
+
 document.querySelectorAll('.btn-gen-image').forEach(function(btn) {
     btn.addEventListener('click', function() {
         var sn = this.getAttribute('data-scene');
         var preview = document.getElementById('img-preview-' + sn);
-        var prompt = getScenePrompt(sn);
+        var prompt = getImagePrompt(sn);
         this.disabled = true;
         this.textContent = '生成中...';
         preview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.75rem;color:var(--text-secondary)">生成中...</span></div>';
@@ -717,7 +761,7 @@ document.querySelectorAll('.btn-gen-video').forEach(function(btn) {
     btn.addEventListener('click', function() {
         var sn = this.getAttribute('data-scene');
         var preview = document.getElementById('vid-preview-' + sn);
-        var prompt = getScenePrompt(sn);
+        var prompt = getVideoPrompt(sn);
         this.disabled = true;
         this.textContent = '生成中...';
         preview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.75rem;color:var(--text-secondary)">生成中 (数分)...</span></div>';
