@@ -19,7 +19,8 @@ from app.db.database import (
     create_series, create_drama, get_next_episode_number,
     get_characters, get_characters_by_series, get_character_by_id,
     create_character, update_character, delete_character,
-    delete_drama
+    delete_drama,
+    delete_series
 )
 from app.services.pipeline import run_full_pipeline, generate_theme_only, generate_script_only, continue_pipeline_from_script
 from app.services.ai.improvement_ai import analyze_and_improve
@@ -782,6 +783,39 @@ async def api_delete_drama(request: Request, drama_id: int):
 
     delete_drama(drama_id)
     return JSONResponse({"success": True, "message": "ドラマを削除しました"})
+
+
+@router.delete("/api/series/{series_id}")
+async def api_delete_series(request: Request, series_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    series = get_series_by_id(series_id)
+    if not series:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    dramas = get_dramas_by_series(series_id)
+    for drama in dramas:
+        import glob as glob_mod
+        drama_id = drama["id"]
+        patterns = [
+            f"app/static/scene_images/drama_{drama_id}_*",
+            f"app/static/scenes/drama_{drama_id}_*",
+            f"app/static/audio/drama_{drama_id}*",
+            f"app/static/thumbnail/drama_{drama_id}*",
+            f"app/static/videos/drama_{drama_id}*",
+        ]
+        for pat in patterns:
+            for f in glob_mod.glob(pat):
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
+        delete_drama(drama_id)
+
+    delete_series(series_id)
+    return JSONResponse({"success": True, "message": "シリーズを削除しました"})
 
 
 @router.get("/api/usage")

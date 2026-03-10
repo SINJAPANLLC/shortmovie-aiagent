@@ -55,6 +55,7 @@
                 {% if s.status != 'active' %}
                 <button class="btn btn-secondary" data-testid="btn-activate-{{ s.id }}" style="font-size:0.72rem;padding:3px 10px" onclick="window.activateSeries({{ s.id }})">有効化</button>
                 {% endif %}
+                <button class="btn btn-secondary" data-testid="btn-delete-series-{{ s.id }}" style="font-size:0.72rem;padding:3px 10px;color:var(--error)" onclick="window.deleteSeries({{ s.id }}, '{{ s.name|e }}')">削除</button>
             </div>
         </div>
         <div style="padding:14px 18px">
@@ -206,6 +207,21 @@ window.activateSeries = async function(seriesId) {
             window.location.href = '/series';
         } else {
             alert('エラー: ' + (data.error || '有効化に失敗しました'));
+        }
+    } catch(e) {
+        alert('通信エラー: ' + e.message);
+    }
+};
+
+window.deleteSeries = async function(seriesId, name) {
+    if (!confirm('「' + name + '」シリーズを削除しますか？\nこのシリーズに含まれるドラマは削除されません（シリーズなしになります）。')) return;
+    try {
+        var res = await fetch('/api/series/' + seriesId, { method: 'DELETE' });
+        var data = await res.json();
+        if (data.success) {
+            window.location.href = '/series';
+        } else {
+            alert('エラー: ' + (data.error || '削除に失敗しました'));
         }
     } catch(e) {
         alert('通信エラー: ' + e.message);
