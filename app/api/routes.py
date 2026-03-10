@@ -1249,14 +1249,49 @@ async def api_production_scene_image(request: Request, drama_id: int, scene_num:
 
     image_prompt = custom_prompt if custom_prompt else scene.get("description", "")
 
+    speaker = scene.get("speaker", "")
+    series_id = drama.get("series_id")
+    scene_characters = []
+    if series_id:
+        all_chars = get_characters_by_series(series_id)
+    else:
+        all_chars = get_characters()
+
     character_id = scene.get("character_id")
     character_img = None
-    if character_id:
+
+    if "+" in speaker and not custom_prompt:
+        speaker_parts = [sp.strip() for sp in speaker.split("+")]
+        for sp in speaker_parts:
+            if sp == "ナレーション":
+                continue
+            for ch in all_chars:
+                if (ch.get("role") == sp or ch.get("name") == sp) and ch not in scene_characters:
+                    scene_characters.append(ch)
+                    break
+
+        if scene_characters:
+            char_descs = []
+            for ch in scene_characters:
+                if ch.get("description"):
+                    char_descs.append(f"{ch.get('role', ch['name'])}: {ch['description']}")
+                if not character_img:
+                    character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
+            if char_descs:
+                image_prompt = f"{image_prompt}。登場人物: {', '.join(char_descs)}"
+    elif character_id:
         char = get_character_by_id(int(character_id))
         if char:
             if char.get("description") and not custom_prompt:
-                image_prompt = f"{image_prompt}. Character: {char['description']}"
+                image_prompt = f"{image_prompt}。登場人物: {char.get('role', char['name'])}: {char['description']}"
             character_img = char.get("image_face") or char.get("image_bust") or char.get("image_path")
+    elif speaker and speaker != "ナレーション" and not custom_prompt:
+        for ch in all_chars:
+            if ch.get("role") == speaker or ch.get("name") == speaker:
+                if ch.get("description"):
+                    image_prompt = f"{image_prompt}。登場人物: {ch.get('role', ch['name'])}: {ch['description']}"
+                character_img = ch.get("image_face") or ch.get("image_bust") or ch.get("image_path")
+                break
 
     production_tasks[task_key] = {"status": "running", "error": ""}
 
