@@ -68,6 +68,24 @@ SPEAKER_ROLE_MAP = {
 }
 
 
+def _load_character_voice_map():
+    try:
+        from app.db.database import get_characters
+        chars = get_characters()
+        for ch in chars:
+            name = ch.get("name", "")
+            role = ch.get("role", "")
+            if name and name not in SPEAKER_ROLE_MAP:
+                if role in SPEAKER_ROLE_MAP:
+                    SPEAKER_ROLE_MAP[name] = SPEAKER_ROLE_MAP[role]
+                elif any(k in role for k in ("女", "妻", "彼女", "主人公", "ヒロイン", "秘書")):
+                    SPEAKER_ROLE_MAP[name] = "female"
+                elif any(k in role for k in ("男", "夫", "彼", "CEO", "社長", "部長")):
+                    SPEAKER_ROLE_MAP[name] = "male"
+    except Exception:
+        pass
+
+
 def _noop(step, msg):
     pass
 
@@ -231,6 +249,7 @@ def _concatenate_audio_segments(segment_paths: list, output_path: str) -> str:
 
 
 def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes: list = None) -> str:
+    _load_character_voice_map()
     if progress_callback is None:
         progress_callback = _noop
 
@@ -319,6 +338,7 @@ def generate_voice(narration: str, drama_id: int, progress_callback=None, scenes
 
 
 def generate_scene_audio(narration: str, speaker: str, drama_id: int, scene_num: int, voice_settings: dict = None) -> str:
+    _load_character_voice_map()
     os.makedirs(AUDIO_DIR, exist_ok=True)
     output_path = os.path.join(AUDIO_DIR, f"drama_{drama_id}_scene_{scene_num}.mp3")
 
