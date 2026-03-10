@@ -48,9 +48,13 @@ def generate_character_image(character_description: str, drama_id: int, progress
         progress_callback(3, f"キャラクター画像を生成中 (Luma Photon)...")
         luma_prompt = (
             f"{character_description}, "
-            "photorealistic, beautiful character portrait, high quality, "
-            "dramatic lighting, detailed face, expressive eyes, "
-            "vertical composition 9:16, cinematic"
+            "medium close-up portrait, shot on Canon EOS R5 with 85mm f/1.2 lens, "
+            "shallow depth of field, natural window light from upper left as key light, "
+            "subtle warm fill light, RAW photograph, 8K resolution, "
+            "real human skin with visible pores and subtle texture, natural skin oils, "
+            "no AI artifacts, no plastic skin, no airbrushed look, "
+            "individual hair strands visible, natural eye reflections with catchlight, "
+            "Japanese drama actor headshot style, vertical 9:16"
         )
         if generate_image_luma(luma_prompt, output_path, aspect_ratio="9:16"):
             progress_callback(3, "キャラクター画像生成完了 (Luma Photon)")
@@ -61,9 +65,10 @@ def generate_character_image(character_description: str, drama_id: int, progress
     if api_key:
         prompt = (
             f"{character_description}, "
-            "photorealistic, beautiful character portrait, high quality, "
-            "dramatic lighting, detailed face, expressive eyes, "
-            "vertical composition 9:16, cinematic"
+            "medium close-up portrait, shot on 85mm lens f/1.2, "
+            "natural window light, RAW photograph, real skin texture with pores, "
+            "no AI artifacts, no plastic skin, natural hair strands, "
+            "Japanese drama actor headshot, vertical 9:16"
         )
         progress_callback(3, f"キャラクター画像を生成中 (Stable Diffusion)...")
         try:
@@ -123,16 +128,39 @@ def generate_thumbnail(title: str, genre: str, drama_id: int, character_image: s
             luma_prompt = custom_prompt
         else:
             genre_style = {
-                "CEOドラマ": "elegant modern office with warm lighting, city skyline through floor-to-ceiling windows at golden hour, soft ambient glow",
-                "恋愛": "romantic warm atmosphere, cherry blossoms, golden sunset backlight, soft bokeh",
-                "復讐": "moody cinematic atmosphere, cool blue and warm amber contrast lighting, urban night",
+                "CEOドラマ": (
+                    "setting: luxurious modern CEO office, floor-to-ceiling windows overlooking Tokyo skyline at golden hour, "
+                    "warm amber backlight streaming through glass, dark wood and leather furniture visible in background, "
+                    "corporate elegance atmosphere"
+                ),
+                "恋愛": (
+                    "setting: intimate romantic atmosphere, soft warm golden hour sunlight, "
+                    "cherry blossom petals or city lights as bokeh in background, "
+                    "emotional tension between characters visible"
+                ),
+                "復讐": (
+                    "setting: moody urban night scene, cool blue and warm amber split lighting, "
+                    "rain-slicked streets reflecting neon, tension and mystery atmosphere"
+                ),
             }
-            style = genre_style.get(genre, "warm cinematic lighting, elegant modern setting")
+            style = genre_style.get(genre, "warm cinematic lighting, elegant modern Tokyo setting")
+            char_ref_note = ""
+            if ref_count > 0:
+                char_ref_note = (
+                    "CRITICAL: preserve exact same face as reference photo, "
+                    "identical bone structure, identical eyes, identical nose and jawline, "
+                )
             luma_prompt = (
-                f"cinematic film still for romance drama, {style}, "
-                "consistent character appearance matching reference photos exactly, "
-                "same face as reference, warm color grading, soft focus background, "
-                "appealing and inviting mood, photorealistic, high quality, vertical 9:16"
+                f"YouTube Shorts thumbnail, vertical 9:16, eye-catching dramatic composition, "
+                f"{style}, "
+                f"{char_ref_note}"
+                "shot on ARRI Alexa Mini, anamorphic lens, shallow depth of field f/1.8, "
+                "natural film grain, cinematic color grading with teal and orange tones, "
+                "RAW photograph, 8K UHD, real human skin texture with pores, "
+                "no AI artifacts, no plastic skin, no uncanny valley, "
+                "dramatic key light from upper left with warm fill, strong rim light, "
+                "characters positioned in upper two-thirds with space for text overlay at bottom, "
+                "intense emotional expression, direct or three-quarter face angle"
             )
         luma_bg_path = output_path.replace(".png", "_luma_bg.png")
         if generate_image_luma(

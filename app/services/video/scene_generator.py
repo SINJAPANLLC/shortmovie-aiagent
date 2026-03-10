@@ -27,9 +27,12 @@ def _generate_scene_image(prompt: str, drama_id: int, scene_number: int) -> str:
     output_path = os.path.join(SCENE_IMAGES_DIR, f"drama_{drama_id}_scene_{scene_number}.png")
 
     enhanced_prompt = (
-        f"{prompt}, photorealistic, cinematic lighting, "
-        "dramatic atmosphere, film grain, shallow depth of field, "
-        "vertical composition 9:16, 1080x1920"
+        f"{prompt}, "
+        "shot on ARRI Alexa Mini, anamorphic lens, shallow depth of field f/1.4, "
+        "natural film grain, cinematic color grading teal and orange, "
+        "RAW photograph, real skin texture, no AI artifacts, no plastic skin, "
+        "Japanese live-action drama scene, motivated practical lighting, "
+        "rule of thirds composition, vertical 9:16, 1080x1920"
     )
 
     encoded_prompt = urllib.parse.quote(enhanced_prompt, safe='')
@@ -54,6 +57,49 @@ def _generate_scene_image(prompt: str, drama_id: int, scene_number: int) -> str:
     return None
 
 
+def _build_cinematic_prompt(scene_description: str, has_character_refs: bool = False) -> str:
+    quality_tags = (
+        "shot on ARRI Alexa Mini, anamorphic lens, shallow depth of field f/1.4, "
+        "natural film grain, subtle lens flare, "
+        "color graded with warm shadows and cool highlights, "
+        "RAW photograph, 8K UHD resolution, unprocessed, "
+        "no AI artifacts, no plastic skin, no uncanny valley, "
+        "real human skin texture with pores and subtle imperfections, "
+        "natural hair with individual strands visible"
+    )
+
+    composition_tags = (
+        "professional cinematography composition, rule of thirds framing, "
+        "leading lines, natural eye-level or slight low angle, "
+        "environmental storytelling through background details, "
+        "vertical portrait 9:16 aspect ratio optimized framing"
+    )
+
+    lighting_tags = (
+        "motivated practical lighting from scene sources, "
+        "three-point lighting setup with soft key light, "
+        "subtle rim light separating subject from background, "
+        "atmospheric haze or volumetric light where appropriate, "
+        "no flat even lighting, natural shadow falloff"
+    )
+
+    char_consistency = ""
+    if has_character_refs:
+        char_consistency = (
+            "CRITICAL: preserve exact facial features from reference photo, "
+            "same bone structure, same eye shape, same nose, same jawline, "
+            "identical person as in reference image, "
+        )
+
+    prompt = (
+        f"{scene_description}. "
+        f"{char_consistency}"
+        f"Style: Japanese live-action television drama, {quality_tags}, "
+        f"{lighting_tags}, {composition_tags}"
+    )
+    return prompt
+
+
 def _generate_scene_specific_image(scene_description: str, drama_id: int, scene_number: int, progress_callback=None, character_image_urls: list = None) -> str:
     if progress_callback is None:
         progress_callback = _noop
@@ -64,11 +110,9 @@ def _generate_scene_specific_image(scene_description: str, drama_id: int, scene_
         ref_count = len(character_image_urls) if character_image_urls else 0
         ref_label = f" (キャラ参照{ref_count}枚)" if ref_count > 0 else ""
         progress_callback(5, f"シーン{scene_number}: シーン画像生成中 (Luma Photon{ref_label})...")
-        img_prompt = (
-            f"{scene_description}, photorealistic Japanese drama scene, "
-            "cinematic lighting, dramatic atmosphere, consistent character appearance, "
-            "same face as reference photo, high quality film still, vertical 9:16"
-        )
+
+        img_prompt = _build_cinematic_prompt(scene_description, has_character_refs=ref_count > 0)
+
         if generate_image_luma(
             img_prompt, output_path, aspect_ratio="9:16",
             character_image_urls=character_image_urls if character_image_urls else None,
