@@ -247,9 +247,15 @@
                         <span style="font-size:0.75rem;color:var(--text-secondary)">未生成</span>
                         {% endif %}
                     </div>
-                    <button class="btn btn-secondary btn-gen-image" data-scene="{{ sn }}" data-testid="btn-gen-image-{{ sn }}" style="width:100%;margin-top:6px;font-size:0.75rem;padding:4px">
-                        {% if asset.has_image %}再生成{% else %}生成{% endif %}
-                    </button>
+                    <div style="display:flex;gap:4px;margin-top:6px">
+                        <button class="btn btn-secondary btn-gen-image" data-scene="{{ sn }}" data-testid="btn-gen-image-{{ sn }}" style="flex:1;font-size:0.75rem;padding:4px">
+                            {% if asset.has_image %}再生成{% else %}生成{% endif %}
+                        </button>
+                        <label class="btn btn-secondary" data-testid="btn-upload-image-{{ sn }}" style="flex:1;font-size:0.75rem;padding:4px;text-align:center;cursor:pointer;margin:0">
+                            アップロード
+                            <input type="file" class="upload-scene-image" data-scene="{{ sn }}" accept="image/png,image/jpeg,image/webp" style="display:none">
+                        </label>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -467,9 +473,15 @@
                         <span style="font-size:0.8rem;color:var(--text-secondary);padding:20px">サムネイルを生成してください</span>
                         {% endif %}
                     </div>
-                    <button id="btn-gen-thumb" class="btn btn-secondary" data-testid="btn-gen-thumb" style="width:100%;margin-top:6px;font-size:0.8rem">
-                        {% if has_thumbnail %}サムネイル再生成{% else %}サムネイル生成{% endif %}
-                    </button>
+                    <div style="display:flex;gap:4px;margin-top:6px">
+                        <button id="btn-gen-thumb" class="btn btn-secondary" data-testid="btn-gen-thumb" style="flex:1;font-size:0.8rem">
+                            {% if has_thumbnail %}サムネイル再生成{% else %}サムネイル生成{% endif %}
+                        </button>
+                        <label class="btn btn-secondary" data-testid="btn-upload-thumb" style="flex:1;font-size:0.8rem;text-align:center;cursor:pointer;margin:0">
+                            アップロード
+                            <input type="file" id="upload-thumbnail" accept="image/png,image/jpeg,image/webp" style="display:none">
+                        </label>
+                    </div>
                 </div>
                 <div>
                     <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">最終動画</div>
@@ -923,6 +935,44 @@ document.getElementById('btn-gen-thumb').addEventListener('click', function() {
     .then(handleGenResponse)
     .then(function() { startPolling(); })
     .catch(function(e) { btn.disabled = false; btn.textContent = 'サムネイル生成'; showError(preview, e.message); });
+});
+
+document.querySelectorAll('.upload-scene-image').forEach(function(input) {
+    input.addEventListener('change', function() {
+        var sn = this.getAttribute('data-scene');
+        var file = this.files[0];
+        if (!file) return;
+        var preview = document.getElementById('img-preview-' + sn);
+        preview.innerHTML = '<div style="text-align:center;padding:10px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.75rem;color:var(--text-secondary)">アップロード中...</span></div>';
+        var fd = new FormData();
+        fd.append('image', file);
+        fetch('/api/production/' + DRAMA_ID + '/upload-scene-image/' + sn, { method: 'POST', body: fd })
+        .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'アップロード失敗'); }); return r.json(); })
+        .then(function(data) {
+            preview.innerHTML = '<img src="' + data.url + '?t=' + Date.now() + '" style="width:100%;height:100%;object-fit:cover;border-radius:6px">';
+            var genBtn = document.querySelector('.btn-gen-image[data-scene="' + sn + '"]');
+            if (genBtn) genBtn.textContent = '再生成';
+        })
+        .catch(function(e) { showError(preview, e.message); });
+        this.value = '';
+    });
+});
+
+document.getElementById('upload-thumbnail').addEventListener('change', function() {
+    var file = this.files[0];
+    if (!file) return;
+    var preview = document.getElementById('thumb-preview');
+    preview.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto 6px"></div><span style="font-size:0.82rem;color:var(--text-secondary)">アップロード中...</span></div>';
+    var fd = new FormData();
+    fd.append('image', file);
+    fetch('/api/production/' + DRAMA_ID + '/upload-thumbnail', { method: 'POST', body: fd })
+    .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'アップロード失敗'); }); return r.json(); })
+    .then(function(data) {
+        preview.innerHTML = '<img src="' + data.url + '?t=' + Date.now() + '" style="width:100%;border-radius:6px;max-height:240px;object-fit:contain">';
+        document.getElementById('btn-gen-thumb').textContent = 'サムネイル再生成';
+    })
+    .catch(function(e) { showError(preview, e.message); });
+    this.value = '';
 });
 
 document.getElementById('btn-assemble').addEventListener('click', function() {

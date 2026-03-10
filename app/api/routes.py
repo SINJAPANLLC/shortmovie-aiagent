@@ -1609,6 +1609,98 @@ async def api_production_thumbnail(request: Request, drama_id: int):
     return JSONResponse({"message": "Thumbnail generation started", "status": "running"})
 
 
+@router.post("/api/production/{drama_id}/upload-scene-image/{scene_num}")
+async def api_upload_scene_image(request: Request, drama_id: int, scene_num: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    form = await request.form()
+    image = form.get("image")
+    if not image:
+        return JSONResponse({"error": "画像が必要です"}, status_code=400)
+
+    ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+    MAX_SIZE = 10 * 1024 * 1024
+
+    ext = os.path.splitext(image.filename)[1].lower() if image.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        return JSONResponse({"error": f"許可されていないファイル形式です。{', '.join(ALLOWED_EXTENSIONS)} のみ"}, status_code=400)
+
+    contents = await image.read()
+    if len(contents) > MAX_SIZE:
+        return JSONResponse({"error": "ファイルサイズが大きすぎます（最大10MB）"}, status_code=400)
+
+    os.makedirs("app/static/scene_images", exist_ok=True)
+    output_path = f"app/static/scene_images/drama_{drama_id}_scene_{scene_num}_ai.png"
+
+    if ext in (".jpg", ".jpeg", ".webp"):
+        import subprocess
+        temp_path = f"app/static/scene_images/drama_{drama_id}_scene_{scene_num}_upload{ext}"
+        with open(temp_path, "wb") as f:
+            f.write(contents)
+        subprocess.run(["ffmpeg", "-y", "-i", temp_path, output_path], capture_output=True, timeout=10)
+        if os.path.exists(temp_path) and temp_path != output_path:
+            os.remove(temp_path)
+    else:
+        with open(output_path, "wb") as f:
+            f.write(contents)
+
+    url = f"/static/scene_images/drama_{drama_id}_scene_{scene_num}_ai.png"
+    return JSONResponse({"url": url, "message": "アップロード完了"})
+
+
+@router.post("/api/production/{drama_id}/upload-thumbnail")
+async def api_upload_thumbnail(request: Request, drama_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "認証が必要です"}, status_code=401)
+
+    drama = get_drama_by_id(drama_id)
+    if not drama:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    form = await request.form()
+    image = form.get("image")
+    if not image:
+        return JSONResponse({"error": "画像が必要です"}, status_code=400)
+
+    ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+    MAX_SIZE = 10 * 1024 * 1024
+
+    ext = os.path.splitext(image.filename)[1].lower() if image.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        return JSONResponse({"error": f"許可されていないファイル形式です。{', '.join(ALLOWED_EXTENSIONS)} のみ"}, status_code=400)
+
+    contents = await image.read()
+    if len(contents) > MAX_SIZE:
+        return JSONResponse({"error": "ファイルサイズが大きすぎます（最大10MB）"}, status_code=400)
+
+    os.makedirs("app/static/thumbnail", exist_ok=True)
+    output_path = f"app/static/thumbnail/drama_{drama_id}.png"
+
+    if ext in (".jpg", ".jpeg", ".webp"):
+        import subprocess
+        temp_path = f"app/static/thumbnail/drama_{drama_id}_upload{ext}"
+        with open(temp_path, "wb") as f:
+            f.write(contents)
+        subprocess.run(["ffmpeg", "-y", "-i", temp_path, output_path], capture_output=True, timeout=10)
+        if os.path.exists(temp_path) and temp_path != output_path:
+            os.remove(temp_path)
+    else:
+        with open(output_path, "wb") as f:
+            f.write(contents)
+
+    update_drama(drama_id, thumbnail_url=output_path)
+
+    url = f"/static/thumbnail/drama_{drama_id}.png"
+    return JSONResponse({"url": url, "message": "アップロード完了"})
+
+
 @router.post("/api/production/{drama_id}/assemble")
 async def api_production_assemble(request: Request, drama_id: int):
     user = get_current_user(request)
