@@ -1107,6 +1107,162 @@ async def new_production_page(request: Request):
     return templates.TemplateResponse("new_production.html", {"request": request, "user": user})
 
 
+@router.post("/api/new-production/chat")
+async def new_production_chat(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        provider = body.get("provider", "claude")
+        message = body.get("message", "").strip()
+        history = body.get("history", [])
+        if not message:
+            return JSONResponse({"error": "メッセージを入力してください"})
+
+        if provider == "claude":
+            import anthropic
+            client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""), timeout=120.0)
+            messages = []
+            for h in history:
+                messages.append({"role": h["role"], "content": h["content"]})
+            messages.append({"role": "user", "content": message})
+            resp = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=4096,
+                messages=messages
+            )
+            response_text = resp.content[0].text
+            return JSONResponse({"response": response_text})
+
+        elif provider == "gemini":
+            import httpx
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
+            if not gemini_key:
+                return JSONResponse({"error": "GEMINI_API_KEYが設定されていません。設定画面で追加してください。"})
+            contents = []
+            for h in history:
+                role = "user" if h["role"] == "user" else "model"
+                contents.append({"role": role, "parts": [{"text": h["content"]}]})
+            contents.append({"role": "user", "parts": [{"text": message}]})
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                    json={"contents": contents}
+                )
+                if resp.status_code != 200:
+                    return JSONResponse({"error": f"Gemini API error: {resp.status_code} {resp.text}"})
+                data = resp.json()
+                try:
+                    response_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                except (KeyError, IndexError):
+                    return JSONResponse({"error": "Geminiからの応答を解析できませんでした"})
+                return JSONResponse({"response": response_text})
+        else:
+            return JSONResponse({"error": "不明なプロバイダー"})
+    except Exception as e:
+        logger.error(f"New production chat error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/kling-generate")
+async def new_production_kling_generate(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        form = await request.form()
+        prompt = form.get("prompt", "").strip()
+        mode = form.get("mode", "text2video")
+        aspect_ratio = form.get("aspect_ratio", "9:16")
+        duration = form.get("duration", "5")
+        if not prompt:
+            return JSONResponse({"error": "プロンプトを入力してください"})
+
+        from app.services.video.kling_service import _get_kling_token
+        token = _get_kling_token()
+        if not token:
+            return JSONResponse({"error": "Kling APIキーが設定されていません"})
+
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        if mode == "image2video":
+            image_file = form.get("image")
+            if image_file:
+                import base64
+                image_data = await image_file.read()
+                image_b64 = base64.b64encode(image_data).decode("utf-8")
+                payload = {
+                    "model_name": "kling-v1",
+                    "prompt": prompt,
+                    "image": image_b64,
+                    "aspect_ratio": aspect_ratio,
+                    "duration": duration,
+                    "cfg_scale": 0.5
+                }
+                api_url = "https://api.klingai.com/v1/videos/image2video"
+            else:
+                return JSONResponse({"error": "画像を選択してください"})
+        else:
+            payload = {
+                "model_name": "kling-v1",
+                "prompt": prompt,
+                "aspect_ratio": aspect_ratio,
+                "duration": duration,
+                "cfg_scale": 0.5
+            }
+            api_url = "https://api.klingai.com/v1/videos/text2video"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(api_url, json=payload, headers=headers)
+            if resp.status_code != 200:
+                return JSONResponse({"error": f"Kling API error: {resp.status_code}"})
+            data = resp.json()
+            task_id = data.get("data", {}).get("task_id", "")
+            if not task_id:
+                return JSONResponse({"error": "タスクIDを取得できませんでした"})
+            return JSONResponse({"task_id": task_id})
+    except Exception as e:
+        logger.error(f"Kling generate error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
+@router.get("/api/new-production/kling-status/{task_id}")
+async def new_production_kling_status(request: Request, task_id: str):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from app.services.video.kling_service import _get_kling_token
+        token = _get_kling_token()
+        import httpx
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"https://api.klingai.com/v1/videos/text2video/{task_id}",
+                headers=headers
+            )
+            if resp.status_code != 200:
+                return JSONResponse({"status": "processing"})
+            data = resp.json()
+            task_data = data.get("data", {})
+            status = task_data.get("task_status", "processing")
+            if status == "succeed":
+                videos = task_data.get("task_result", {}).get("videos", [])
+                if videos:
+                    video_url = videos[0].get("url", "")
+                    return JSONResponse({"status": "completed", "video_url": video_url})
+            elif status == "failed":
+                return JSONResponse({"status": "failed", "error": task_data.get("task_status_msg", "")})
+            return JSONResponse({"status": status})
+    except Exception as e:
+        return JSONResponse({"status": "processing"})
+
+
 @router.get("/production", response_class=HTMLResponse)
 async def production_index(request: Request):
     user = get_current_user(request)
