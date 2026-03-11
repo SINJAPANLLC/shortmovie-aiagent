@@ -1381,6 +1381,7 @@ async def new_production_gemini_save(request: Request):
         body = await request.json()
         url = body.get("url", "")
         prompt = body.get("prompt", "")
+        category = body.get("category", "other")
         if not url:
             return JSONResponse({"error": "URLが必要です"})
         save_dir = "app/static/gemini_saved"
@@ -1397,8 +1398,10 @@ async def new_production_gemini_save(request: Request):
         dst_path = os.path.join(save_dir, filename)
         shutil.copy2(src_path, dst_path)
         meta_path = dst_path + ".meta"
+        import json as _json
+        meta_data = {"prompt": prompt, "category": category}
         with open(meta_path, "w", encoding="utf-8") as f:
-            f.write(prompt)
+            _json.dump(meta_data, f, ensure_ascii=False)
         return JSONResponse({"ok": True, "filename": filename})
     except Exception as e:
         logger.error(f"Gemini save error: {e}")
@@ -1420,14 +1423,23 @@ async def new_production_gemini_gallery(request: Request):
         if ext not in (".png", ".jpg", ".jpeg", ".webp"):
             continue
         prompt = ""
+        category = "other"
         meta_path = os.path.join(save_dir, f + ".meta")
         if os.path.exists(meta_path):
             with open(meta_path, "r", encoding="utf-8") as mf:
-                prompt = mf.read().strip()
+                raw = mf.read().strip()
+                try:
+                    import json as _json
+                    meta_obj = _json.loads(raw)
+                    prompt = meta_obj.get("prompt", "")
+                    category = meta_obj.get("category", "other")
+                except Exception:
+                    prompt = raw
         images.append({
             "filename": f,
             "url": f"/static/gemini_saved/{f}",
-            "prompt": prompt
+            "prompt": prompt,
+            "category": category
         })
     return JSONResponse({"images": images})
 

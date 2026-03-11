@@ -92,6 +92,15 @@
                     </select>
                 </div>
             </div>
+            <div class="np-form-group">
+                <label>画像カテゴリ</label>
+                <select id="gemini-category" class="np-select" data-testid="select-gemini-category">
+                    <option value="character">キャラクター画像</option>
+                    <option value="scene">シーン画像</option>
+                    <option value="thumbnail">サムネイル</option>
+                    <option value="other">その他</option>
+                </select>
+            </div>
             <button id="gemini-generate" class="np-kling-btn" data-testid="button-gemini-generate">画像を生成</button>
             <div id="gemini-status" class="np-kling-status" data-testid="text-gemini-status"></div>
         </div>
@@ -104,6 +113,13 @@
                 <div id="gemini-result-area" class="np-gemini-results-grid" data-testid="area-gemini-results"></div>
             </div>
             <div class="np-gemini-rpanel" id="rpanel-gallery">
+                <div class="np-gallery-filter" data-testid="area-gallery-filter">
+                    <button class="np-gallery-filter-btn active" data-filter="all">すべて</button>
+                    <button class="np-gallery-filter-btn" data-filter="character">キャラクター</button>
+                    <button class="np-gallery-filter-btn" data-filter="scene">シーン</button>
+                    <button class="np-gallery-filter-btn" data-filter="thumbnail">サムネイル</button>
+                    <button class="np-gallery-filter-btn" data-filter="other">その他</button>
+                </div>
                 <div id="gemini-gallery-area" class="np-gemini-gallery-grid" data-testid="area-gemini-gallery"></div>
             </div>
         </div>
@@ -1546,6 +1562,25 @@
 .np-gemini-result-btn.char-assign:hover, .g-char:hover {
     background: #c8e6c9 !important;
 }
+.np-gallery-filter {
+    display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.np-gallery-filter-btn {
+    padding: 4px 12px; border-radius: 14px; border: 1px solid var(--border);
+    background: var(--bg-input); cursor: pointer; font-size: 12px;
+    color: var(--fg); transition: all .2s;
+}
+.np-gallery-filter-btn.active {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.np-img-category-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; margin-bottom: 4px;
+}
+.np-img-category-badge.character { background: #e8f5e9; color: #2e7d32; }
+.np-img-category-badge.scene { background: #e3f2fd; color: #1565c0; }
+.np-img-category-badge.thumbnail { background: #fff3e0; color: #e65100; }
+.np-img-category-badge.other { background: #f3e5f5; color: #7b1fa2; }
 </style>
 
 <script>
@@ -1805,6 +1840,7 @@
     var geminiGalleryArea = document.getElementById('gemini-gallery-area');
     var geminiGalleryCount = document.getElementById('gemini-gallery-count');
     var geminiImageCount = 0;
+    var CATEGORY_LABELS = { character: 'キャラクター', scene: 'シーン', thumbnail: 'サムネイル', other: 'その他' };
     var selectedSavedRefs = [];
 
     geminiRefInput.addEventListener('change', function() {
@@ -1886,11 +1922,14 @@
             } else if (data.images && data.images.length > 0) {
                 geminiStatus.className = 'np-kling-status complete';
                 geminiStatus.textContent = data.images.length + '枚の画像を生成しました';
+                var curCategory = document.getElementById('gemini-category').value;
+                var curCatLabel = CATEGORY_LABELS[curCategory] || curCategory;
                 data.images.forEach(function(imgUrl) {
                     geminiImageCount++;
                     var item = document.createElement('div');
                     item.className = 'np-gemini-result-item';
-                    item.innerHTML = '<img src="' + imgUrl + '" data-testid="img-gemini-result-' + geminiImageCount + '">'
+                    item.innerHTML = '<div style="margin-bottom:4px;"><span class="np-img-category-badge ' + curCategory + '">' + curCatLabel + '</span></div>'
+                        + '<img src="' + imgUrl + '" data-testid="img-gemini-result-' + geminiImageCount + '">'
                         + '<div class="np-gemini-result-actions">'
                         + '<a href="' + imgUrl + '" download class="np-gemini-result-btn download" data-testid="button-download-gemini-' + geminiImageCount + '">ダウンロード</a>'
                         + '<button class="np-gemini-result-btn save-img" data-url="' + imgUrl + '" data-testid="button-save-gemini-' + geminiImageCount + '">保存</button>'
@@ -1936,11 +1975,12 @@
 
     function saveGeminiImage(url, btn) {
         var prompt = document.getElementById('gemini-prompt').value.trim();
+        var category = document.getElementById('gemini-category').value;
         fetch('/api/new-production/gemini-save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ url: url, prompt: prompt })
+            body: JSON.stringify({ url: url, prompt: prompt, category: category })
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -1958,27 +1998,45 @@
         .then(function(data) {
             geminiGalleryArea.innerHTML = '';
             var images = data.images || [];
+            window._galleryImages = images;
             geminiGalleryCount.textContent = images.length;
-            if (images.length === 0) {
-                geminiGalleryArea.innerHTML = '<div class="np-gemini-empty" style="grid-column:1/-1;">保存済みの画像はありません</div>';
-                return;
-            }
-            images.forEach(function(img) {
-                var div = document.createElement('div');
-                div.className = 'np-gallery-item';
-                div.innerHTML = '<img src="' + img.url + '">'
-                    + '<div class="np-gallery-overlay">'
-                    + '<a href="' + img.url + '" download class="g-dl">DL</a>'
-                    + '<button class="g-kling" data-url="' + img.url + '">Kling</button>'
-                    + '<button class="g-ref" data-url="' + img.url + '">参考画像</button>'
-                    + '<button class="g-char" data-url="' + img.url + '">キャラに設定</button>'
-                    + '<button class="g-del" data-url="' + img.url + '" data-filename="' + img.filename + '">削除</button>'
-                    + '</div>'
-                    + '<div class="np-gallery-info">' + escapeHtml(img.prompt || '') + '</div>';
-                geminiGalleryArea.appendChild(div);
-            });
+            renderGalleryItems(images, 'all');
         });
     }
+
+    function renderGalleryItems(images, filter) {
+        geminiGalleryArea.innerHTML = '';
+        var filtered = filter === 'all' ? images : images.filter(function(img) { return img.category === filter; });
+        if (filtered.length === 0) {
+            geminiGalleryArea.innerHTML = '<div class="np-gemini-empty" style="grid-column:1/-1;">該当する画像はありません</div>';
+            return;
+        }
+        filtered.forEach(function(img) {
+            var cat = img.category || 'other';
+            var badgeLabel = CATEGORY_LABELS[cat] || cat;
+            var div = document.createElement('div');
+            div.className = 'np-gallery-item';
+            div.setAttribute('data-category', cat);
+            div.innerHTML = '<img src="' + img.url + '">'
+                + '<div class="np-gallery-overlay">'
+                + '<a href="' + img.url + '" download class="g-dl">DL</a>'
+                + '<button class="g-kling" data-url="' + img.url + '">Kling</button>'
+                + '<button class="g-ref" data-url="' + img.url + '">参考画像</button>'
+                + '<button class="g-char" data-url="' + img.url + '">キャラに設定</button>'
+                + '<button class="g-del" data-url="' + img.url + '" data-filename="' + img.filename + '">削除</button>'
+                + '</div>'
+                + '<div class="np-gallery-info"><span class="np-img-category-badge ' + cat + '">' + badgeLabel + '</span> ' + escapeHtml(img.prompt || '') + '</div>';
+            geminiGalleryArea.appendChild(div);
+        });
+    }
+
+    document.querySelector('.np-gallery-filter').addEventListener('click', function(e) {
+        var btn = e.target.closest('.np-gallery-filter-btn');
+        if (!btn) return;
+        document.querySelectorAll('.np-gallery-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        renderGalleryItems(window._galleryImages || [], btn.dataset.filter);
+    });
 
     geminiGalleryArea.addEventListener('click', function(e) {
         var btn = e.target;
