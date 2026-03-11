@@ -137,6 +137,36 @@ def init_db():
         END $$;
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS automation_schedules (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            enabled BOOLEAN DEFAULT TRUE,
+            schedule_time VARCHAR(10) NOT NULL,
+            days_of_week VARCHAR(50) DEFAULT 'mon,tue,wed,thu,fri,sat,sun',
+            pipeline_mode VARCHAR(50) DEFAULT 'full',
+            auto_upload_youtube BOOLEAN DEFAULT FALSE,
+            auto_upload_tiktok BOOLEAN DEFAULT FALSE,
+            youtube_privacy VARCHAR(20) DEFAULT 'public',
+            custom_theme TEXT,
+            max_scenes INTEGER,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS automation_logs (
+            id SERIAL PRIMARY KEY,
+            schedule_id INTEGER,
+            status VARCHAR(50) DEFAULT 'running',
+            step VARCHAR(100),
+            message TEXT,
+            drama_id INTEGER,
+            youtube_id VARCHAR(100),
+            error TEXT,
+            started_at TIMESTAMP DEFAULT NOW(),
+            finished_at TIMESTAMP
+        );
+    """)
+
     conn.commit()
     cur.close()
     conn.close()

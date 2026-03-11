@@ -31,6 +31,13 @@ async def startup_event():
     create_admin_user(admin_username, password_hash)
     logger.info(f"Admin user '{admin_username}' ensured")
 
+    try:
+        from app.services.automation import init_scheduler
+        init_scheduler()
+        logger.info("Automation scheduler initialized")
+    except Exception as e:
+        logger.error(f"Scheduler init error: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -1927,6 +1927,121 @@ async def new_production_youtube_upload(request: Request):
         return JSONResponse({"error": str(e)})
 
 
+@router.get("/api/new-production/automation-schedules")
+async def get_automation_schedules(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.services.automation import get_all_schedules, get_running_status
+    schedules = get_all_schedules()
+    running = get_running_status()
+    for s in schedules:
+        s["running_status"] = running.get(s["id"])
+        if s.get("created_at"):
+            s["created_at"] = s["created_at"].isoformat()
+    return JSONResponse({"schedules": schedules})
+
+
+@router.post("/api/new-production/automation-schedule")
+async def create_automation_schedule(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        from app.services.automation import create_schedule
+        sid = create_schedule(
+            name=body.get("name", "自動生成"),
+            schedule_time=body.get("schedule_time", "09:00"),
+            days_of_week=body.get("days_of_week", "mon,tue,wed,thu,fri,sat,sun"),
+            pipeline_mode=body.get("pipeline_mode", "full"),
+            auto_upload_youtube=body.get("auto_upload_youtube", False),
+            auto_upload_tiktok=body.get("auto_upload_tiktok", False),
+            youtube_privacy=body.get("youtube_privacy", "public"),
+            custom_theme=body.get("custom_theme") or None,
+            max_scenes=body.get("max_scenes") or None
+        )
+        return JSONResponse({"ok": True, "id": sid})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/automation-schedule/{schedule_id}/update")
+async def update_automation_schedule(request: Request, schedule_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        from app.services.automation import update_schedule
+        update_schedule(schedule_id, **body)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/automation-schedule/{schedule_id}/toggle")
+async def toggle_automation_schedule(request: Request, schedule_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from app.services.automation import get_schedule_by_id, update_schedule
+        s = get_schedule_by_id(schedule_id)
+        if not s:
+            return JSONResponse({"error": "スケジュールが見つかりません"})
+        update_schedule(schedule_id, enabled=not s["enabled"])
+        return JSONResponse({"ok": True, "enabled": not s["enabled"]})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/automation-schedule/{schedule_id}/run")
+async def run_automation_now(request: Request, schedule_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from app.services.automation import run_job_now, get_running_status
+        status = get_running_status(schedule_id)
+        if status and status.get("status") == "running":
+            return JSONResponse({"error": "既に実行中です"})
+        run_job_now(schedule_id)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/automation-schedule/{schedule_id}/delete")
+async def delete_automation_schedule(request: Request, schedule_id: int):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from app.services.automation import delete_schedule
+        delete_schedule(schedule_id)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
+@router.get("/api/new-production/automation-logs")
+async def get_automation_logs_api(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.services.automation import get_automation_logs, get_running_status
+    schedule_id = request.query_params.get("schedule_id")
+    logs = get_automation_logs(limit=30, schedule_id=int(schedule_id) if schedule_id else None)
+    running = get_running_status()
+    for l in logs:
+        if l.get("started_at"):
+            l["started_at"] = l["started_at"].isoformat()
+        if l.get("finished_at"):
+            l["finished_at"] = l["finished_at"].isoformat()
+    return JSONResponse({"logs": logs, "running": {str(k): v for k, v in running.items()}})
+
+
 @router.get("/production", response_class=HTMLResponse)
 async def production_index(request: Request):
     user = get_current_user(request)

@@ -112,6 +112,7 @@ app/
     tiktok/
       tiktok_rpa.py              # TikTok Playwright RPA upload (Cookie-based browser automation)
       tiktok_service.py          # TikTok API service (legacy, replaced by RPA)
+    automation.py                # APScheduler automation (スケジュール管理 + パイプライン自動実行)
     analytics_collector.py       # YouTube analytics collection
   db/
     database.py                  # PostgreSQL (series, dramas, ai_logs, admin_users, settings)
@@ -142,6 +143,8 @@ app/
 - `ai_logs` - id, drama_id, step, prompt, response, created_at
 - `admin_users` - id, username, password_hash, created_at
 - `settings` - key, value
+- `automation_schedules` - id, name, enabled, schedule_time, days_of_week, pipeline_mode, auto_upload_youtube, auto_upload_tiktok, youtube_privacy, custom_theme, max_scenes, created_at
+- `automation_logs` - id, schedule_id, status(running/completed/failed), step, message, drama_id, youtube_id, error, started_at, finished_at
 
 ## Environment Variables Required
 - `SESSION_SECRET` - Session encryption key
