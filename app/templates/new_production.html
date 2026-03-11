@@ -131,62 +131,100 @@
 </div>
 
 <div class="np-panel" id="panel-kling">
-    <div class="np-kling-layout">
-        <div class="np-kling-form-panel">
-            <h3>動画生成 (Kling AI)</h3>
-            <div class="np-form-group">
-                <label>生成モード</label>
-                <select id="kling-mode" class="np-select" data-testid="select-kling-mode">
+    <div class="np-kling-top-bar">
+        <div style="display:flex;align-items:center;gap:12px;flex:1;">
+            <h3 style="margin:0;font-size:16px;">動画生成 (Kling AI V3)</h3>
+            <div class="np-form-row" style="gap:8px;margin:0;">
+                <select id="kling-mode" class="np-select" style="width:auto;font-size:12px;padding:4px 8px;" data-testid="select-kling-mode">
                     <option value="text2video">テキスト → 動画</option>
                     <option value="image2video" selected>画像 → 動画</option>
                 </select>
+                <select id="kling-aspect" class="np-select" style="width:auto;font-size:12px;padding:4px 8px;" data-testid="select-kling-aspect">
+                    <option value="9:16" selected>9:16</option>
+                    <option value="16:9">16:9</option>
+                    <option value="1:1">1:1</option>
+                </select>
+                <select id="kling-duration" class="np-select" style="width:auto;font-size:12px;padding:4px 8px;" data-testid="select-kling-duration">
+                    <option value="5">5秒</option>
+                    <option value="10">10秒</option>
+                    <option value="15" selected>15秒</option>
+                </select>
             </div>
-            <div class="np-form-group">
-                <label>プロンプト</label>
-                <textarea id="kling-prompt" class="np-chat-input" data-testid="input-kling-prompt" placeholder="動画の説明を入力...（最大2500文字）" rows="4" maxlength="2500"></textarea>
-                <div id="kling-prompt-count" style="text-align:right;font-size:11px;color:var(--fg-muted);margin-top:2px;">0 / 2500</div>
-            </div>
-            <div class="np-form-group" id="kling-image-group">
-                <label>参照画像（ファイルアップロード）</label>
-                <input type="file" id="kling-image" class="np-file-input" data-testid="input-kling-image" accept="image/*">
-                <div id="kling-image-preview" class="np-image-preview"></div>
-                <div style="margin-top:8px;">
-                    <button type="button" id="kling-toggle-gemini-ref" class="np-msg-action-btn secondary" data-testid="button-kling-toggle-ref" style="font-size:12px;">Gemini保存画像から選ぶ ▼</button>
-                    <div id="kling-gemini-ref-grid" class="np-saved-ref-grid" style="display:none;" data-testid="area-kling-ref-grid"></div>
-                </div>
-            </div>
-            <div class="np-form-row">
-                <div class="np-form-group">
-                    <label>アスペクト比</label>
-                    <select id="kling-aspect" class="np-select" data-testid="select-kling-aspect">
-                        <option value="9:16" selected>9:16 (縦)</option>
-                        <option value="16:9">16:9 (横)</option>
-                        <option value="1:1">1:1 (正方形)</option>
-                    </select>
-                </div>
-                <div class="np-form-group">
-                    <label>時間</label>
-                    <select id="kling-duration" class="np-select" data-testid="select-kling-duration">
-                        <option value="5">5秒</option>
-                        <option value="10" selected>10秒</option>
-                        <option value="15">15秒</option>
-                    </select>
-                </div>
-            </div>
-            <button id="kling-generate" class="np-kling-btn" data-testid="button-kling-generate">生成開始</button>
-            <div id="kling-status" class="np-kling-status" data-testid="text-kling-status"></div>
         </div>
-        <div class="np-kling-result-panel">
-            <div class="np-kling-result-tabs">
-                <button class="np-kling-rtab active" data-krtab="latest" data-testid="tab-kling-latest">生成結果</button>
-                <button class="np-kling-rtab" data-krtab="videos" data-testid="tab-kling-videos">保存済み動画 <span id="kling-video-count" data-testid="text-video-count">0</span></button>
+        <div style="display:flex;gap:8px;">
+            <button id="kling-batch-generate" class="np-kling-btn" style="font-size:13px;padding:8px 20px;" data-testid="button-kling-batch-generate">3シーン同時生成</button>
+        </div>
+    </div>
+    <div id="kling-batch-status" class="np-kling-status" style="margin:0 0 8px;" data-testid="text-kling-batch-status"></div>
+    <div class="np-kling-scenes-grid">
+        <div class="np-kling-scene-card" data-testid="card-kling-scene-1">
+            <div class="np-kling-scene-header">
+                <span class="np-kling-scene-label">シーン1</span>
+                <span class="np-kling-scene-time">0-15秒</span>
+                <span class="np-kling-scene-badge" id="kling-s1-badge" data-testid="badge-kling-s1"></span>
             </div>
-            <div class="np-kling-rpanel active" id="kpanel-latest">
-                <div id="kling-result-area" data-testid="area-kling-result"></div>
+            <textarea id="kling-s1-prompt" class="np-kling-scene-prompt" data-testid="input-kling-s1-prompt" placeholder="シーン1のプロンプト...（最大2500文字）" maxlength="2500"></textarea>
+            <div class="np-kling-scene-prompt-count"><span id="kling-s1-count">0</span> / 2500</div>
+            <div class="np-kling-scene-image-area" id="kling-s1-image-group">
+                <input type="file" id="kling-s1-image" class="np-file-input" accept="image/*" data-testid="input-kling-s1-image" style="font-size:11px;">
+                <div id="kling-s1-image-preview" class="np-kling-scene-preview"></div>
+                <button type="button" class="np-kling-scene-ref-btn" onclick="toggleSceneRefGrid(1)" data-testid="button-kling-s1-ref">保存画像 ▼</button>
+                <div id="kling-s1-ref-grid" class="np-saved-ref-grid" style="display:none;" data-testid="area-kling-s1-ref"></div>
             </div>
-            <div class="np-kling-rpanel" id="kpanel-videos">
-                <div id="kling-video-gallery" class="np-kling-video-gallery" data-testid="area-kling-gallery"></div>
+            <div class="np-kling-scene-actions">
+                <button class="np-kling-scene-gen-btn" onclick="generateSingleScene(1)" data-testid="button-kling-s1-gen">単独生成</button>
             </div>
+            <div id="kling-s1-result" class="np-kling-scene-result" data-testid="area-kling-s1-result"></div>
+        </div>
+        <div class="np-kling-scene-card" data-testid="card-kling-scene-2">
+            <div class="np-kling-scene-header">
+                <span class="np-kling-scene-label">シーン2</span>
+                <span class="np-kling-scene-time">15-30秒</span>
+                <span class="np-kling-scene-badge" id="kling-s2-badge" data-testid="badge-kling-s2"></span>
+            </div>
+            <textarea id="kling-s2-prompt" class="np-kling-scene-prompt" data-testid="input-kling-s2-prompt" placeholder="シーン2のプロンプト...（最大2500文字）" maxlength="2500"></textarea>
+            <div class="np-kling-scene-prompt-count"><span id="kling-s2-count">0</span> / 2500</div>
+            <div class="np-kling-scene-image-area" id="kling-s2-image-group">
+                <input type="file" id="kling-s2-image" class="np-file-input" accept="image/*" data-testid="input-kling-s2-image" style="font-size:11px;">
+                <div id="kling-s2-image-preview" class="np-kling-scene-preview"></div>
+                <button type="button" class="np-kling-scene-ref-btn" onclick="toggleSceneRefGrid(2)" data-testid="button-kling-s2-ref">保存画像 ▼</button>
+                <div id="kling-s2-ref-grid" class="np-saved-ref-grid" style="display:none;" data-testid="area-kling-s2-ref"></div>
+            </div>
+            <div class="np-kling-scene-actions">
+                <button class="np-kling-scene-gen-btn" onclick="generateSingleScene(2)" data-testid="button-kling-s2-gen">単独生成</button>
+            </div>
+            <div id="kling-s2-result" class="np-kling-scene-result" data-testid="area-kling-s2-result"></div>
+        </div>
+        <div class="np-kling-scene-card" data-testid="card-kling-scene-3">
+            <div class="np-kling-scene-header">
+                <span class="np-kling-scene-label">シーン3</span>
+                <span class="np-kling-scene-time">30-45秒</span>
+                <span class="np-kling-scene-badge" id="kling-s3-badge" data-testid="badge-kling-s3"></span>
+            </div>
+            <textarea id="kling-s3-prompt" class="np-kling-scene-prompt" data-testid="input-kling-s3-prompt" placeholder="シーン3のプロンプト...（最大2500文字）" maxlength="2500"></textarea>
+            <div class="np-kling-scene-prompt-count"><span id="kling-s3-count">0</span> / 2500</div>
+            <div class="np-kling-scene-image-area" id="kling-s3-image-group">
+                <input type="file" id="kling-s3-image" class="np-file-input" accept="image/*" data-testid="input-kling-s3-image" style="font-size:11px;">
+                <div id="kling-s3-image-preview" class="np-kling-scene-preview"></div>
+                <button type="button" class="np-kling-scene-ref-btn" onclick="toggleSceneRefGrid(3)" data-testid="button-kling-s3-ref">保存画像 ▼</button>
+                <div id="kling-s3-ref-grid" class="np-saved-ref-grid" style="display:none;" data-testid="area-kling-s3-ref"></div>
+            </div>
+            <div class="np-kling-scene-actions">
+                <button class="np-kling-scene-gen-btn" onclick="generateSingleScene(3)" data-testid="button-kling-s3-gen">単独生成</button>
+            </div>
+            <div id="kling-s3-result" class="np-kling-scene-result" data-testid="area-kling-s3-result"></div>
+        </div>
+    </div>
+    <div style="margin-top:12px;">
+        <div class="np-kling-result-tabs">
+            <button class="np-kling-rtab active" data-krtab="latest" data-testid="tab-kling-latest">生成結果</button>
+            <button class="np-kling-rtab" data-krtab="videos" data-testid="tab-kling-videos">保存済み動画 <span id="kling-video-count" data-testid="text-video-count">0</span></button>
+        </div>
+        <div class="np-kling-rpanel active" id="kpanel-latest">
+            <div id="kling-result-area" data-testid="area-kling-result"></div>
+        </div>
+        <div class="np-kling-rpanel" id="kpanel-videos">
+            <div id="kling-video-gallery" class="np-kling-video-gallery" data-testid="area-kling-gallery"></div>
         </div>
     </div>
 </div>
@@ -919,6 +957,133 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+}
+.np-kling-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.np-kling-scenes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+.np-kling-scene-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.np-kling-scene-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+.np-kling-scene-label {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--accent);
+}
+.np-kling-scene-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.np-kling-scene-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+}
+.np-kling-scene-badge.pending { background: #fff3e0; color: #e65100; }
+.np-kling-scene-badge.processing { background: #e3f2fd; color: #1565c0; animation: pulse 1.5s infinite; }
+.np-kling-scene-badge.done { background: #e8f5e9; color: #2e7d32; }
+.np-kling-scene-badge.error { background: #ffebee; color: #c62828; }
+.np-kling-scene-prompt {
+    width: 100%;
+    min-height: 60px;
+    max-height: 120px;
+    resize: vertical;
+    font-size: 12px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-panel);
+    color: var(--fg);
+    font-family: inherit;
+}
+.np-kling-scene-prompt-count {
+    text-align: right;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+.np-kling-scene-image-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.np-kling-scene-preview {
+    max-height: 80px;
+    overflow: hidden;
+    border-radius: 6px;
+}
+.np-kling-scene-preview img {
+    max-height: 80px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+.np-kling-scene-ref-btn {
+    font-size: 11px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-panel);
+    color: var(--fg-dim);
+    cursor: pointer;
+}
+.np-kling-scene-ref-btn:hover { border-color: var(--accent); color: var(--accent); }
+.np-kling-scene-actions {
+    display: flex;
+    gap: 6px;
+}
+.np-kling-scene-gen-btn {
+    flex: 1;
+    padding: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all .2s;
+}
+.np-kling-scene-gen-btn:hover { background: var(--accent); color: #fff; }
+.np-kling-scene-gen-btn:disabled { opacity: .5; cursor: not-allowed; }
+.np-kling-scene-result {
+    min-height: 20px;
+}
+.np-kling-scene-result video {
+    width: 100%;
+    max-height: 200px;
+    border-radius: 6px;
+}
+@media (max-width: 900px) {
+    .np-kling-scenes-grid { grid-template-columns: 1fr; }
 }
 .np-kling-result-tabs {
     display: flex;
@@ -1719,7 +1884,11 @@
             document.querySelectorAll('.np-panel').forEach(function(p) { p.classList.remove('active'); });
             document.querySelector('[data-tab="kling"]').classList.add('active');
             document.getElementById('panel-kling').classList.add('active');
-            document.getElementById('kling-prompt').value = item.content;
+            var emptyS = 0;
+            [1, 2, 3].forEach(function(sn) { if (!emptyS && !document.getElementById('kling-s' + sn + '-prompt').value.trim()) emptyS = sn; });
+            var tgt = emptyS || 1;
+            document.getElementById('kling-s' + tgt + '-prompt').value = item.content;
+            document.getElementById('kling-s' + tgt + '-count').textContent = item.content.length;
         } else if (btn.classList.contains('delete')) {
             if (confirm('「' + item.name + '」を削除しますか？')) {
                 savedItems.splice(idx, 1);
@@ -1759,7 +1928,11 @@
         document.querySelectorAll('.np-panel').forEach(function(p) { p.classList.remove('active'); });
         document.querySelector('[data-tab="kling"]').classList.add('active');
         document.getElementById('panel-kling').classList.add('active');
-        document.getElementById('kling-prompt').value = currentPreviewText;
+        var emptyS = 0;
+        [1, 2, 3].forEach(function(sn) { if (!emptyS && !document.getElementById('kling-s' + sn + '-prompt').value.trim()) emptyS = sn; });
+        var tgt = emptyS || 1;
+        document.getElementById('kling-s' + tgt + '-prompt').value = currentPreviewText;
+        document.getElementById('kling-s' + tgt + '-count').textContent = currentPreviewText.length;
     });
 
     function addMessage(container, role, text, provider) {
@@ -2015,10 +2188,21 @@
         document.querySelector('[data-tab="kling"]').classList.add('active');
         document.getElementById('panel-kling').classList.add('active');
         document.getElementById('kling-mode').value = 'image2video';
-        document.getElementById('kling-image-group').style.display = 'block';
-        document.getElementById('kling-prompt').value = document.getElementById('gemini-prompt').value;
-        var preview = document.getElementById('kling-image-preview');
-        preview.innerHTML = '<img src="' + imgUrl + '" style="max-width:200px;max-height:200px;border-radius:8px;border:1px solid var(--border);">';
+        [1, 2, 3].forEach(function(n) {
+            var g = document.getElementById('kling-s' + n + '-image-group');
+            if (g) g.style.display = 'flex';
+        });
+        var emptyScene = 0;
+        [1, 2, 3].forEach(function(n) {
+            if (!emptyScene && !document.getElementById('kling-s' + n + '-prompt').value.trim()) emptyScene = n;
+        });
+        var target = emptyScene || 1;
+        var prompt = document.getElementById('gemini-prompt').value;
+        document.getElementById('kling-s' + target + '-prompt').value = prompt;
+        document.getElementById('kling-s' + target + '-count').textContent = prompt.length;
+        var preview = document.getElementById('kling-s' + target + '-image-preview');
+        preview.innerHTML = '<img src="' + imgUrl + '">';
+        if (typeof sceneSelectedRefs !== 'undefined') sceneSelectedRefs[target] = [imgUrl];
     }
 
     function saveGeminiImage(url, btn) {
@@ -2137,153 +2321,206 @@
     });
 
     var modeSelect = document.getElementById('kling-mode');
-    var imageGroup = document.getElementById('kling-image-group');
-    var klingSelectedRefs = [];
-    var klingPromptEl = document.getElementById('kling-prompt');
-    var klingPromptCount = document.getElementById('kling-prompt-count');
-    klingPromptEl.addEventListener('input', function() {
-        var len = klingPromptEl.value.length;
-        klingPromptCount.textContent = len + ' / 2500';
-        klingPromptCount.style.color = len > 2400 ? '#d32f2f' : '';
+    var klingResult = document.getElementById('kling-result-area');
+    var klingVideoGallery = document.getElementById('kling-video-gallery');
+    var klingVideoCount = document.getElementById('kling-video-count');
+    var klingBatchStatus = document.getElementById('kling-batch-status');
+    var sceneSelectedRefs = {1: [], 2: [], 3: []};
+
+    [1, 2, 3].forEach(function(n) {
+        var promptEl = document.getElementById('kling-s' + n + '-prompt');
+        var countEl = document.getElementById('kling-s' + n + '-count');
+        promptEl.addEventListener('input', function() {
+            countEl.textContent = promptEl.value.length;
+            countEl.style.color = promptEl.value.length > 2400 ? '#d32f2f' : '';
+        });
+        var imgInput = document.getElementById('kling-s' + n + '-image');
+        var imgPreview = document.getElementById('kling-s' + n + '-image-preview');
+        imgInput.addEventListener('change', function() {
+            imgPreview.innerHTML = '';
+            if (imgInput.files[0]) {
+                var img = document.createElement('img');
+                img.src = URL.createObjectURL(imgInput.files[0]);
+                imgPreview.appendChild(img);
+            }
+        });
     });
 
     modeSelect.addEventListener('change', function() {
-        imageGroup.style.display = modeSelect.value === 'image2video' ? 'block' : 'none';
+        var show = modeSelect.value === 'image2video';
+        [1, 2, 3].forEach(function(n) {
+            document.getElementById('kling-s' + n + '-image-group').style.display = show ? 'flex' : 'none';
+        });
     });
 
-    var imageInput = document.getElementById('kling-image');
-    var imagePreview = document.getElementById('kling-image-preview');
-    imageInput.addEventListener('change', function() {
-        imagePreview.innerHTML = '';
-        if (imageInput.files[0]) {
-            var img = document.createElement('img');
-            img.src = URL.createObjectURL(imageInput.files[0]);
-            imagePreview.appendChild(img);
-        }
-    });
+    window.toggleSceneRefGrid = function(n) {
+        var grid = document.getElementById('kling-s' + n + '-ref-grid');
+        var isHidden = grid.style.display === 'none';
+        grid.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden) loadSceneRefImages(n);
+    };
 
-    // Kling Gemini ref toggle
-    var klingToggleRef = document.getElementById('kling-toggle-gemini-ref');
-    var klingRefGrid = document.getElementById('kling-gemini-ref-grid');
-    klingToggleRef.addEventListener('click', function() {
-        var isHidden = klingRefGrid.style.display === 'none';
-        klingRefGrid.style.display = isHidden ? 'flex' : 'none';
-        klingToggleRef.textContent = isHidden ? 'Gemini保存画像から選ぶ ▲' : 'Gemini保存画像から選ぶ ▼';
-        if (isHidden) loadKlingRefImages();
-    });
-
-    function loadKlingRefImages() {
+    function loadSceneRefImages(n) {
+        var grid = document.getElementById('kling-s' + n + '-ref-grid');
+        var preview = document.getElementById('kling-s' + n + '-image-preview');
         fetch('/api/new-production/gemini-gallery', { credentials: 'same-origin' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            klingRefGrid.innerHTML = '';
-            klingSelectedRefs = [];
+            grid.innerHTML = '';
+            sceneSelectedRefs[n] = [];
             (data.images || []).forEach(function(img) {
                 var div = document.createElement('div');
                 div.className = 'np-saved-ref-item';
                 div.dataset.url = img.url;
                 div.innerHTML = '<img src="' + img.url + '">';
                 div.addEventListener('click', function() {
-                    div.classList.toggle('selected');
-                    var url = div.dataset.url;
-                    var idx = klingSelectedRefs.indexOf(url);
-                    if (idx >= 0) klingSelectedRefs.splice(idx, 1);
-                    else klingSelectedRefs.push(url);
-                    imagePreview.innerHTML = '';
-                    klingSelectedRefs.forEach(function(u) {
-                        var im = document.createElement('img');
-                        im.src = u;
-                        imagePreview.appendChild(im);
-                    });
+                    grid.querySelectorAll('.np-saved-ref-item').forEach(function(d) { d.classList.remove('selected'); });
+                    div.classList.add('selected');
+                    sceneSelectedRefs[n] = [img.url];
+                    preview.innerHTML = '<img src="' + img.url + '">';
                 });
-                klingRefGrid.appendChild(div);
+                grid.appendChild(div);
             });
             if (!data.images || data.images.length === 0) {
-                klingRefGrid.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px;">Geminiで画像を生成・保存してください</div>';
+                grid.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px;">保存画像がありません</div>';
             }
         });
     }
 
-    var klingBtn = document.getElementById('kling-generate');
-    var klingStatus = document.getElementById('kling-status');
-    var klingResult = document.getElementById('kling-result-area');
-    var klingVideoGallery = document.getElementById('kling-video-gallery');
-    var klingVideoCount = document.getElementById('kling-video-count');
-
-    klingBtn.addEventListener('click', function() {
-        var prompt = document.getElementById('kling-prompt').value.trim();
-        if (!prompt) return alert('プロンプトを入力してください');
-        klingBtn.disabled = true;
-        klingStatus.className = 'np-kling-status processing';
-        klingStatus.textContent = '生成中... しばらくお待ちください';
-        klingResult.innerHTML = '';
-
+    function buildSceneFormData(n) {
+        var prompt = document.getElementById('kling-s' + n + '-prompt').value.trim();
+        if (!prompt) return null;
         var formData = new FormData();
         formData.append('prompt', prompt);
         formData.append('mode', modeSelect.value);
         formData.append('aspect_ratio', document.getElementById('kling-aspect').value);
         formData.append('duration', document.getElementById('kling-duration').value);
         if (modeSelect.value === 'image2video') {
-            if (imageInput.files[0]) {
-                formData.append('image', imageInput.files[0]);
+            var imgInput = document.getElementById('kling-s' + n + '-image');
+            if (imgInput.files[0]) {
+                formData.append('image', imgInput.files[0]);
             }
-            if (klingSelectedRefs.length > 0) {
-                formData.append('saved_ref_urls', JSON.stringify(klingSelectedRefs));
+            if (sceneSelectedRefs[n] && sceneSelectedRefs[n].length > 0) {
+                formData.append('saved_ref_urls', JSON.stringify(sceneSelectedRefs[n]));
             }
         }
+        return formData;
+    }
 
-        fetch('/api/new-production/kling-generate', {
-            method: 'POST',
-            credentials: 'same-origin',
-            body: formData
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.error) {
-                klingStatus.className = 'np-kling-status error';
-                klingStatus.textContent = 'エラー: ' + data.error;
-                klingBtn.disabled = false;
-            } else if (data.task_id) {
-                pollKlingTask(data.task_id, prompt);
-            }
-        })
-        .catch(function(err) {
-            klingStatus.className = 'np-kling-status error';
-            klingStatus.textContent = 'エラー: ' + err.message;
-            klingBtn.disabled = false;
+    function setSceneBadge(n, cls, text) {
+        var badge = document.getElementById('kling-s' + n + '-badge');
+        badge.className = 'np-kling-scene-badge ' + cls;
+        badge.textContent = text;
+    }
+
+    function showSceneResult(n, videoUrl, prompt) {
+        var area = document.getElementById('kling-s' + n + '-result');
+        area.innerHTML = '<video controls style="width:100%;border-radius:6px;" data-testid="video-kling-s' + n + '"><source src="' + videoUrl + '" type="video/mp4"></video>'
+            + '<div style="display:flex;gap:4px;margin-top:4px;">'
+            + '<a href="' + videoUrl + '" download class="np-kling-scene-gen-btn" style="text-align:center;text-decoration:none;font-size:11px;">DL</a>'
+            + '<button class="np-kling-scene-gen-btn kling-save-btn" style="font-size:11px;" data-url="' + videoUrl + '">保存</button>'
+            + '</div>';
+        area.querySelector('.kling-save-btn').addEventListener('click', function() {
+            saveKlingVideo(videoUrl, prompt || '', this);
         });
-    });
+    }
 
-    function pollKlingTask(taskId, prompt) {
+    function pollSceneTask(n, taskId, prompt) {
         fetch('/api/new-production/kling-status/' + taskId, { credentials: 'same-origin' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.status === 'completed' && data.video_url) {
-                klingStatus.className = 'np-kling-status complete';
-                klingStatus.textContent = '生成完了';
-                klingResult.innerHTML = '<div class="np-kling-video-item">'
-                    + '<video controls data-testid="video-kling-result"><source src="' + data.video_url + '" type="video/mp4"></video>'
-                    + '<div class="np-kling-video-actions">'
-                    + '<a href="' + data.video_url + '" download class="np-kling-video-btn dl" data-testid="link-kling-download">ダウンロード</a>'
-                    + '<button class="np-kling-video-btn dl kling-save-btn" data-url="' + data.video_url + '" data-testid="button-kling-save">保存</button>'
-                    + '</div></div>';
-                klingResult.querySelector('.kling-save-btn').addEventListener('click', function() {
-                    saveKlingVideo(data.video_url, prompt || '', this);
-                });
-                klingBtn.disabled = false;
+                setSceneBadge(n, 'done', '完了');
+                showSceneResult(n, data.video_url, prompt);
+                if (_batchPending > 0) checkBatchComplete();
             } else if (data.status === 'failed') {
-                klingStatus.className = 'np-kling-status error';
-                klingStatus.textContent = 'エラー: ' + (data.error || '生成に失敗しました');
-                klingBtn.disabled = false;
+                setSceneBadge(n, 'error', '失敗');
+                if (_batchPending > 0) checkBatchComplete();
             } else {
-                klingStatus.textContent = '生成中... (' + (data.status || 'processing') + ')';
-                setTimeout(function() { pollKlingTask(taskId, prompt); }, 5000);
+                setSceneBadge(n, 'processing', data.status || '生成中');
+                setTimeout(function() { pollSceneTask(n, taskId, prompt); }, 5000);
             }
         })
         .catch(function() {
-            setTimeout(function() { pollKlingTask(taskId, prompt); }, 5000);
+            setTimeout(function() { pollSceneTask(n, taskId, prompt); }, 5000);
         });
     }
+
+    var _batchPending = 0;
+    function checkBatchComplete() {
+        _batchPending--;
+        if (_batchPending <= 0) {
+            klingBatchStatus.className = 'np-kling-status complete';
+            klingBatchStatus.textContent = '全シーン処理完了';
+            document.getElementById('kling-batch-generate').disabled = false;
+        }
+    }
+
+    window.generateSingleScene = function(n) {
+        var formData = buildSceneFormData(n);
+        if (!formData) return alert('シーン' + n + 'のプロンプトを入力してください');
+        setSceneBadge(n, 'processing', '送信中...');
+        document.getElementById('kling-s' + n + '-result').innerHTML = '';
+        fetch('/api/new-production/kling-generate', {
+            method: 'POST', credentials: 'same-origin', body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                setSceneBadge(n, 'error', 'エラー');
+                alert(data.error);
+            } else if (data.task_id) {
+                setSceneBadge(n, 'processing', '生成中');
+                var prompt = document.getElementById('kling-s' + n + '-prompt').value;
+                pollSceneTask(n, data.task_id, prompt);
+            }
+        })
+        .catch(function(err) {
+            setSceneBadge(n, 'error', 'エラー');
+            alert(err.message);
+        });
+    };
+
+    document.getElementById('kling-batch-generate').addEventListener('click', function() {
+        var scenes = [];
+        [1, 2, 3].forEach(function(n) {
+            var fd = buildSceneFormData(n);
+            if (fd) scenes.push({n: n, formData: fd});
+        });
+        if (scenes.length === 0) return alert('少なくとも1つのシーンにプロンプトを入力してください');
+
+        this.disabled = true;
+        _batchPending = scenes.length;
+        klingBatchStatus.className = 'np-kling-status processing';
+        klingBatchStatus.textContent = scenes.length + 'シーンを同時送信中...';
+
+        scenes.forEach(function(s) {
+            setSceneBadge(s.n, 'pending', '送信待ち');
+            document.getElementById('kling-s' + s.n + '-result').innerHTML = '';
+        });
+
+        scenes.forEach(function(s) {
+            setSceneBadge(s.n, 'processing', '送信中...');
+            fetch('/api/new-production/kling-generate', {
+                method: 'POST', credentials: 'same-origin', body: s.formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    setSceneBadge(s.n, 'error', 'エラー');
+                    checkBatchComplete();
+                } else if (data.task_id) {
+                    setSceneBadge(s.n, 'processing', '生成中');
+                    var prompt = document.getElementById('kling-s' + s.n + '-prompt').value;
+                    pollSceneTask(s.n, data.task_id, prompt);
+                }
+            })
+            .catch(function() {
+                setSceneBadge(s.n, 'error', 'エラー');
+                checkBatchComplete();
+            });
+        });
+    });
 
     function saveKlingVideo(videoUrl, prompt, btn) {
         fetch('/api/new-production/kling-save', {
