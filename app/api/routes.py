@@ -1574,7 +1574,9 @@ async def new_production_kling_generate(request: Request):
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(api_url, json=payload, headers=headers)
             if resp.status_code != 200:
-                return JSONResponse({"error": f"Kling API error: {resp.status_code}"})
+                err_detail = resp.text
+                logger.error(f"Kling API error {resp.status_code}: {err_detail}")
+                return JSONResponse({"error": f"Kling API error: {resp.status_code} - {err_detail}"})
             data = resp.json()
             task_id = data.get("data", {}).get("task_id", "")
             if not task_id:
