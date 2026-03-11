@@ -1099,6 +1099,14 @@ def _get_production_task_key(drama_id, task_type, scene_num=None):
     return f"{drama_id}_{task_type}"
 
 
+@router.get("/new-production", response_class=HTMLResponse)
+async def new_production_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("new_production.html", {"request": request, "user": user})
+
+
 @router.get("/production", response_class=HTMLResponse)
 async def production_index(request: Request):
     user = get_current_user(request)

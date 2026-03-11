@@ -20,6 +20,7 @@
             <a href="/series" class="nav-link spa-link">シリーズ</a>
             <a href="/dramas" class="nav-link spa-link">ドラマ一覧</a>
             <a href="/production" class="nav-link spa-link" id="nav-production">プロダクション</a>
+            <a href="/new-production" class="nav-link spa-link" id="nav-new-production">Newプロダクション</a>
             <a href="/characters" class="nav-link spa-link">キャラクター</a>
             <a href="/settings" class="nav-link spa-link">設定</a>
             <a href="/logout" class="nav-link nav-logout">ログアウト</a>
@@ -43,8 +44,14 @@
             });
             var prodNav = document.getElementById('nav-production');
             if (prodNav) {
-                if (path.indexOf('/production') === 0) {
+                if (path.indexOf('/production') === 0 && path.indexOf('/new-production') !== 0) {
                     prodNav.classList.add('active');
+                }
+            }
+            var newProdNav = document.getElementById('nav-new-production');
+            if (newProdNav) {
+                if (path.indexOf('/new-production') === 0) {
+                    newProdNav.classList.add('active');
                 }
             }
         }
