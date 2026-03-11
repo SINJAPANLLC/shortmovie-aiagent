@@ -312,6 +312,41 @@
     </div>
 </div>
 
+<div id="char-assign-modal" class="np-char-modal-overlay" style="display:none;" data-testid="modal-char-assign">
+    <div class="np-char-modal">
+        <div class="np-char-modal-header">
+            <h4>キャラクターに画像を設定</h4>
+            <button class="np-char-modal-close" id="char-modal-close" data-testid="button-char-modal-close">&times;</button>
+        </div>
+        <div class="np-char-modal-body">
+            <div class="np-char-modal-preview">
+                <img id="char-modal-preview-img" src="" alt="preview">
+            </div>
+            <div class="np-form-group">
+                <label>キャラクター</label>
+                <select id="char-modal-select" class="np-select" data-testid="select-char-assign">
+                    <option value="new">＋ 新規キャラクターを作成</option>
+                </select>
+            </div>
+            <div id="char-modal-new-wrap" class="np-form-group">
+                <label>新規キャラクター名</label>
+                <input type="text" id="char-modal-new-name" class="np-select" placeholder="例: 香織" data-testid="input-char-new-name">
+            </div>
+            <div class="np-form-group">
+                <label>画像タイプ</label>
+                <select id="char-modal-type" class="np-select" data-testid="select-char-img-type">
+                    <option value="image_path">メイン画像</option>
+                    <option value="image_face">顔アップ</option>
+                    <option value="image_bust">バストアップ</option>
+                    <option value="image_fullbody">全身</option>
+                </select>
+            </div>
+            <button id="char-modal-submit" class="np-btn primary" style="width:100%;" data-testid="button-char-assign-submit">設定する</button>
+            <div id="char-modal-status" class="np-kling-status" data-testid="text-char-modal-status"></div>
+        </div>
+    </div>
+</div>
+
 <div class="np-panel" id="panel-automation">
     <div class="np-auto-layout">
         <div class="np-auto-left">
@@ -1479,6 +1514,38 @@
 .np-auto-log-card .log-status.running { color: #1565c0; }
 .np-auto-log-card .log-detail { color: var(--fg-dim); margin-top: 4px; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.np-char-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,.55); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+}
+.np-char-modal {
+    background: var(--bg-panel); border-radius: 14px;
+    width: 420px; max-width: 92vw; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+}
+.np-char-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+.np-char-modal-header h4 { margin: 0; font-size: 15px; font-weight: 700; }
+.np-char-modal-close {
+    background: none; border: none; font-size: 22px;
+    cursor: pointer; color: var(--fg); line-height: 1;
+}
+.np-char-modal-body { padding: 20px; }
+.np-char-modal-preview { text-align: center; margin-bottom: 14px; }
+.np-char-modal-preview img {
+    max-height: 200px; max-width: 100%; border-radius: 8px;
+    border: 1px solid var(--border);
+}
+.np-gemini-result-btn.char-assign, .g-char {
+    background: #e8f5e9 !important; color: #2e7d32 !important;
+    border: 1px solid #a5d6a7 !important; font-weight: 600;
+}
+.np-gemini-result-btn.char-assign:hover, .g-char:hover {
+    background: #c8e6c9 !important;
+}
 </style>
 
 <script>
@@ -1828,6 +1895,7 @@
                         + '<a href="' + imgUrl + '" download class="np-gemini-result-btn download" data-testid="button-download-gemini-' + geminiImageCount + '">ダウンロード</a>'
                         + '<button class="np-gemini-result-btn save-img" data-url="' + imgUrl + '" data-testid="button-save-gemini-' + geminiImageCount + '">保存</button>'
                         + '<button class="np-gemini-result-btn use-kling" data-url="' + imgUrl + '" data-testid="button-kling-gemini-' + geminiImageCount + '">Klingに送る</button>'
+                        + '<button class="np-gemini-result-btn char-assign" data-url="' + imgUrl + '" data-testid="button-char-gemini-' + geminiImageCount + '">キャラに設定</button>'
                         + '</div>';
                     geminiResultArea.insertBefore(item, geminiResultArea.firstChild);
                 });
@@ -1849,6 +1917,8 @@
             sendToKling(btn.dataset.url);
         } else if (btn.classList.contains('save-img')) {
             saveGeminiImage(btn.dataset.url, btn);
+        } else if (btn.classList.contains('char-assign')) {
+            openCharAssignModal(btn.dataset.url);
         }
     });
 
@@ -1901,6 +1971,7 @@
                     + '<a href="' + img.url + '" download class="g-dl">DL</a>'
                     + '<button class="g-kling" data-url="' + img.url + '">Kling</button>'
                     + '<button class="g-ref" data-url="' + img.url + '">参考画像</button>'
+                    + '<button class="g-char" data-url="' + img.url + '">キャラに設定</button>'
                     + '<button class="g-del" data-url="' + img.url + '" data-filename="' + img.filename + '">削除</button>'
                     + '</div>'
                     + '<div class="np-gallery-info">' + escapeHtml(img.prompt || '') + '</div>';
@@ -1911,7 +1982,9 @@
 
     geminiGalleryArea.addEventListener('click', function(e) {
         var btn = e.target;
-        if (btn.classList.contains('g-kling')) {
+        if (btn.classList.contains('g-char')) {
+            openCharAssignModal(btn.dataset.url);
+        } else if (btn.classList.contains('g-kling')) {
             sendToKling(btn.dataset.url);
         } else if (btn.classList.contains('g-ref')) {
             var url = btn.dataset.url;
@@ -2535,6 +2608,94 @@
             });
         });
     }
+})();
+
+(function() {
+    var charModal = document.getElementById('char-assign-modal');
+    var charSelect = document.getElementById('char-modal-select');
+    var charNewWrap = document.getElementById('char-modal-new-wrap');
+    var charNewName = document.getElementById('char-modal-new-name');
+    var charImgType = document.getElementById('char-modal-type');
+    var charPreviewImg = document.getElementById('char-modal-preview-img');
+    var charSubmitBtn = document.getElementById('char-modal-submit');
+    var charStatus = document.getElementById('char-modal-status');
+    var _charAssignUrl = '';
+
+    document.getElementById('char-modal-close').addEventListener('click', function() {
+        charModal.style.display = 'none';
+    });
+    charModal.addEventListener('click', function(e) {
+        if (e.target === charModal) charModal.style.display = 'none';
+    });
+
+    charSelect.addEventListener('change', function() {
+        charNewWrap.style.display = charSelect.value === 'new' ? 'block' : 'none';
+    });
+
+    window.openCharAssignModal = function(imageUrl) {
+        _charAssignUrl = imageUrl;
+        charPreviewImg.src = imageUrl;
+        charStatus.textContent = '';
+        charStatus.className = 'np-kling-status';
+        charNewName.value = '';
+        charNewWrap.style.display = 'block';
+        charSelect.value = 'new';
+        charModal.style.display = 'flex';
+
+        fetch('/api/new-production/characters-list', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            charSelect.innerHTML = '<option value="new">＋ 新規キャラクターを作成</option>';
+            (data.characters || []).forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c.id;
+                var imgs = [c.image_path, c.image_face, c.image_bust, c.image_fullbody].filter(function(x){return x;}).length;
+                opt.textContent = c.name + ' (' + c.role + ') - 画像' + imgs + '枚';
+                charSelect.appendChild(opt);
+            });
+        });
+    };
+
+    charSubmitBtn.addEventListener('click', function() {
+        var charId = charSelect.value;
+        var body = {
+            image_url: _charAssignUrl,
+            character_id: charId,
+            image_type: charImgType.value,
+            new_character_name: charNewName.value.trim()
+        };
+        if (charId === 'new' && !body.new_character_name) {
+            charStatus.className = 'np-kling-status error';
+            charStatus.textContent = 'キャラクター名を入力してください';
+            return;
+        }
+        charSubmitBtn.disabled = true;
+        charStatus.className = 'np-kling-status processing';
+        charStatus.textContent = '設定中...';
+        fetch('/api/new-production/assign-character-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            charSubmitBtn.disabled = false;
+            if (data.ok) {
+                charStatus.className = 'np-kling-status complete';
+                charStatus.textContent = '「' + data.character_name + '」に画像を設定しました';
+                setTimeout(function() { charModal.style.display = 'none'; }, 1500);
+            } else {
+                charStatus.className = 'np-kling-status error';
+                charStatus.textContent = 'エラー: ' + (data.error || '不明');
+            }
+        })
+        .catch(function(err) {
+            charSubmitBtn.disabled = false;
+            charStatus.className = 'np-kling-status error';
+            charStatus.textContent = 'エラー: ' + err.message;
+        });
+    });
 })();
 
 (function() {

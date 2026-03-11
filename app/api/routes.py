@@ -1091,6 +1091,78 @@ async def api_upload_character_image(request: Request):
     return JSONResponse({"success": True, "path": filepath})
 
 
+@router.get("/api/new-production/characters-list")
+async def new_production_characters_list(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    active = get_active_series()
+    if active:
+        from app.db.database import get_characters_by_series
+        chars = get_characters_by_series(active["id"])
+    else:
+        chars = get_characters()
+    result = []
+    for c in chars:
+        result.append({
+            "id": c["id"], "name": c["name"], "role": c.get("role", ""),
+            "image_path": c.get("image_path", ""),
+            "image_face": c.get("image_face", ""),
+            "image_bust": c.get("image_bust", ""),
+            "image_fullbody": c.get("image_fullbody", ""),
+        })
+    return JSONResponse({"characters": result, "series_id": active["id"] if active else None})
+
+
+@router.post("/api/new-production/assign-character-image")
+async def assign_character_image(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        image_url = body.get("image_url", "")
+        character_id = body.get("character_id")
+        image_type = body.get("image_type", "image_path")
+        new_character_name = body.get("new_character_name", "")
+
+        if not image_url:
+            return JSONResponse({"error": "画像URLが必要です"})
+
+        src_path = image_url.lstrip("/")
+        if src_path.startswith("static/"):
+            src_path = "app/" + src_path
+        if not os.path.exists(src_path):
+            return JSONResponse({"error": "画像ファイルが見つかりません"})
+
+        import shutil, uuid
+        os.makedirs("app/static/characters", exist_ok=True)
+        ext = os.path.splitext(src_path)[1] or ".png"
+        dest_name = f"char_{uuid.uuid4().hex[:8]}{ext}"
+        dest_path = f"app/static/characters/{dest_name}"
+        shutil.copy2(src_path, dest_path)
+
+        if character_id and character_id != "new":
+            update_character(int(character_id), **{image_type: dest_path})
+            from app.db.database import get_character_by_id
+            char = get_character_by_id(int(character_id))
+            return JSONResponse({"ok": True, "character_name": char["name"] if char else "", "path": dest_path})
+        else:
+            if not new_character_name:
+                return JSONResponse({"error": "キャラクター名を入力してください"})
+            active = get_active_series()
+            series_id = active["id"] if active else None
+            char_id = create_character(
+                name=new_character_name,
+                role="主人公",
+                image_path=dest_path,
+                series_id=series_id
+            )
+            return JSONResponse({"ok": True, "character_id": char_id, "character_name": new_character_name, "path": dest_path})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
 production_tasks = {}
 
 
