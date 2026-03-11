@@ -12,19 +12,48 @@
 </div>
 
 <div class="np-panel active" id="panel-claude">
-    <div class="np-chat-container">
-        <div class="np-chat-messages" id="claude-messages" data-testid="chat-claude-messages">
-            <div class="np-chat-welcome">Claudeに何でも聞いてください</div>
+    <div class="np-claude-layout">
+        <div class="np-chat-container">
+            <div class="np-chat-messages" id="claude-messages" data-testid="chat-claude-messages">
+                <div class="np-chat-welcome">脚本・キャラ・動画プロンプトを生成できます<br><small style="color:#999;">Claudeの回答から「プレビューに送る」で右パネルに表示</small></div>
+            </div>
+            <div class="np-chat-input-area">
+                <textarea id="claude-input" class="np-chat-input" data-testid="input-claude" placeholder="例: CEOドラマの第1話の脚本を書いて" rows="3"></textarea>
+                <button id="claude-send" class="np-chat-send" data-testid="button-claude-send">送信</button>
+            </div>
         </div>
-        <div class="np-chat-input-area">
-            <textarea id="claude-input" class="np-chat-input" data-testid="input-claude" placeholder="メッセージを入力..." rows="3"></textarea>
-            <button id="claude-send" class="np-chat-send" data-testid="button-claude-send">送信</button>
+        <div class="np-preview-panel">
+            <div class="np-preview-header">
+                <h3>プレビュー</h3>
+                <div class="np-preview-actions">
+                    <select id="claude-save-type" class="np-select-sm" data-testid="select-save-type">
+                        <option value="script">脚本</option>
+                        <option value="character_prompt">キャラプロンプト</option>
+                        <option value="video_prompt">動画プロンプト</option>
+                        <option value="image_prompt">画像プロンプト</option>
+                        <option value="other">その他</option>
+                    </select>
+                </div>
+            </div>
+            <div class="np-preview-content" id="claude-preview-area" data-testid="area-claude-preview">
+                <div class="np-preview-empty">チャットの回答から「プレビューに送る」ボタンで内容を表示</div>
+            </div>
+            <div class="np-preview-footer">
+                <input type="text" id="claude-save-name" class="np-save-name" data-testid="input-save-name" placeholder="保存名を入力...">
+                <button id="claude-save-btn" class="np-save-btn" data-testid="button-save-content" disabled>保存</button>
+                <button id="claude-copy-btn" class="np-copy-btn" data-testid="button-copy-content" disabled>コピー</button>
+                <button id="claude-send-kling-btn" class="np-kling-send-btn" data-testid="button-send-to-kling" disabled>Klingに送る</button>
+            </div>
+            <div class="np-saved-list">
+                <h4>保存済み <span id="claude-saved-count" data-testid="text-saved-count">0</span>件</h4>
+                <div id="claude-saved-items" data-testid="list-saved-items"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <div class="np-panel" id="panel-gemini">
-    <div class="np-chat-container">
+    <div class="np-chat-container np-chat-full">
         <div class="np-chat-messages" id="gemini-messages" data-testid="chat-gemini-messages">
             <div class="np-chat-welcome">Geminiに何でも聞いてください</div>
         </div>
@@ -101,59 +130,38 @@
     margin-bottom: -2px;
     transition: all 0.2s;
 }
-.np-tab:hover {
-    color: var(--accent);
-    background: var(--bg-hover);
-}
-.np-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-}
-.np-panel {
-    display: none;
-}
-.np-panel.active {
-    display: block;
+.np-tab:hover { color: var(--accent); background: var(--bg-hover); }
+.np-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.np-panel { display: none; }
+.np-panel.active { display: block; }
+
+.np-claude-layout {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 0;
+    height: calc(100vh - 200px);
 }
 .np-chat-container {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 0 0 12px 12px;
+    border-radius: 0 0 0 12px;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.np-chat-full {
+    border-radius: 0 0 12px 12px;
     height: calc(100vh - 200px);
 }
-.np-chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-}
-.np-chat-welcome {
-    text-align: center;
-    color: var(--text-secondary);
-    padding: 60px 20px;
-    font-size: 16px;
-}
-.np-msg {
-    margin-bottom: 16px;
-    display: flex;
-    flex-direction: column;
-}
-.np-msg.user {
-    align-items: flex-end;
-}
-.np-msg.assistant {
-    align-items: flex-start;
-}
-.np-msg-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-    color: var(--text-secondary);
-}
+.np-chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
+.np-chat-welcome { text-align: center; color: var(--text-secondary); padding: 60px 20px; font-size: 16px; }
+.np-msg { margin-bottom: 16px; display: flex; flex-direction: column; }
+.np-msg.user { align-items: flex-end; }
+.np-msg.assistant { align-items: flex-start; }
+.np-msg-label { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; color: var(--text-secondary); }
 .np-msg-bubble {
-    max-width: 80%;
+    max-width: 85%;
     padding: 12px 16px;
     border-radius: 12px;
     font-size: 14px;
@@ -161,24 +169,36 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
-.np-msg.user .np-msg-bubble {
+.np-msg.user .np-msg-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.np-msg.assistant .np-msg-bubble { background: var(--bg-hover); color: var(--text-primary); border-bottom-left-radius: 4px; }
+.np-msg-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+.np-msg-action-btn {
+    padding: 4px 10px;
+    font-size: 11px;
     background: var(--accent);
     color: #fff;
-    border-bottom-right-radius: 4px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
 }
-.np-msg.assistant .np-msg-bubble {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-    border-bottom-left-radius: 4px;
-}
+.np-msg-action-btn:hover { background: var(--accent-dark); }
+.np-msg-action-btn.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.np-msg-action-btn.secondary:hover { background: var(--bg-hover); }
+
 .np-chat-input-area {
     display: flex;
     gap: 10px;
-    padding: 16px;
+    padding: 12px 16px;
     border-top: 1px solid var(--border);
     background: var(--bg-primary);
-    border-radius: 0 0 12px 12px;
+    border-radius: 0 0 0 12px;
 }
+.np-chat-full .np-chat-input-area { border-radius: 0 0 12px 12px; }
 .np-chat-input {
     flex: 1;
     padding: 10px 14px;
@@ -190,9 +210,7 @@
     outline: none;
     background: var(--bg-card);
 }
-.np-chat-input:focus {
-    border-color: var(--accent);
-}
+.np-chat-input:focus { border-color: var(--accent); }
 .np-chat-send {
     padding: 10px 24px;
     background: var(--accent);
@@ -205,13 +223,138 @@
     align-self: flex-end;
     transition: background 0.2s;
 }
-.np-chat-send:hover {
-    background: var(--accent-dark);
+.np-chat-send:hover { background: var(--accent-dark); }
+.np-chat-send:disabled { background: var(--text-secondary); cursor: not-allowed; }
+
+.np-preview-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 0 12px 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
-.np-chat-send:disabled {
-    background: var(--text-secondary);
-    cursor: not-allowed;
+.np-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-primary);
 }
+.np-preview-header h3 { font-size: 14px; color: var(--accent-dark); margin: 0; }
+.np-select-sm {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    background: var(--bg-card);
+    outline: none;
+}
+.np-preview-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-primary);
+}
+.np-preview-empty { text-align: center; color: #aaa; padding: 40px 16px; font-size: 13px; }
+.np-preview-footer {
+    display: flex;
+    gap: 6px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
+    flex-wrap: wrap;
+}
+.np-save-name {
+    flex: 1;
+    min-width: 100px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    outline: none;
+    background: var(--bg-card);
+}
+.np-save-name:focus { border-color: var(--accent); }
+.np-save-btn, .np-copy-btn, .np-kling-send-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.np-save-btn { background: var(--accent); color: #fff; }
+.np-save-btn:hover { background: var(--accent-dark); }
+.np-copy-btn { background: #e0e0e0; color: #333; }
+.np-copy-btn:hover { background: #ccc; }
+.np-kling-send-btn { background: #ff6f00; color: #fff; }
+.np-kling-send-btn:hover { background: #e65100; }
+.np-save-btn:disabled, .np-copy-btn:disabled, .np-kling-send-btn:disabled {
+    background: #ddd; color: #999; cursor: not-allowed;
+}
+
+.np-saved-list {
+    border-top: 1px solid var(--border);
+    max-height: 220px;
+    overflow-y: auto;
+}
+.np-saved-list h4 {
+    font-size: 12px;
+    padding: 8px 12px;
+    margin: 0;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    position: sticky;
+    top: 0;
+}
+.np-saved-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.np-saved-item:hover { background: var(--bg-hover); }
+.np-saved-tag {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+.np-saved-tag.script { background: var(--accent); }
+.np-saved-tag.character_prompt { background: #7b1fa2; }
+.np-saved-tag.video_prompt { background: #ff6f00; }
+.np-saved-tag.image_prompt { background: #1565c0; }
+.np-saved-tag.other { background: #757575; }
+.np-saved-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-saved-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.np-saved-action {
+    padding: 2px 6px;
+    border: none;
+    border-radius: 3px;
+    font-size: 10px;
+    cursor: pointer;
+    background: #f0f0f0;
+    color: #555;
+}
+.np-saved-action:hover { background: #e0e0e0; }
+.np-saved-action.delete { color: var(--error); }
+.np-saved-action.delete:hover { background: #fde; }
+
 .np-kling-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -224,20 +367,9 @@
     border-radius: 12px;
     padding: 24px;
 }
-.np-kling-form h3, .np-kling-results h3 {
-    margin-bottom: 16px;
-    color: var(--accent-dark);
-}
-.np-form-group {
-    margin-bottom: 16px;
-}
-.np-form-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: var(--text-secondary);
-}
+.np-kling-form h3, .np-kling-results h3 { margin-bottom: 16px; color: var(--accent-dark); }
+.np-form-group { margin-bottom: 16px; }
+.np-form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
 .np-select {
     width: 100%;
     padding: 10px 12px;
@@ -247,28 +379,11 @@
     background: var(--bg-card);
     outline: none;
 }
-.np-select:focus {
-    border-color: var(--accent);
-}
-.np-form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-.np-file-input {
-    width: 100%;
-    padding: 8px;
-    font-size: 13px;
-}
-.np-image-preview {
-    margin-top: 8px;
-}
-.np-image-preview img {
-    max-width: 200px;
-    max-height: 200px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
+.np-select:focus { border-color: var(--accent); }
+.np-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.np-file-input { width: 100%; padding: 8px; font-size: 13px; }
+.np-image-preview { margin-top: 8px; }
+.np-image-preview img { max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border); }
 .np-kling-btn {
     width: 100%;
     padding: 12px;
@@ -281,60 +396,22 @@
     cursor: pointer;
     transition: background 0.2s;
 }
-.np-kling-btn:hover {
-    background: var(--accent-dark);
-}
-.np-kling-btn:disabled {
-    background: var(--text-secondary);
-    cursor: not-allowed;
-}
-.np-kling-status {
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 12px;
-    display: none;
-}
-.np-kling-status.processing {
-    display: block;
-    background: #fff8e1;
-    color: #f57f17;
-    border: 1px solid #ffcc02;
-}
-.np-kling-status.complete {
-    display: block;
-    background: #e8f5e9;
-    color: #2e7d32;
-    border: 1px solid #a5d6a7;
-}
-.np-kling-status.error {
-    display: block;
-    background: #fbe9e7;
-    color: #c62828;
-    border: 1px solid #ef9a9a;
-}
-.np-typing {
-    display: inline-flex;
-    gap: 4px;
-    padding: 8px 12px;
-}
-.np-typing span {
-    width: 6px;
-    height: 6px;
-    background: var(--text-secondary);
-    border-radius: 50%;
-    animation: npBounce 1.2s infinite;
-}
+.np-kling-btn:hover { background: var(--accent-dark); }
+.np-kling-btn:disabled { background: var(--text-secondary); cursor: not-allowed; }
+.np-kling-status { padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; display: none; }
+.np-kling-status.processing { display: block; background: #fff8e1; color: #f57f17; border: 1px solid #ffcc02; }
+.np-kling-status.complete { display: block; background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.np-kling-status.error { display: block; background: #fbe9e7; color: #c62828; border: 1px solid #ef9a9a; }
+.np-typing { display: inline-flex; gap: 4px; padding: 8px 12px; }
+.np-typing span { width: 6px; height: 6px; background: var(--text-secondary); border-radius: 50%; animation: npBounce 1.2s infinite; }
 .np-typing span:nth-child(2) { animation-delay: 0.2s; }
 .np-typing span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes npBounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-6px); }
-}
-@media (max-width: 768px) {
-    .np-kling-container {
-        grid-template-columns: 1fr;
-    }
+@keyframes npBounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+@media (max-width: 900px) {
+    .np-claude-layout { grid-template-columns: 1fr; height: auto; }
+    .np-chat-container { height: 50vh; border-radius: 0 0 12px 12px; }
+    .np-preview-panel { border-left: 1px solid var(--border); border-radius: 12px; margin-top: 12px; height: 50vh; }
+    .np-kling-container { grid-template-columns: 1fr; }
 }
 </style>
 
@@ -351,23 +428,158 @@
     });
 
     var chatHistories = { claude: [], gemini: [] };
+    var currentPreviewText = '';
+    var savedItems = JSON.parse(localStorage.getItem('np_saved_items') || '[]');
 
-    function addMessage(container, role, text) {
+    var previewArea = document.getElementById('claude-preview-area');
+    var saveNameInput = document.getElementById('claude-save-name');
+    var saveBtn = document.getElementById('claude-save-btn');
+    var copyBtn = document.getElementById('claude-copy-btn');
+    var sendKlingBtn = document.getElementById('claude-send-kling-btn');
+    var savedCountEl = document.getElementById('claude-saved-count');
+    var savedItemsEl = document.getElementById('claude-saved-items');
+
+    function escapeHtml(t) {
+        var d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
+
+    function setPreview(text) {
+        currentPreviewText = text;
+        previewArea.innerHTML = '';
+        previewArea.textContent = text;
+        saveBtn.disabled = false;
+        copyBtn.disabled = false;
+        sendKlingBtn.disabled = false;
+    }
+
+    function typeLabels(t) {
+        var m = { script: '脚本', character_prompt: 'キャラ', video_prompt: '動画P', image_prompt: '画像P', other: 'その他' };
+        return m[t] || t;
+    }
+
+    function renderSavedItems() {
+        savedItemsEl.innerHTML = '';
+        savedCountEl.textContent = savedItems.length;
+        savedItems.forEach(function(item, idx) {
+            var div = document.createElement('div');
+            div.className = 'np-saved-item';
+            div.innerHTML = '<span class="np-saved-tag ' + item.type + '">' + typeLabels(item.type) + '</span>'
+                + '<span class="np-saved-name">' + escapeHtml(item.name) + '</span>'
+                + '<span class="np-saved-actions">'
+                + '<button class="np-saved-action view-btn" data-idx="' + idx + '" data-testid="button-view-saved-' + idx + '">表示</button>'
+                + '<button class="np-saved-action copy-saved-btn" data-idx="' + idx + '" data-testid="button-copy-saved-' + idx + '">コピー</button>'
+                + '<button class="np-saved-action kling-saved-btn" data-idx="' + idx + '" data-testid="button-kling-saved-' + idx + '">Kling</button>'
+                + '<button class="np-saved-action delete" data-idx="' + idx + '" data-testid="button-delete-saved-' + idx + '">削除</button>'
+                + '</span>';
+            savedItemsEl.appendChild(div);
+        });
+    }
+    renderSavedItems();
+
+    savedItemsEl.addEventListener('click', function(e) {
+        var btn = e.target;
+        var idx = parseInt(btn.dataset.idx);
+        if (isNaN(idx)) return;
+        var item = savedItems[idx];
+        if (!item) return;
+        if (btn.classList.contains('view-btn')) {
+            setPreview(item.content);
+            document.getElementById('claude-save-type').value = item.type;
+            saveNameInput.value = item.name;
+        } else if (btn.classList.contains('copy-saved-btn')) {
+            navigator.clipboard.writeText(item.content).then(function() {
+                btn.textContent = '✓';
+                setTimeout(function() { btn.textContent = 'コピー'; }, 1000);
+            });
+        } else if (btn.classList.contains('kling-saved-btn')) {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.np-panel').forEach(function(p) { p.classList.remove('active'); });
+            document.querySelector('[data-tab="kling"]').classList.add('active');
+            document.getElementById('panel-kling').classList.add('active');
+            document.getElementById('kling-prompt').value = item.content;
+        } else if (btn.classList.contains('delete')) {
+            if (confirm('「' + item.name + '」を削除しますか？')) {
+                savedItems.splice(idx, 1);
+                localStorage.setItem('np_saved_items', JSON.stringify(savedItems));
+                renderSavedItems();
+            }
+        }
+    });
+
+    saveBtn.addEventListener('click', function() {
+        var name = saveNameInput.value.trim();
+        if (!name) { alert('保存名を入力してください'); return; }
+        var type = document.getElementById('claude-save-type').value;
+        savedItems.unshift({ name: name, type: type, content: currentPreviewText, date: new Date().toISOString() });
+        localStorage.setItem('np_saved_items', JSON.stringify(savedItems));
+        renderSavedItems();
+        saveBtn.textContent = '保存しました';
+        setTimeout(function() { saveBtn.textContent = '保存'; }, 1500);
+
+        fetch('/api/new-production/save-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ name: name, type: type, content: currentPreviewText })
+        });
+    });
+
+    copyBtn.addEventListener('click', function() {
+        navigator.clipboard.writeText(currentPreviewText).then(function() {
+            copyBtn.textContent = 'コピーしました';
+            setTimeout(function() { copyBtn.textContent = 'コピー'; }, 1500);
+        });
+    });
+
+    sendKlingBtn.addEventListener('click', function() {
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.np-panel').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelector('[data-tab="kling"]').classList.add('active');
+        document.getElementById('panel-kling').classList.add('active');
+        document.getElementById('kling-prompt').value = currentPreviewText;
+    });
+
+    function addMessage(container, role, text, provider) {
         var welcome = container.querySelector('.np-chat-welcome');
         if (welcome) welcome.remove();
         var div = document.createElement('div');
         div.className = 'np-msg ' + role;
-        div.innerHTML = '<div class="np-msg-label">' + (role === 'user' ? 'あなた' : container.id.replace('-messages','').toUpperCase()) + '</div><div class="np-msg-bubble">' + escapeHtml(text) + '</div>';
+        var label = role === 'user' ? 'あなた' : provider.toUpperCase();
+        var html = '<div class="np-msg-label">' + label + '</div><div class="np-msg-bubble">' + escapeHtml(text) + '</div>';
+        if (role === 'assistant' && provider === 'claude') {
+            html += '<div class="np-msg-actions">'
+                + '<button class="np-msg-action-btn preview-btn" data-testid="button-preview-msg">プレビューに送る</button>'
+                + '<button class="np-msg-action-btn secondary quick-copy-btn" data-testid="button-quick-copy">コピー</button>'
+                + '</div>';
+        }
+        div.innerHTML = html;
+        if (role === 'assistant' && provider === 'claude') {
+            div.querySelector('.preview-btn').addEventListener('click', function() {
+                setPreview(text);
+                var lines = text.split('\n');
+                var autoName = lines[0].substring(0, 40);
+                if (lines[0].length > 40) autoName += '...';
+                saveNameInput.value = autoName;
+            });
+            div.querySelector('.quick-copy-btn').addEventListener('click', function() {
+                navigator.clipboard.writeText(text).then(function() {
+                    div.querySelector('.quick-copy-btn').textContent = '✓';
+                    setTimeout(function() { div.querySelector('.quick-copy-btn').textContent = 'コピー'; }, 1000);
+                });
+            });
+        }
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
 
-    function showTyping(container) {
+    function showTyping(container, provider) {
         var welcome = container.querySelector('.np-chat-welcome');
         if (welcome) welcome.remove();
         var div = document.createElement('div');
         div.className = 'np-msg assistant np-typing-indicator';
-        div.innerHTML = '<div class="np-msg-label">' + container.id.replace('-messages','').toUpperCase() + '</div><div class="np-msg-bubble"><div class="np-typing"><span></span><span></span><span></span></div></div>';
+        div.innerHTML = '<div class="np-msg-label">' + provider.toUpperCase() + '</div><div class="np-msg-bubble"><div class="np-typing"><span></span><span></span><span></span></div></div>';
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
@@ -375,12 +587,6 @@
     function removeTyping(container) {
         var el = container.querySelector('.np-typing-indicator');
         if (el) el.remove();
-    }
-
-    function escapeHtml(t) {
-        var d = document.createElement('div');
-        d.textContent = t;
-        return d.innerHTML;
     }
 
     function setupChat(provider) {
@@ -392,10 +598,10 @@
             var text = input.value.trim();
             if (!text) return;
             input.value = '';
-            addMessage(messages, 'user', text);
+            addMessage(messages, 'user', text, provider);
             chatHistories[provider].push({ role: 'user', content: text });
             sendBtn.disabled = true;
-            showTyping(messages);
+            showTyping(messages, provider);
 
             fetch('/api/new-production/chat', {
                 method: 'POST',
@@ -407,9 +613,9 @@
             .then(function(data) {
                 removeTyping(messages);
                 if (data.error) {
-                    addMessage(messages, 'assistant', 'エラー: ' + data.error);
+                    addMessage(messages, 'assistant', 'エラー: ' + data.error, provider);
                 } else {
-                    addMessage(messages, 'assistant', data.response);
+                    addMessage(messages, 'assistant', data.response, provider);
                     chatHistories[provider].push({ role: 'assistant', content: data.response });
                 }
                 sendBtn.disabled = false;
@@ -417,17 +623,14 @@
             })
             .catch(function(err) {
                 removeTyping(messages);
-                addMessage(messages, 'assistant', 'エラー: ' + err.message);
+                addMessage(messages, 'assistant', 'エラー: ' + err.message, provider);
                 sendBtn.disabled = false;
             });
         }
 
         sendBtn.addEventListener('click', send);
         input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                send();
-            }
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
         });
     }
 

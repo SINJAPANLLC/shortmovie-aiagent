@@ -1165,6 +1165,33 @@ async def new_production_chat(request: Request):
         return JSONResponse({"error": str(e)})
 
 
+@router.post("/api/new-production/save-content")
+async def new_production_save_content(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        name = body.get("name", "").strip()
+        content_type = body.get("type", "other")
+        content = body.get("content", "")
+        if not name or not content:
+            return JSONResponse({"error": "名前と内容を入力してください"})
+        save_dir = "app/static/saved_contents"
+        os.makedirs(save_dir, exist_ok=True)
+        import time as _time
+        ts = int(_time.time())
+        safe_name = "".join(c for c in name if c.isalnum() or c in "ぁ-ん゛゜ァ-ヶー一-龠々〇〻_ -").strip()[:50]
+        filename = f"{ts}_{content_type}_{safe_name}.txt"
+        filepath = os.path.join(save_dir, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"# {name}\n# Type: {content_type}\n# Date: {_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n{content}")
+        return JSONResponse({"ok": True, "filename": filename})
+    except Exception as e:
+        logger.error(f"Save content error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
 @router.post("/api/new-production/kling-generate")
 async def new_production_kling_generate(request: Request):
     user = get_current_user(request)
