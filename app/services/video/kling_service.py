@@ -131,13 +131,13 @@ def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model_name": "kling-v2-master",
+                    "model_name": "kling-v3-omni",
                     "prompt": prompt,
                     "image": image_b64,
-                    "duration": "5",
+                    "duration": "10",
                     "aspect_ratio": "9:16",
-                    "mode": "std",
-                    "with_audio": True
+                    "mode": "pro",
+                    "sound": "on"
                 }
             )
 
@@ -163,12 +163,12 @@ def _try_text2video(api_key, prompt, progress_callback, scene_number):
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model_name": "kling-v2-master",
+                    "model_name": "kling-v3-omni",
                     "prompt": prompt,
-                    "duration": "5",
+                    "duration": "10",
                     "aspect_ratio": "9:16",
-                    "mode": "std",
-                    "with_audio": True
+                    "mode": "pro",
+                    "sound": "on"
                 }
             )
 

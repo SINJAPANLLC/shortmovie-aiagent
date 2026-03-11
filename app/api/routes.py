@@ -1550,37 +1550,29 @@ async def new_production_kling_generate(request: Request):
                         pass
 
             if image_b64:
-                model = "kling-v3" if duration in ("15",) else "kling-v2-master"
                 payload = {
-                    "model_name": model,
+                    "model_name": "kling-v3-omni",
                     "prompt": prompt,
                     "image": image_b64,
                     "aspect_ratio": aspect_ratio,
                     "duration": duration,
                     "cfg_scale": 0.5,
+                    "mode": "pro",
+                    "sound": "on",
                 }
-                if model == "kling-v3":
-                    payload["mode"] = "pro"
-                    payload["sound"] = "on"
-                else:
-                    payload["with_audio"] = True
                 api_url = "https://api.klingai.com/v1/videos/image2video"
             else:
                 return JSONResponse({"error": "画像を選択してください（ファイルまたはGemini保存画像）"})
         else:
-            model = "kling-v3" if duration in ("15",) else "kling-v2-master"
             payload = {
-                "model_name": model,
+                "model_name": "kling-v3-omni",
                 "prompt": prompt,
                 "aspect_ratio": aspect_ratio,
                 "duration": duration,
                 "cfg_scale": 0.5,
+                "mode": "pro",
+                "sound": "on",
             }
-            if model == "kling-v3":
-                payload["mode"] = "pro"
-                payload["sound"] = "on"
-            else:
-                payload["with_audio"] = True
             api_url = "https://api.klingai.com/v1/videos/text2video"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
