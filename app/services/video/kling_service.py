@@ -137,6 +137,7 @@ def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_
                     "duration": "10",
                     "aspect_ratio": "9:16",
                     "mode": "pro",
+                    "sound": "on",
                 }
             )
 
@@ -167,6 +168,7 @@ def _try_text2video(api_key, prompt, progress_callback, scene_number):
                     "duration": "10",
                     "aspect_ratio": "9:16",
                     "mode": "pro",
+                    "sound": "on",
                 }
             )
 

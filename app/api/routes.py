@@ -1557,6 +1557,7 @@ async def new_production_kling_generate(request: Request):
                     "aspect_ratio": aspect_ratio,
                     "duration": duration,
                     "mode": "pro",
+                    "sound": "on",
                 }
                 api_url = "https://api.klingai.com/v1/videos/image2video"
             else:
@@ -1568,6 +1569,7 @@ async def new_production_kling_generate(request: Request):
                 "aspect_ratio": aspect_ratio,
                 "duration": duration,
                 "mode": "pro",
+                "sound": "on",
             }
             api_url = "https://api.klingai.com/v1/videos/text2video"
 
