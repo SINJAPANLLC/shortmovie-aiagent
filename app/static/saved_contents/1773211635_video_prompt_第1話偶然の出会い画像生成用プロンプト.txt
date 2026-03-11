@@ -1,0 +1,23 @@
+# # 第1話「偶然の出会い」画像生成用プロンプト
+# Type: video_prompt
+# Date: 2026-03-11 06:47:15
+
+# 第1話「偶然の出会い」画像生成用プロンプト
+
+## シーン1（0-15秒）：朝の通勤ラッシュ
+**登場キャラクター**: 田中美咲
+```
+A young Japanese woman rushing up train station stairs with papers scattering in the wind around her, she looks panicked and is reaching out to catch the flying documents, crowded train station background, morning light, realistic style, high quality
+```
+
+## シーン2（15-30秒）：運命の瞬間  
+**登場キャラクター**: 田中美咲、神崎亮
+```
+A handsome Japanese businessman crouching down collecting scattered papers while a young Japanese woman looks down at him gratefully, they are making eye contact, train station platform background, soft romantic lighting, realistic style, high quality
+```
+
+## シーン3（30-45秒）：予感
+**登場キャラクター**: 田中美咲、神崎亮
+```
+A young Japanese woman standing and watching a handsome businessman walking away on a train station platform, he is turning back to look at her over his shoulder, urban station background, dramatic lighting, realistic style, high quality
+```

@@ -1,0 +1,15 @@
+# # キャラクター画像生成用プロンプト
+# Type: script
+# Date: 2026-03-11 06:22:48
+
+# キャラクター画像生成用プロンプト
+
+## 田中美咲（主人公）
+```
+A 25-year-old Japanese woman with shoulder-length black hair, wearing simple office casual clothes (white blouse and dark skirt), gentle and modest expression, standing in a train station or office setting, soft natural lighting, realistic style, high quality
+```
+
+## 神崎亮（謎のCEO）
+```
+A 32-year-old handsome Japanese businessman with short black hair, wearing an expensive dark navy suit, confident and mysterious expression, charismatic aura, standing in an urban setting, professional lighting, realistic style, high quality
+```
