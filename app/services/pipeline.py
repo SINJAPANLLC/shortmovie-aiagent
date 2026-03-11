@@ -11,7 +11,7 @@ from app.services.ai.improvement_ai import analyze_and_improve
 from app.services.video.image_generator import generate_character_image, generate_thumbnail
 from app.services.video.audio_generator import generate_voice
 from app.services.video.video_generator import edit_video, create_placeholder_video
-from app.services.video.scene_generator import generate_scene_video
+from app.services.video.scene_generator import generate_scene_video, generate_scenes_parallel
 from app.services.video.subtitle_generator import generate_subtitle
 from app.services.youtube.youtube_service import upload_video, is_youtube_connected
 from app.services.tiktok.tiktok_rpa import upload_to_tiktok_rpa_sync, is_tiktok_rpa_connected
@@ -261,10 +261,9 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         for c in characters_list:
             char_by_name[c.get("name", "")] = c
 
-        progress_callback(5, "動画シーンを生成中 (Kling AI V3 / Luma)...")
-        scene_videos = []
+        progress_callback(5, f"動画シーンを並行生成中 (Kling AI V3 × {len(scenes)}シーン同時)...")
+        scene_tasks = []
         for i, scene in enumerate(scenes):
-            progress_callback(5, f"シーン{i+1}/{len(scenes)}を生成中...")
             scene_desc = scene.get("description", "")
             scene_chars = scene.get("characters", [])
 
@@ -282,24 +281,20 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
             if not ref_image and character_image and os.path.exists(character_image):
                 ref_image = character_image
 
-            scene_emotion = scene.get("emotion", "")
-            scene_duration = float(scene.get("duration", 15))
-            scene_narration = scene.get("narration", "")
             video_prompt = scene.get("video_prompt", "")
             image_prompt = scene.get("image_prompt", "")
-            scene_path = generate_scene_video(
-                scene_description=video_prompt or scene_desc,
-                scene_number=scene.get("scene_number", i+1),
-                drama_id=drama_id,
-                reference_image=ref_image,
-                progress_callback=progress_callback,
-                emotion=scene_emotion,
-                duration=scene_duration,
-                narration=scene_narration,
-                image_prompt=image_prompt or scene_desc
-            )
-            scene_videos.append(scene_path)
-            progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
+            scene_tasks.append({
+                "scene_number": scene.get("scene_number", i+1),
+                "scene_description": video_prompt or scene_desc,
+                "image_prompt": image_prompt or scene_desc,
+                "reference_image": ref_image,
+                "emotion": scene.get("emotion", ""),
+                "duration": float(scene.get("duration", 15)),
+                "narration": scene.get("narration", ""),
+            })
+
+        scene_videos = generate_scenes_parallel(scene_tasks, drama_id, progress_callback)
+        progress_callback(5, f"全{len(scene_videos)}シーン生成完了")
 
         progress_callback(6, "音声を生成中 (ElevenLabs マルチボイス)...")
         audio_path = generate_voice(narration, drama_id, progress_callback=progress_callback, scenes=scenes)

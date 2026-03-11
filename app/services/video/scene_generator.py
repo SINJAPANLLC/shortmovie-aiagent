@@ -6,7 +6,10 @@ import urllib.parse
 import httpx
 
 from app.services.video.luma_service import generate_video_luma, generate_image_luma, is_luma_available
-from app.services.video.kling_service import generate_scene_video as kling_generate_scene_video, _get_kling_token
+from app.services.video.kling_service import (
+    generate_scene_video as kling_generate_scene_video, _get_kling_token,
+    submit_kling_task, poll_kling_tasks, download_kling_video
+)
 
 logger = logging.getLogger(__name__)
 
@@ -359,3 +362,120 @@ def _create_color_placeholder(output_path: str, duration: float = 6) -> str:
     ]
     subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     return output_path
+
+
+def generate_scenes_parallel(scene_tasks: list, drama_id: int, progress_callback=None) -> list:
+    if progress_callback is None:
+        progress_callback = _noop
+
+    os.makedirs(SCENES_DIR, exist_ok=True)
+    os.makedirs(SCENE_IMAGES_DIR, exist_ok=True)
+
+    total = len(scene_tasks)
+    kling_available = _is_kling_available()
+
+    progress_callback(5, f"シーン画像を生成中 ({total}シーン)...")
+    scene_images = {}
+    for task in scene_tasks:
+        sn = task["scene_number"]
+        img_prompt = task.get("image_prompt") or task.get("scene_description", "")
+        ref_image = task.get("reference_image")
+        scene_image = _generate_scene_specific_image(img_prompt, drama_id, sn, progress_callback)
+        scene_images[sn] = scene_image or ref_image
+        progress_callback(5, f"シーン{sn}画像生成完了")
+
+    if kling_available:
+        progress_callback(5, f"Kling AI V3: {total}シーンを同時送信中...")
+
+        kling_tasks = []
+        for task in scene_tasks:
+            sn = task["scene_number"]
+            vid_prompt = task.get("scene_description", "")
+            narration = task.get("narration", "")
+            ref_img = scene_images.get(sn) or task.get("reference_image")
+
+            task_id, endpoint = submit_kling_task(
+                scene_description=vid_prompt,
+                scene_number=sn,
+                reference_image=ref_img,
+                narration=narration
+            )
+            kling_tasks.append({
+                "scene_number": sn,
+                "task_id": task_id,
+                "endpoint": endpoint
+            })
+
+        submitted = sum(1 for t in kling_tasks if t["task_id"])
+        progress_callback(5, f"Kling AI: {submitted}/{total}タスク送信完了 — 並行生成開始")
+
+        kling_results = poll_kling_tasks(kling_tasks, progress_callback, max_wait=900)
+
+        scene_videos = []
+        for task in scene_tasks:
+            sn = task["scene_number"]
+            duration = float(task.get("duration", 15))
+            emotion = task.get("emotion", "")
+            ref_image = task.get("reference_image")
+            output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{sn}.mp4")
+
+            video_url = kling_results.get(sn)
+            if video_url:
+                try:
+                    dl_path = download_kling_video(video_url, drama_id, sn)
+                    if dl_path and os.path.exists(dl_path) and os.path.getsize(dl_path) > 10000:
+                        final = _ensure_duration(dl_path, duration)
+                        logger.info(f"Scene {sn} video via Kling parallel: {final}")
+                        progress_callback(5, f"シーン{sn}: Kling動画ダウンロード完了")
+                        _cleanup_temp_image(scene_images.get(sn), ref_image)
+                        scene_videos.append(final)
+                        continue
+                except Exception as e:
+                    logger.warning(f"Scene {sn} download failed: {e}")
+
+            scene_videos.append(
+                _fallback_scene(sn, drama_id, task, scene_images.get(sn), duration, emotion, progress_callback)
+            )
+
+        return scene_videos
+
+    progress_callback(5, "Kling未接続 — フォールバックで生成中...")
+    scene_videos = []
+    for task in scene_tasks:
+        sn = task["scene_number"]
+        duration = float(task.get("duration", 15))
+        emotion = task.get("emotion", "")
+        scene_videos.append(
+            _fallback_scene(sn, drama_id, task, scene_images.get(sn), duration, emotion, progress_callback)
+        )
+    return scene_videos
+
+
+def _fallback_scene(scene_number, drama_id, task, scene_image, duration, emotion, progress_callback):
+    output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
+    ref_image = task.get("reference_image")
+    scene_desc = task.get("scene_description", "")
+
+    if is_luma_available():
+        progress_callback(5, f"シーン{scene_number}: Luma Dream Machine...")
+        luma_prompt = f"{scene_desc}, cinematic, dramatic lighting, photorealistic, vertical 9:16"
+        if emotion:
+            luma_prompt += f", {emotion} mood"
+        luma_success = generate_video_luma(prompt=luma_prompt, output_path=output_path, aspect_ratio="9:16")
+        if luma_success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+            final = _ensure_duration(output_path, duration)
+            progress_callback(5, f"シーン{scene_number}: Luma動画完了")
+            return final
+
+    if not scene_image:
+        if ref_image and os.path.exists(ref_image):
+            scene_image = ref_image
+        else:
+            return _create_color_placeholder(output_path, duration)
+
+    effect = _pick_effect(scene_number, emotion)
+    progress_callback(5, f"シーン{scene_number}: Ken Burns ({effect})...")
+    if _apply_ken_burns(scene_image, output_path, duration, effect):
+        return output_path
+
+    return _create_color_placeholder(output_path, duration)
