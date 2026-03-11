@@ -143,7 +143,8 @@
             </div>
             <div class="np-form-group">
                 <label>プロンプト</label>
-                <textarea id="kling-prompt" class="np-chat-input" data-testid="input-kling-prompt" placeholder="動画の説明を入力..." rows="4"></textarea>
+                <textarea id="kling-prompt" class="np-chat-input" data-testid="input-kling-prompt" placeholder="動画の説明を入力...（最大2500文字）" rows="4" maxlength="2500"></textarea>
+                <div id="kling-prompt-count" style="text-align:right;font-size:11px;color:var(--fg-muted);margin-top:2px;">0 / 2500</div>
             </div>
             <div class="np-form-group" id="kling-image-group">
                 <label>参照画像（ファイルアップロード）</label>
@@ -2098,6 +2099,13 @@
     var modeSelect = document.getElementById('kling-mode');
     var imageGroup = document.getElementById('kling-image-group');
     var klingSelectedRefs = [];
+    var klingPromptEl = document.getElementById('kling-prompt');
+    var klingPromptCount = document.getElementById('kling-prompt-count');
+    klingPromptEl.addEventListener('input', function() {
+        var len = klingPromptEl.value.length;
+        klingPromptCount.textContent = len + ' / 2500';
+        klingPromptCount.style.color = len > 2400 ? '#d32f2f' : '';
+    });
 
     modeSelect.addEventListener('change', function() {
         imageGroup.style.display = modeSelect.value === 'image2video' ? 'block' : 'none';

@@ -1510,6 +1510,8 @@ async def new_production_kling_generate(request: Request):
         duration = form.get("duration", "5")
         if not prompt:
             return JSONResponse({"error": "プロンプトを入力してください"})
+        if len(prompt) > 2500:
+            prompt = prompt[:2500]
 
         from app.services.video.kling_service import _get_kling_token
         token = _get_kling_token()
