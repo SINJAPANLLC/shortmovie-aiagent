@@ -109,9 +109,9 @@
 </div>
 
 <div class="np-panel" id="panel-kling">
-    <div class="np-kling-container">
-        <div class="np-kling-form">
-            <h3>動画生成</h3>
+    <div class="np-kling-layout">
+        <div class="np-kling-form-panel">
+            <h3>動画生成 (Kling AI)</h3>
             <div class="np-form-group">
                 <label>生成モード</label>
                 <select id="kling-mode" class="np-select" data-testid="select-kling-mode">
@@ -124,9 +124,13 @@
                 <textarea id="kling-prompt" class="np-chat-input" data-testid="input-kling-prompt" placeholder="動画の説明を入力..." rows="4"></textarea>
             </div>
             <div class="np-form-group" id="kling-image-group" style="display:none;">
-                <label>参照画像</label>
+                <label>参照画像（ファイルアップロード）</label>
                 <input type="file" id="kling-image" class="np-file-input" data-testid="input-kling-image" accept="image/*">
                 <div id="kling-image-preview" class="np-image-preview"></div>
+                <div style="margin-top:8px;">
+                    <button type="button" id="kling-toggle-gemini-ref" class="np-msg-action-btn secondary" data-testid="button-kling-toggle-ref" style="font-size:12px;">Gemini保存画像から選ぶ ▼</button>
+                    <div id="kling-gemini-ref-grid" class="np-saved-ref-grid" style="display:none;" data-testid="area-kling-ref-grid"></div>
+                </div>
             </div>
             <div class="np-form-row">
                 <div class="np-form-group">
@@ -146,11 +150,19 @@
                 </div>
             </div>
             <button id="kling-generate" class="np-kling-btn" data-testid="button-kling-generate">生成開始</button>
-        </div>
-        <div class="np-kling-results">
-            <h3>生成結果</h3>
             <div id="kling-status" class="np-kling-status" data-testid="text-kling-status"></div>
-            <div id="kling-result-area" data-testid="area-kling-result"></div>
+        </div>
+        <div class="np-kling-result-panel">
+            <div class="np-kling-result-tabs">
+                <button class="np-kling-rtab active" data-krtab="latest" data-testid="tab-kling-latest">生成結果</button>
+                <button class="np-kling-rtab" data-krtab="videos" data-testid="tab-kling-videos">保存済み動画 <span id="kling-video-count" data-testid="text-video-count">0</span></button>
+            </div>
+            <div class="np-kling-rpanel active" id="kpanel-latest">
+                <div id="kling-result-area" data-testid="area-kling-result"></div>
+            </div>
+            <div class="np-kling-rpanel" id="kpanel-videos">
+                <div id="kling-video-gallery" class="np-kling-video-gallery" data-testid="area-kling-gallery"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -599,19 +611,95 @@
     justify-content: center;
 }
 
-.np-kling-container {
+.np-kling-layout {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-top: 16px;
+    gap: 0;
+    height: calc(100vh - 200px);
 }
-.np-kling-form, .np-kling-results {
+.np-kling-form-panel {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 0 0 0 12px;
     padding: 24px;
+    overflow-y: auto;
 }
-.np-kling-form h3, .np-kling-results h3 { margin-bottom: 16px; color: var(--accent-dark); }
+.np-kling-form-panel h3 { margin-bottom: 16px; color: var(--accent-dark); }
+.np-kling-result-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 0 12px 0;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.np-kling-result-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 12px;
+}
+.np-kling-rtab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+.np-kling-rtab:hover { color: var(--accent); }
+.np-kling-rtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.np-kling-rpanel { display: none; flex: 1; overflow-y: auto; }
+.np-kling-rpanel.active { display: block; }
+.np-kling-video-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.np-kling-video-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+.np-kling-video-item video {
+    width: 100%;
+    max-height: 300px;
+    display: block;
+}
+.np-kling-video-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    align-items: center;
+}
+.np-kling-video-info {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.np-kling-video-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #fff;
+    text-decoration: none;
+}
+.np-kling-video-btn.dl { background: var(--accent); }
+.np-kling-video-btn.dl:hover { background: var(--accent-dark); }
+.np-kling-video-btn.del { background: var(--error); }
+.np-kling-video-btn.del:hover { background: #b71c1c; }
 .np-form-group { margin-bottom: 16px; }
 .np-form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
 .np-select {
@@ -658,7 +746,9 @@
     .np-gemini-layout { grid-template-columns: 1fr; height: auto; }
     .np-gemini-form-panel { border-radius: 0 0 12px 12px; }
     .np-gemini-result-panel { border-left: 1px solid var(--border); border-radius: 12px; margin-top: 12px; }
-    .np-kling-container { grid-template-columns: 1fr; }
+    .np-kling-layout { grid-template-columns: 1fr; height: auto; }
+    .np-kling-form-panel { border-radius: 0 0 12px 12px; }
+    .np-kling-result-panel { border-left: 1px solid var(--border); border-radius: 12px; margin-top: 12px; }
 }
 </style>
 
@@ -1111,8 +1201,22 @@
         }
     });
 
+    // Kling result tabs
+    var klingRtabs = document.querySelectorAll('.np-kling-rtab');
+    klingRtabs.forEach(function(rt) {
+        rt.addEventListener('click', function() {
+            klingRtabs.forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.np-kling-rpanel').forEach(function(p) { p.classList.remove('active'); });
+            rt.classList.add('active');
+            document.getElementById('kpanel-' + rt.dataset.krtab).classList.add('active');
+            if (rt.dataset.krtab === 'videos') loadKlingGallery();
+        });
+    });
+
     var modeSelect = document.getElementById('kling-mode');
     var imageGroup = document.getElementById('kling-image-group');
+    var klingSelectedRefs = [];
+
     modeSelect.addEventListener('change', function() {
         imageGroup.style.display = modeSelect.value === 'image2video' ? 'block' : 'none';
     });
@@ -1128,9 +1232,53 @@
         }
     });
 
+    // Kling Gemini ref toggle
+    var klingToggleRef = document.getElementById('kling-toggle-gemini-ref');
+    var klingRefGrid = document.getElementById('kling-gemini-ref-grid');
+    klingToggleRef.addEventListener('click', function() {
+        var isHidden = klingRefGrid.style.display === 'none';
+        klingRefGrid.style.display = isHidden ? 'flex' : 'none';
+        klingToggleRef.textContent = isHidden ? 'Gemini保存画像から選ぶ ▲' : 'Gemini保存画像から選ぶ ▼';
+        if (isHidden) loadKlingRefImages();
+    });
+
+    function loadKlingRefImages() {
+        fetch('/api/new-production/gemini-gallery', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            klingRefGrid.innerHTML = '';
+            klingSelectedRefs = [];
+            (data.images || []).forEach(function(img) {
+                var div = document.createElement('div');
+                div.className = 'np-saved-ref-item';
+                div.dataset.url = img.url;
+                div.innerHTML = '<img src="' + img.url + '">';
+                div.addEventListener('click', function() {
+                    div.classList.toggle('selected');
+                    var url = div.dataset.url;
+                    var idx = klingSelectedRefs.indexOf(url);
+                    if (idx >= 0) klingSelectedRefs.splice(idx, 1);
+                    else klingSelectedRefs.push(url);
+                    imagePreview.innerHTML = '';
+                    klingSelectedRefs.forEach(function(u) {
+                        var im = document.createElement('img');
+                        im.src = u;
+                        imagePreview.appendChild(im);
+                    });
+                });
+                klingRefGrid.appendChild(div);
+            });
+            if (!data.images || data.images.length === 0) {
+                klingRefGrid.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px;">Geminiで画像を生成・保存してください</div>';
+            }
+        });
+    }
+
     var klingBtn = document.getElementById('kling-generate');
     var klingStatus = document.getElementById('kling-status');
     var klingResult = document.getElementById('kling-result-area');
+    var klingVideoGallery = document.getElementById('kling-video-gallery');
+    var klingVideoCount = document.getElementById('kling-video-count');
 
     klingBtn.addEventListener('click', function() {
         var prompt = document.getElementById('kling-prompt').value.trim();
@@ -1145,8 +1293,13 @@
         formData.append('mode', modeSelect.value);
         formData.append('aspect_ratio', document.getElementById('kling-aspect').value);
         formData.append('duration', document.getElementById('kling-duration').value);
-        if (modeSelect.value === 'image2video' && imageInput.files[0]) {
-            formData.append('image', imageInput.files[0]);
+        if (modeSelect.value === 'image2video') {
+            if (imageInput.files[0]) {
+                formData.append('image', imageInput.files[0]);
+            }
+            if (klingSelectedRefs.length > 0) {
+                formData.append('saved_ref_urls', JSON.stringify(klingSelectedRefs));
+            }
         }
 
         fetch('/api/new-production/kling-generate', {
@@ -1161,7 +1314,7 @@
                 klingStatus.textContent = 'エラー: ' + data.error;
                 klingBtn.disabled = false;
             } else if (data.task_id) {
-                pollKlingTask(data.task_id);
+                pollKlingTask(data.task_id, prompt);
             }
         })
         .catch(function(err) {
@@ -1171,14 +1324,22 @@
         });
     });
 
-    function pollKlingTask(taskId) {
+    function pollKlingTask(taskId, prompt) {
         fetch('/api/new-production/kling-status/' + taskId, { credentials: 'same-origin' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.status === 'completed' && data.video_url) {
                 klingStatus.className = 'np-kling-status complete';
                 klingStatus.textContent = '生成完了';
-                klingResult.innerHTML = '<video controls style="width:100%;max-height:500px;border-radius:8px;margin-top:8px;" data-testid="video-kling-result"><source src="' + data.video_url + '" type="video/mp4"></video><div style="margin-top:8px;"><a href="' + data.video_url + '" download class="np-kling-btn" style="display:inline-block;text-align:center;text-decoration:none;padding:8px 16px;font-size:13px;" data-testid="link-kling-download">ダウンロード</a></div>';
+                klingResult.innerHTML = '<div class="np-kling-video-item">'
+                    + '<video controls data-testid="video-kling-result"><source src="' + data.video_url + '" type="video/mp4"></video>'
+                    + '<div class="np-kling-video-actions">'
+                    + '<a href="' + data.video_url + '" download class="np-kling-video-btn dl" data-testid="link-kling-download">ダウンロード</a>'
+                    + '<button class="np-kling-video-btn dl kling-save-btn" data-url="' + data.video_url + '" data-testid="button-kling-save">保存</button>'
+                    + '</div></div>';
+                klingResult.querySelector('.kling-save-btn').addEventListener('click', function() {
+                    saveKlingVideo(data.video_url, prompt || '', this);
+                });
                 klingBtn.disabled = false;
             } else if (data.status === 'failed') {
                 klingStatus.className = 'np-kling-status error';
@@ -1186,13 +1347,73 @@
                 klingBtn.disabled = false;
             } else {
                 klingStatus.textContent = '生成中... (' + (data.status || 'processing') + ')';
-                setTimeout(function() { pollKlingTask(taskId); }, 5000);
+                setTimeout(function() { pollKlingTask(taskId, prompt); }, 5000);
             }
         })
         .catch(function() {
-            setTimeout(function() { pollKlingTask(taskId); }, 5000);
+            setTimeout(function() { pollKlingTask(taskId, prompt); }, 5000);
         });
     }
+
+    function saveKlingVideo(videoUrl, prompt, btn) {
+        fetch('/api/new-production/kling-save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ video_url: videoUrl, prompt: prompt })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                btn.textContent = '保存済み';
+                btn.disabled = true;
+            } else {
+                alert('保存エラー: ' + (data.error || ''));
+            }
+        });
+    }
+
+    function loadKlingGallery() {
+        fetch('/api/new-production/kling-gallery', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            klingVideoGallery.innerHTML = '';
+            var videos = data.videos || [];
+            klingVideoCount.textContent = videos.length;
+            if (videos.length === 0) {
+                klingVideoGallery.innerHTML = '<div class="np-gemini-empty">保存済みの動画はありません</div>';
+                return;
+            }
+            videos.forEach(function(v) {
+                var div = document.createElement('div');
+                div.className = 'np-kling-video-item';
+                div.innerHTML = '<video controls><source src="' + v.url + '" type="video/mp4"></video>'
+                    + '<div class="np-kling-video-actions">'
+                    + '<span class="np-kling-video-info">' + escapeHtml(v.prompt || '') + '</span>'
+                    + '<a href="' + v.url + '" download class="np-kling-video-btn dl">DL</a>'
+                    + '<button class="np-kling-video-btn del" data-filename="' + v.filename + '">削除</button>'
+                    + '</div>';
+                klingVideoGallery.appendChild(div);
+            });
+        });
+    }
+
+    klingVideoGallery.addEventListener('click', function(e) {
+        var btn = e.target;
+        if (btn.classList.contains('del')) {
+            if (!confirm('この動画を削除しますか？')) return;
+            fetch('/api/new-production/kling-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ filename: btn.dataset.filename })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) loadKlingGallery();
+            });
+        }
+    });
 })();
 </script>
 {% endblock %}

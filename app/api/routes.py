@@ -1442,11 +1442,31 @@ async def new_production_kling_generate(request: Request):
         }
 
         if mode == "image2video":
+            import base64
+            image_b64 = None
             image_file = form.get("image")
-            if image_file:
-                import base64
+            if image_file and hasattr(image_file, 'read'):
                 image_data = await image_file.read()
-                image_b64 = base64.b64encode(image_data).decode("utf-8")
+                if image_data:
+                    image_b64 = base64.b64encode(image_data).decode("utf-8")
+
+            if not image_b64:
+                saved_ref_raw = form.get("saved_ref_urls", "")
+                if saved_ref_raw:
+                    import json as _json
+                    try:
+                        ref_urls = _json.loads(saved_ref_raw)
+                        if ref_urls:
+                            ref_path = ref_urls[0].lstrip("/")
+                            if ref_path.startswith("static/"):
+                                ref_path = "app/" + ref_path
+                            if os.path.exists(ref_path):
+                                with open(ref_path, "rb") as rf:
+                                    image_b64 = base64.b64encode(rf.read()).decode("utf-8")
+                    except Exception:
+                        pass
+
+            if image_b64:
                 payload = {
                     "model_name": "kling-v1",
                     "prompt": prompt,
@@ -1457,7 +1477,7 @@ async def new_production_kling_generate(request: Request):
                 }
                 api_url = "https://api.klingai.com/v1/videos/image2video"
             else:
-                return JSONResponse({"error": "画像を選択してください"})
+                return JSONResponse({"error": "画像を選択してください（ファイルまたはGemini保存画像）"})
         else:
             payload = {
                 "model_name": "kling-v1",
@@ -1512,6 +1532,89 @@ async def new_production_kling_status(request: Request, task_id: str):
             return JSONResponse({"status": status})
     except Exception as e:
         return JSONResponse({"status": "processing"})
+
+
+@router.post("/api/new-production/kling-save")
+async def new_production_kling_save(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        video_url = body.get("video_url", "")
+        prompt = body.get("prompt", "")
+        if not video_url:
+            return JSONResponse({"error": "動画URLが必要です"})
+        save_dir = "app/static/kling_saved"
+        os.makedirs(save_dir, exist_ok=True)
+        import time as _time
+        import httpx
+        ts = int(_time.time())
+        filename = f"kling_{ts}.mp4"
+        filepath = os.path.join(save_dir, filename)
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.get(video_url)
+            if resp.status_code == 200:
+                with open(filepath, "wb") as f:
+                    f.write(resp.content)
+            else:
+                return JSONResponse({"error": f"動画ダウンロード失敗: {resp.status_code}"})
+        meta_path = filepath + ".meta"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(prompt)
+        return JSONResponse({"ok": True, "filename": filename})
+    except Exception as e:
+        logger.error(f"Kling save error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
+@router.get("/api/new-production/kling-gallery")
+async def new_production_kling_gallery(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    save_dir = "app/static/kling_saved"
+    os.makedirs(save_dir, exist_ok=True)
+    videos = []
+    for f in sorted(os.listdir(save_dir), reverse=True):
+        if f.endswith(".meta"):
+            continue
+        if not f.endswith(".mp4"):
+            continue
+        prompt = ""
+        meta_path = os.path.join(save_dir, f + ".meta")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r", encoding="utf-8") as mf:
+                prompt = mf.read().strip()
+        videos.append({
+            "filename": f,
+            "url": f"/static/kling_saved/{f}",
+            "prompt": prompt
+        })
+    return JSONResponse({"videos": videos})
+
+
+@router.post("/api/new-production/kling-delete")
+async def new_production_kling_delete(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        filename = os.path.basename(body.get("filename", ""))
+        if not filename:
+            return JSONResponse({"error": "ファイル名が必要です"})
+        save_dir = "app/static/kling_saved"
+        filepath = os.path.join(save_dir, filename)
+        meta_path = filepath + ".meta"
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        logger.error(f"Kling delete error: {e}")
+        return JSONResponse({"error": str(e)})
 
 
 @router.get("/production", response_class=HTMLResponse)
