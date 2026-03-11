@@ -182,6 +182,22 @@
             </div>
             <div id="editor-source-picker" class="np-editor-source-picker" style="display:none;"></div>
             <div class="np-editor-section">
+                <h4>音声・BGM</h4>
+                <div class="np-editor-add-btns">
+                    <label class="np-editor-btn source" data-testid="button-editor-add-audio">
+                        音声ファイルを追加
+                        <input type="file" id="editor-audio-input" accept="audio/*" style="display:none;">
+                    </label>
+                    <button id="editor-audio-remove" class="np-editor-btn source" style="display:none;" data-testid="button-editor-audio-remove">音声を削除</button>
+                </div>
+                <div id="editor-audio-info" class="np-editor-audio-info" style="display:none;"></div>
+                <div class="np-form-group" id="editor-audio-vol-group" style="display:none;">
+                    <label>音声ボリューム</label>
+                    <input type="range" id="editor-audio-volume" min="0" max="200" value="100" class="np-range" data-testid="input-editor-audio-volume">
+                    <span id="editor-audio-vol-label">100%</span>
+                </div>
+            </div>
+            <div class="np-editor-section">
                 <h4>設定</h4>
                 <div class="np-form-group">
                     <label>画像表示時間（秒）</label>
@@ -190,9 +206,83 @@
                 <div class="np-form-group">
                     <label>トランジション</label>
                     <select id="editor-transition" class="np-select" data-testid="select-editor-transition">
-                        <option value="none">なし</option>
-                        <option value="fade" selected>フェード</option>
-                        <option value="dissolve">ディゾルブ</option>
+                        <optgroup label="基本">
+                            <option value="none">なし</option>
+                            <option value="fade" selected>フェード</option>
+                            <option value="fadeblack">フェード（黒）</option>
+                            <option value="fadewhite">フェード（白）</option>
+                            <option value="fadefast">フェード（速い）</option>
+                            <option value="fadeslow">フェード（遅い）</option>
+                            <option value="fadegrays">フェード（グレー）</option>
+                            <option value="dissolve">ディゾルブ</option>
+                        </optgroup>
+                        <optgroup label="ワイプ">
+                            <option value="wipeleft">ワイプ左</option>
+                            <option value="wiperight">ワイプ右</option>
+                            <option value="wipeup">ワイプ上</option>
+                            <option value="wipedown">ワイプ下</option>
+                            <option value="wipetl">ワイプ左上</option>
+                            <option value="wipetr">ワイプ右上</option>
+                            <option value="wipebl">ワイプ左下</option>
+                            <option value="wipebr">ワイプ右下</option>
+                        </optgroup>
+                        <optgroup label="スライド">
+                            <option value="slideleft">スライド左</option>
+                            <option value="slideright">スライド右</option>
+                            <option value="slideup">スライド上</option>
+                            <option value="slidedown">スライド下</option>
+                            <option value="smoothleft">スムース左</option>
+                            <option value="smoothright">スムース右</option>
+                            <option value="smoothup">スムース上</option>
+                            <option value="smoothdown">スムース下</option>
+                        </optgroup>
+                        <optgroup label="カバー・リビール">
+                            <option value="coverleft">カバー左</option>
+                            <option value="coverright">カバー右</option>
+                            <option value="coverup">カバー上</option>
+                            <option value="coverdown">カバー下</option>
+                            <option value="revealleft">リビール左</option>
+                            <option value="revealright">リビール右</option>
+                            <option value="revealup">リビール上</option>
+                            <option value="revealdown">リビール下</option>
+                        </optgroup>
+                        <optgroup label="形状">
+                            <option value="circlecrop">円形クロップ</option>
+                            <option value="circleopen">円形オープン</option>
+                            <option value="circleclose">円形クローズ</option>
+                            <option value="rectcrop">矩形クロップ</option>
+                            <option value="radial">ラジアル</option>
+                            <option value="vertopen">縦オープン</option>
+                            <option value="vertclose">縦クローズ</option>
+                            <option value="horzopen">横オープン</option>
+                            <option value="horzclose">横クローズ</option>
+                        </optgroup>
+                        <optgroup label="対角線">
+                            <option value="diagtl">対角線（左上）</option>
+                            <option value="diagtr">対角線（右上）</option>
+                            <option value="diagbl">対角線（左下）</option>
+                            <option value="diagbr">対角線（右下）</option>
+                        </optgroup>
+                        <optgroup label="スライス">
+                            <option value="hlslice">水平左スライス</option>
+                            <option value="hrslice">水平右スライス</option>
+                            <option value="vuslice">垂直上スライス</option>
+                            <option value="vdslice">垂直下スライス</option>
+                        </optgroup>
+                        <optgroup label="エフェクト">
+                            <option value="pixelize">ピクセル化</option>
+                            <option value="distance">ディスタンス</option>
+                            <option value="hblur">水平ブラー</option>
+                            <option value="zoomin">ズームイン</option>
+                            <option value="squeezeh">スクイーズ横</option>
+                            <option value="squeezev">スクイーズ縦</option>
+                        </optgroup>
+                        <optgroup label="ウィンド">
+                            <option value="hlwind">風（水平左）</option>
+                            <option value="hrwind">風（水平右）</option>
+                            <option value="vuwind">風（垂直上）</option>
+                            <option value="vdwind">風（垂直下）</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="np-form-group">
@@ -913,6 +1003,110 @@
     align-items: center;
     justify-content: center;
     line-height: 1;
+}
+.np-editor-clip .clip-edit {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.np-editor-audio-info {
+    padding: 8px 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.np-editor-audio-info .audio-icon { font-size: 16px; }
+.np-range {
+    width: 100%;
+    accent-color: var(--accent);
+}
+.np-trim-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.np-trim-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 480px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.np-trim-dialog h4 { margin: 0 0 16px; color: var(--accent-dark); }
+.np-trim-dialog video {
+    width: 100%;
+    max-height: 240px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    background: #000;
+}
+.np-trim-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    align-items: center;
+}
+.np-trim-row label { font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--text-secondary); }
+.np-trim-row input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--bg-primary);
+}
+.np-trim-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+.np-trim-actions button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.np-trim-actions .trim-ok { background: var(--accent); color: #fff; }
+.np-trim-actions .trim-cancel { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); }
+.np-editor-clip .clip-trim-bar {
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    margin: 0 4px 4px;
+}
+.np-editor-clip .clip-trim-label {
+    font-size: 8px;
+    text-align: center;
+    color: var(--accent);
+    padding: 0 4px 2px;
 }
 .np-form-group { margin-bottom: 16px; }
 .np-form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
@@ -1640,7 +1834,42 @@
     var editorResult = document.getElementById('editor-result');
     var editorClips = [];
     var editorClipId = 0;
-    var currentPickerMode = null;
+    var editorAudioFile = null;
+
+    // Audio handling
+    var audioInput = document.getElementById('editor-audio-input');
+    var audioRemoveBtn = document.getElementById('editor-audio-remove');
+    var audioInfo = document.getElementById('editor-audio-info');
+    var audioVolGroup = document.getElementById('editor-audio-vol-group');
+    var audioVolSlider = document.getElementById('editor-audio-volume');
+    var audioVolLabel = document.getElementById('editor-audio-vol-label');
+
+    audioInput.addEventListener('change', function() {
+        if (audioInput.files[0]) {
+            editorAudioFile = audioInput.files[0];
+            audioInfo.style.display = 'flex';
+            audioInfo.innerHTML = '<span class="audio-icon">&#9835;</span> ' + escapeHtml(editorAudioFile.name);
+            audioRemoveBtn.style.display = 'inline-block';
+            audioVolGroup.style.display = 'block';
+        }
+    });
+    audioRemoveBtn.addEventListener('click', function() {
+        editorAudioFile = null;
+        audioInput.value = '';
+        audioInfo.style.display = 'none';
+        audioRemoveBtn.style.display = 'none';
+        audioVolGroup.style.display = 'none';
+    });
+    audioVolSlider.addEventListener('input', function() {
+        audioVolLabel.textContent = audioVolSlider.value + '%';
+    });
+
+    function formatTime(sec) {
+        if (!sec && sec !== 0) return '';
+        var m = Math.floor(sec / 60);
+        var s = (sec % 60).toFixed(1);
+        return (m > 0 ? m + ':' : '') + (m > 0 && sec % 60 < 10 ? '0' : '') + s;
+    }
 
     function renderTimeline() {
         editorTimeline.innerHTML = '';
@@ -1658,11 +1887,19 @@
             var thumbTag = clip.type === 'video'
                 ? '<video class="clip-thumb" src="' + clip.thumb + '" muted></video>'
                 : '<img class="clip-thumb" src="' + clip.thumb + '">';
+            var trimHtml = '';
+            if (clip.type === 'video' && (clip.trimStart || clip.trimEnd)) {
+                var label = (clip.trimStart ? formatTime(clip.trimStart) : '0') + ' - ' + (clip.trimEnd ? formatTime(clip.trimEnd) : 'END');
+                trimHtml = '<div class="clip-trim-bar"></div><div class="clip-trim-label">' + label + '</div>';
+            }
+            var editBtn = clip.type === 'video' ? '<button class="clip-edit" data-cidx="' + idx + '" title="カット編集">&#9998;</button>' : '';
             div.innerHTML = thumbTag
                 + '<div class="clip-info">'
                 + '<span class="clip-type ' + (clip.type === 'image' ? 'img' : '') + '">' + (clip.type === 'video' ? 'VIDEO' : 'IMG') + '</span>'
                 + '<span>' + (idx + 1) + '</span>'
                 + '</div>'
+                + trimHtml
+                + editBtn
                 + '<button class="clip-remove" data-cidx="' + idx + '">&times;</button>';
             div.addEventListener('dragstart', function(e) {
                 e.dataTransfer.setData('text/plain', idx);
@@ -1685,99 +1922,101 @@
     }
 
     editorTimeline.addEventListener('click', function(e) {
-        if (e.target.classList.contains('clip-remove')) {
-            var cidx = parseInt(e.target.dataset.cidx);
-            editorClips.splice(cidx, 1);
+        var btn = e.target;
+        if (btn.classList.contains('clip-remove')) {
+            editorClips.splice(parseInt(btn.dataset.cidx), 1);
             renderTimeline();
+        } else if (btn.classList.contains('clip-edit')) {
+            openTrimModal(parseInt(btn.dataset.cidx));
         }
     });
+
+    function openTrimModal(cidx) {
+        var clip = editorClips[cidx];
+        if (!clip || clip.type !== 'video') return;
+        var modal = document.createElement('div');
+        modal.className = 'np-trim-modal';
+        modal.innerHTML = '<div class="np-trim-dialog">'
+            + '<h4>動画カット編集</h4>'
+            + '<video controls src="' + clip.thumb + '"></video>'
+            + '<div class="np-trim-row"><label>開始時間（秒）</label><input type="number" id="trim-start" step="0.1" min="0" value="' + (clip.trimStart || 0) + '"></div>'
+            + '<div class="np-trim-row"><label>終了時間（秒）</label><input type="number" id="trim-end" step="0.1" min="0" value="' + (clip.trimEnd || '') + '" placeholder="空=最後まで"></div>'
+            + '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">動画の再生で時間を確認し、開始・終了を指定してください</div>'
+            + '<div class="np-trim-actions">'
+            + '<button class="trim-cancel">キャンセル</button>'
+            + '<button class="trim-ok">適用</button>'
+            + '</div></div>';
+        document.body.appendChild(modal);
+        var vid = modal.querySelector('video');
+        vid.addEventListener('loadedmetadata', function() {
+            var endInput = modal.querySelector('#trim-end');
+            if (!endInput.value) endInput.placeholder = '最大 ' + vid.duration.toFixed(1) + '秒';
+        });
+        modal.querySelector('.trim-cancel').addEventListener('click', function() { document.body.removeChild(modal); });
+        modal.querySelector('.trim-ok').addEventListener('click', function() {
+            var ts = parseFloat(modal.querySelector('#trim-start').value) || 0;
+            var te = parseFloat(modal.querySelector('#trim-end').value) || null;
+            editorClips[cidx].trimStart = ts > 0 ? ts : null;
+            editorClips[cidx].trimEnd = te;
+            document.body.removeChild(modal);
+            renderTimeline();
+        });
+        modal.addEventListener('click', function(e) { if (e.target === modal) document.body.removeChild(modal); });
+    }
 
     editorTimeline.addEventListener('dragover', function(e) { e.preventDefault(); editorTimeline.classList.add('drag-over'); });
     editorTimeline.addEventListener('dragleave', function() { editorTimeline.classList.remove('drag-over'); });
     editorTimeline.addEventListener('drop', function() { editorTimeline.classList.remove('drag-over'); });
 
     function addClipToTimeline(type, url, thumb) {
-        editorClips.push({ id: editorClipId++, type: type, url: url, thumb: thumb || url });
+        editorClips.push({ id: editorClipId++, type: type, url: url, thumb: thumb || url, trimStart: null, trimEnd: null });
         renderTimeline();
     }
 
     function showSourcePicker(mode) {
-        currentPickerMode = mode;
         editorSourcePicker.style.display = 'flex';
         editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">読み込み中...</div>';
-        if (mode === 'videos') {
-            fetch('/api/new-production/kling-gallery', { credentials: 'same-origin' })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                editorSourcePicker.innerHTML = '';
-                var items = data.videos || [];
-                if (items.length === 0) {
-                    editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">保存済み動画がありません</div>';
-                    return;
-                }
-                var selectedUrls = [];
-                items.forEach(function(v) {
-                    var div = document.createElement('div');
-                    div.className = 'np-editor-source-item';
-                    div.innerHTML = '<video src="' + v.url + '" muted></video><div class="src-label">' + v.filename + '</div>';
-                    div.addEventListener('click', function() {
-                        div.classList.toggle('selected');
-                        var idx = selectedUrls.indexOf(v.url);
-                        if (idx >= 0) selectedUrls.splice(idx, 1);
-                        else selectedUrls.push(v.url);
-                    });
-                    editorSourcePicker.appendChild(div);
+        var endpoint = mode === 'videos' ? '/api/new-production/kling-gallery' : '/api/new-production/gemini-gallery';
+        var itemKey = mode === 'videos' ? 'videos' : 'images';
+        var itemType = mode === 'videos' ? 'video' : 'image';
+        fetch(endpoint, { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            editorSourcePicker.innerHTML = '';
+            var items = data[itemKey] || [];
+            if (items.length === 0) {
+                editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">保存済み' + (mode === 'videos' ? '動画' : '画像') + 'がありません</div>';
+                return;
+            }
+            var selectedUrls = [];
+            items.forEach(function(item) {
+                var div = document.createElement('div');
+                div.className = 'np-editor-source-item';
+                var mediaTag = mode === 'videos'
+                    ? '<video src="' + item.url + '" muted></video>'
+                    : '<img src="' + item.url + '">';
+                div.innerHTML = mediaTag + '<div class="src-label">' + (item.filename || '') + '</div>';
+                div.addEventListener('click', function() {
+                    div.classList.toggle('selected');
+                    var idx = selectedUrls.indexOf(item.url);
+                    if (idx >= 0) selectedUrls.splice(idx, 1);
+                    else selectedUrls.push(item.url);
                 });
-                var addBtn = document.createElement('button');
-                addBtn.className = 'np-editor-source-add-btn';
-                addBtn.textContent = '選択した動画を追加';
-                addBtn.addEventListener('click', function() {
-                    selectedUrls.forEach(function(u) { addClipToTimeline('video', u, u); });
-                    editorSourcePicker.style.display = 'none';
-                });
-                editorSourcePicker.appendChild(addBtn);
+                editorSourcePicker.appendChild(div);
             });
-        } else if (mode === 'images') {
-            fetch('/api/new-production/gemini-gallery', { credentials: 'same-origin' })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                editorSourcePicker.innerHTML = '';
-                var items = data.images || [];
-                if (items.length === 0) {
-                    editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">保存済み画像がありません</div>';
-                    return;
-                }
-                var selectedUrls = [];
-                items.forEach(function(img) {
-                    var div = document.createElement('div');
-                    div.className = 'np-editor-source-item';
-                    div.innerHTML = '<img src="' + img.url + '"><div class="src-label">' + (img.filename || '') + '</div>';
-                    div.addEventListener('click', function() {
-                        div.classList.toggle('selected');
-                        var idx = selectedUrls.indexOf(img.url);
-                        if (idx >= 0) selectedUrls.splice(idx, 1);
-                        else selectedUrls.push(img.url);
-                    });
-                    editorSourcePicker.appendChild(div);
-                });
-                var addBtn = document.createElement('button');
-                addBtn.className = 'np-editor-source-add-btn';
-                addBtn.textContent = '選択した画像を追加';
-                addBtn.addEventListener('click', function() {
-                    selectedUrls.forEach(function(u) { addClipToTimeline('image', u, u); });
-                    editorSourcePicker.style.display = 'none';
-                });
-                editorSourcePicker.appendChild(addBtn);
+            var addBtn = document.createElement('button');
+            addBtn.className = 'np-editor-source-add-btn';
+            addBtn.textContent = '選択した' + (mode === 'videos' ? '動画' : '画像') + 'を追加';
+            addBtn.addEventListener('click', function() {
+                selectedUrls.forEach(function(u) { addClipToTimeline(itemType, u, u); });
+                editorSourcePicker.style.display = 'none';
             });
-        }
+            editorSourcePicker.appendChild(addBtn);
+        });
     }
 
-    document.getElementById('editor-add-from-gallery').addEventListener('click', function() {
-        showSourcePicker('videos');
-    });
-    document.getElementById('editor-add-from-images').addEventListener('click', function() {
-        showSourcePicker('images');
-    });
+    document.getElementById('editor-add-from-gallery').addEventListener('click', function() { showSourcePicker('videos'); });
+    document.getElementById('editor-add-from-images').addEventListener('click', function() { showSourcePicker('images'); });
 
     document.getElementById('editor-file-input').addEventListener('change', function(e) {
         var files = e.target.files;
@@ -1803,14 +2042,20 @@
         var clipMeta = [];
         var fileIdx = 0;
 
-        editorClips.forEach(function(clip, i) {
+        editorClips.forEach(function(clip) {
+            var meta = { type: clip.type };
+            if (clip.trimStart) meta.trim_start = clip.trimStart;
+            if (clip.trimEnd) meta.trim_end = clip.trimEnd;
             if (clip._file) {
                 formData.append('file_' + fileIdx, clip._file);
-                clipMeta.push({ type: clip.type, source: 'file', file_key: 'file_' + fileIdx });
+                meta.source = 'file';
+                meta.file_key = 'file_' + fileIdx;
                 fileIdx++;
             } else {
-                clipMeta.push({ type: clip.type, source: 'server', url: clip.url });
+                meta.source = 'server';
+                meta.url = clip.url;
             }
+            clipMeta.push(meta);
         });
 
         formData.append('clips', JSON.stringify(clipMeta));
@@ -1818,6 +2063,11 @@
         formData.append('transition', document.getElementById('editor-transition').value);
         formData.append('transition_duration', document.getElementById('editor-transition-dur').value);
         formData.append('resolution', document.getElementById('editor-resolution').value);
+
+        if (editorAudioFile) {
+            formData.append('audio', editorAudioFile);
+            formData.append('audio_volume', audioVolSlider.value);
+        }
 
         fetch('/api/new-production/editor-combine', {
             method: 'POST',

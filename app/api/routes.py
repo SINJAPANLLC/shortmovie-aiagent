@@ -1658,8 +1658,23 @@ async def new_production_editor_combine(request: Request):
         os.makedirs(out_dir, exist_ok=True)
         ts = int(_time.time())
 
+        audio_file = form.get("audio")
+        audio_volume = int(form.get("audio_volume", "100"))
+        audio_path = None
+        if audio_file and hasattr(audio_file, 'read'):
+            audio_data = await audio_file.read()
+            if audio_data:
+                audio_ext = ".mp3"
+                if hasattr(audio_file, 'filename') and audio_file.filename:
+                    audio_ext = os.path.splitext(audio_file.filename)[1] or ".mp3"
+                audio_path = os.path.join(work_dir, f"audio_{ts}{audio_ext}")
+                with open(audio_path, "wb") as f:
+                    f.write(audio_data)
+
         input_files = []
         for i, clip in enumerate(clips):
+            trim_start = clip.get("trim_start")
+            trim_end = clip.get("trim_end")
             if clip["source"] == "file":
                 file_key = clip["file_key"]
                 uploaded = form.get(file_key)
@@ -1669,16 +1684,18 @@ async def new_production_editor_combine(request: Request):
                     content = await uploaded.read()
                     with open(tmp_path, "wb") as f:
                         f.write(content)
-                    input_files.append({"path": tmp_path, "type": clip["type"]})
+                    input_files.append({"path": tmp_path, "type": clip["type"], "trim_start": trim_start, "trim_end": trim_end})
             elif clip["source"] == "server":
                 url = clip["url"].lstrip("/")
                 if url.startswith("static/"):
                     url = "app/" + url
                 if os.path.exists(url):
-                    input_files.append({"path": url, "type": clip["type"]})
+                    input_files.append({"path": url, "type": clip["type"], "trim_start": trim_start, "trim_end": trim_end})
 
         if not input_files:
             return JSONResponse({"error": "有効な素材がありません"})
+
+        scale_filter = f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black"
 
         segment_files = []
         for i, item in enumerate(input_files):
@@ -1687,18 +1704,26 @@ async def new_production_editor_combine(request: Request):
                 cmd = [
                     "ffmpeg", "-y", "-loop", "1", "-i", item["path"],
                     "-c:v", "libx264", "-t", str(img_duration),
-                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black",
+                    "-vf", scale_filter,
                     "-pix_fmt", "yuv420p", "-r", "30",
                     seg_path
                 ]
             else:
-                cmd = [
-                    "ffmpeg", "-y", "-i", item["path"],
-                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black",
+                cmd = ["ffmpeg", "-y"]
+                if item.get("trim_start"):
+                    cmd.extend(["-ss", str(item["trim_start"])])
+                cmd.extend(["-i", item["path"]])
+                if item.get("trim_end"):
+                    duration = float(item["trim_end"])
+                    if item.get("trim_start"):
+                        duration -= float(item["trim_start"])
+                    cmd.extend(["-t", str(max(0.1, duration))])
+                cmd.extend([
+                    "-vf", scale_filter,
                     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
                     "-an",
                     seg_path
-                ]
+                ])
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
             if result.returncode != 0:
                 logger.error(f"FFmpeg segment error: {result.stderr}")
@@ -1740,10 +1765,9 @@ async def new_production_editor_combine(request: Request):
                 cur = "v0"
                 for i in range(1, n):
                     out = f"vout{i}" if i < n - 1 else "vfinal"
-                    if transition in ("fade", "dissolve"):
-                        filter_parts.append(
-                            f"[{cur}][v{i}]xfade=transition=fade:duration={td}:offset={{off_{i}}}[{out}];"
-                        )
+                    filter_parts.append(
+                        f"[{cur}][v{i}]xfade=transition={transition}:duration={td}:offset={{off_{i}}}[{out}];"
+                    )
                     cur = out
 
                 filter_str = "".join(filter_parts).rstrip(";")
@@ -1789,6 +1813,24 @@ async def new_production_editor_combine(request: Request):
                     if result2.returncode != 0:
                         return JSONResponse({"error": f"結合失敗: {result2.stderr[:200]}"})
 
+        if audio_path and os.path.exists(audio_path):
+            video_with_audio = os.path.join(out_dir, f"combined_audio_{ts}.mp4")
+            vol = audio_volume / 100.0
+            cmd_audio = [
+                "ffmpeg", "-y",
+                "-i", output_path,
+                "-i", audio_path,
+                "-filter_complex", f"[1:a]volume={vol}[a]",
+                "-map", "0:v", "-map", "[a]",
+                "-c:v", "copy", "-c:a", "aac", "-shortest",
+                video_with_audio
+            ]
+            result_audio = subprocess.run(cmd_audio, capture_output=True, text=True, timeout=300)
+            if result_audio.returncode == 0:
+                os.replace(video_with_audio, output_path)
+            else:
+                logger.error(f"Audio mix error: {result_audio.stderr}")
+
         for seg in segment_files:
             try:
                 os.remove(seg)
@@ -1800,6 +1842,11 @@ async def new_production_editor_combine(request: Request):
                     os.remove(item["path"])
                 except Exception:
                     pass
+        if audio_path and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+            except Exception:
+                pass
 
         return JSONResponse({"ok": True, "url": f"/static/editor_output/{output_filename}"})
 
