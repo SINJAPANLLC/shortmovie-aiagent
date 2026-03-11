@@ -156,12 +156,67 @@
             <div class="np-kling-result-tabs">
                 <button class="np-kling-rtab active" data-krtab="latest" data-testid="tab-kling-latest">生成結果</button>
                 <button class="np-kling-rtab" data-krtab="videos" data-testid="tab-kling-videos">保存済み動画 <span id="kling-video-count" data-testid="text-video-count">0</span></button>
+                <button class="np-kling-rtab" data-krtab="editor" data-testid="tab-kling-editor">動画結合・編集</button>
             </div>
             <div class="np-kling-rpanel active" id="kpanel-latest">
                 <div id="kling-result-area" data-testid="area-kling-result"></div>
             </div>
             <div class="np-kling-rpanel" id="kpanel-videos">
                 <div id="kling-video-gallery" class="np-kling-video-gallery" data-testid="area-kling-gallery"></div>
+            </div>
+            <div class="np-kling-rpanel" id="kpanel-editor">
+                <div class="np-editor-section">
+                    <div class="np-editor-header">
+                        <h4>素材を追加</h4>
+                        <div class="np-editor-add-btns">
+                            <button id="editor-add-from-gallery" class="np-editor-btn source" data-testid="button-editor-add-gallery">保存済み動画から</button>
+                            <button id="editor-add-from-images" class="np-editor-btn source" data-testid="button-editor-add-images">保存済み画像から</button>
+                            <label class="np-editor-btn source" data-testid="button-editor-add-file">
+                                ファイルから追加
+                                <input type="file" id="editor-file-input" accept="video/*,image/*" multiple style="display:none;">
+                            </label>
+                        </div>
+                    </div>
+                    <div id="editor-source-picker" class="np-editor-source-picker" style="display:none;"></div>
+                    <div class="np-editor-timeline-label">タイムライン（ドラッグで並び替え）</div>
+                    <div id="editor-timeline" class="np-editor-timeline" data-testid="area-editor-timeline">
+                        <div class="np-editor-empty">素材を追加してタイムラインを構成してください</div>
+                    </div>
+                </div>
+                <div class="np-editor-section">
+                    <h4>設定</h4>
+                    <div class="np-form-row">
+                        <div class="np-form-group">
+                            <label>画像表示時間（秒）</label>
+                            <input type="number" id="editor-img-duration" value="3" min="1" max="30" class="np-select" data-testid="input-editor-img-duration">
+                        </div>
+                        <div class="np-form-group">
+                            <label>トランジション</label>
+                            <select id="editor-transition" class="np-select" data-testid="select-editor-transition">
+                                <option value="none">なし</option>
+                                <option value="fade" selected>フェード</option>
+                                <option value="dissolve">ディゾルブ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="np-form-row">
+                        <div class="np-form-group">
+                            <label>出力解像度</label>
+                            <select id="editor-resolution" class="np-select" data-testid="select-editor-resolution">
+                                <option value="1080x1920" selected>1080x1920 (9:16)</option>
+                                <option value="1920x1080">1920x1080 (16:9)</option>
+                                <option value="1080x1080">1080x1080 (1:1)</option>
+                            </select>
+                        </div>
+                        <div class="np-form-group">
+                            <label>トランジション時間（秒）</label>
+                            <input type="number" id="editor-transition-dur" value="0.5" min="0" max="3" step="0.1" class="np-select" data-testid="input-editor-transition-dur">
+                        </div>
+                    </div>
+                </div>
+                <button id="editor-combine-btn" class="np-kling-btn" data-testid="button-editor-combine" disabled>結合・書き出し</button>
+                <div id="editor-status" class="np-kling-status" data-testid="text-editor-status"></div>
+                <div id="editor-result" data-testid="area-editor-result"></div>
             </div>
         </div>
     </div>
@@ -700,6 +755,141 @@
 .np-kling-video-btn.dl:hover { background: var(--accent-dark); }
 .np-kling-video-btn.del { background: var(--error); }
 .np-kling-video-btn.del:hover { background: #b71c1c; }
+
+.np-editor-section { margin-bottom: 16px; }
+.np-editor-section h4 { margin: 0 0 10px; font-size: 14px; color: var(--accent-dark); }
+.np-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.np-editor-add-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.np-editor-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+.np-editor-btn:hover { border-color: var(--accent); color: var(--accent); }
+.np-editor-btn.source { background: var(--bg-card); }
+.np-editor-source-picker {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    margin-bottom: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.np-editor-source-item {
+    width: 80px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+.np-editor-source-item img, .np-editor-source-item video {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    display: block;
+}
+.np-editor-source-item.selected { border-color: var(--accent); }
+.np-editor-source-item .src-label {
+    font-size: 9px;
+    text-align: center;
+    padding: 2px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.np-editor-source-add-btn {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.np-editor-timeline-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600; }
+.np-editor-timeline {
+    min-height: 100px;
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+}
+.np-editor-timeline.drag-over { border-color: var(--accent); background: rgba(0,137,123,0.05); }
+.np-editor-empty { color: var(--text-secondary); font-size: 13px; padding: 30px; text-align: center; width: 100%; }
+.np-editor-clip {
+    flex-shrink: 0;
+    width: 90px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg-card);
+    cursor: grab;
+    position: relative;
+    user-select: none;
+}
+.np-editor-clip.dragging { opacity: 0.4; }
+.np-editor-clip .clip-thumb {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
+.np-editor-clip .clip-info {
+    padding: 4px 6px;
+    font-size: 9px;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.np-editor-clip .clip-type {
+    background: var(--accent);
+    color: #fff;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 8px;
+    font-weight: 700;
+}
+.np-editor-clip .clip-type.img { background: #1565c0; }
+.np-editor-clip .clip-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
 .np-form-group { margin-bottom: 16px; }
 .np-form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
 .np-select {
@@ -1413,6 +1603,235 @@
                 if (data.ok) loadKlingGallery();
             });
         }
+    });
+
+    // === Editor ===
+    var editorTimeline = document.getElementById('editor-timeline');
+    var editorSourcePicker = document.getElementById('editor-source-picker');
+    var editorCombineBtn = document.getElementById('editor-combine-btn');
+    var editorStatus = document.getElementById('editor-status');
+    var editorResult = document.getElementById('editor-result');
+    var editorClips = [];
+    var editorClipId = 0;
+    var currentPickerMode = null;
+
+    function renderTimeline() {
+        editorTimeline.innerHTML = '';
+        if (editorClips.length === 0) {
+            editorTimeline.innerHTML = '<div class="np-editor-empty">素材を追加してタイムラインを構成してください</div>';
+            editorCombineBtn.disabled = true;
+            return;
+        }
+        editorCombineBtn.disabled = false;
+        editorClips.forEach(function(clip, idx) {
+            var div = document.createElement('div');
+            div.className = 'np-editor-clip';
+            div.draggable = true;
+            div.dataset.idx = idx;
+            var thumbTag = clip.type === 'video'
+                ? '<video class="clip-thumb" src="' + clip.thumb + '" muted></video>'
+                : '<img class="clip-thumb" src="' + clip.thumb + '">';
+            div.innerHTML = thumbTag
+                + '<div class="clip-info">'
+                + '<span class="clip-type ' + (clip.type === 'image' ? 'img' : '') + '">' + (clip.type === 'video' ? 'VIDEO' : 'IMG') + '</span>'
+                + '<span>' + (idx + 1) + '</span>'
+                + '</div>'
+                + '<button class="clip-remove" data-cidx="' + idx + '">&times;</button>';
+            div.addEventListener('dragstart', function(e) {
+                e.dataTransfer.setData('text/plain', idx);
+                div.classList.add('dragging');
+            });
+            div.addEventListener('dragend', function() { div.classList.remove('dragging'); });
+            div.addEventListener('dragover', function(e) { e.preventDefault(); });
+            div.addEventListener('drop', function(e) {
+                e.preventDefault();
+                var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                var toIdx = parseInt(div.dataset.idx);
+                if (fromIdx !== toIdx) {
+                    var moved = editorClips.splice(fromIdx, 1)[0];
+                    editorClips.splice(toIdx, 0, moved);
+                    renderTimeline();
+                }
+            });
+            editorTimeline.appendChild(div);
+        });
+    }
+
+    editorTimeline.addEventListener('click', function(e) {
+        if (e.target.classList.contains('clip-remove')) {
+            var cidx = parseInt(e.target.dataset.cidx);
+            editorClips.splice(cidx, 1);
+            renderTimeline();
+        }
+    });
+
+    editorTimeline.addEventListener('dragover', function(e) { e.preventDefault(); editorTimeline.classList.add('drag-over'); });
+    editorTimeline.addEventListener('dragleave', function() { editorTimeline.classList.remove('drag-over'); });
+    editorTimeline.addEventListener('drop', function() { editorTimeline.classList.remove('drag-over'); });
+
+    function addClipToTimeline(type, url, thumb) {
+        editorClips.push({ id: editorClipId++, type: type, url: url, thumb: thumb || url });
+        renderTimeline();
+    }
+
+    function showSourcePicker(mode) {
+        currentPickerMode = mode;
+        editorSourcePicker.style.display = 'flex';
+        editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">読み込み中...</div>';
+        if (mode === 'videos') {
+            fetch('/api/new-production/kling-gallery', { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                editorSourcePicker.innerHTML = '';
+                var items = data.videos || [];
+                if (items.length === 0) {
+                    editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">保存済み動画がありません</div>';
+                    return;
+                }
+                var selectedUrls = [];
+                items.forEach(function(v) {
+                    var div = document.createElement('div');
+                    div.className = 'np-editor-source-item';
+                    div.innerHTML = '<video src="' + v.url + '" muted></video><div class="src-label">' + v.filename + '</div>';
+                    div.addEventListener('click', function() {
+                        div.classList.toggle('selected');
+                        var idx = selectedUrls.indexOf(v.url);
+                        if (idx >= 0) selectedUrls.splice(idx, 1);
+                        else selectedUrls.push(v.url);
+                    });
+                    editorSourcePicker.appendChild(div);
+                });
+                var addBtn = document.createElement('button');
+                addBtn.className = 'np-editor-source-add-btn';
+                addBtn.textContent = '選択した動画を追加';
+                addBtn.addEventListener('click', function() {
+                    selectedUrls.forEach(function(u) { addClipToTimeline('video', u, u); });
+                    editorSourcePicker.style.display = 'none';
+                });
+                editorSourcePicker.appendChild(addBtn);
+            });
+        } else if (mode === 'images') {
+            fetch('/api/new-production/gemini-gallery', { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                editorSourcePicker.innerHTML = '';
+                var items = data.images || [];
+                if (items.length === 0) {
+                    editorSourcePicker.innerHTML = '<div style="color:#aaa;font-size:12px;">保存済み画像がありません</div>';
+                    return;
+                }
+                var selectedUrls = [];
+                items.forEach(function(img) {
+                    var div = document.createElement('div');
+                    div.className = 'np-editor-source-item';
+                    div.innerHTML = '<img src="' + img.url + '"><div class="src-label">' + (img.filename || '') + '</div>';
+                    div.addEventListener('click', function() {
+                        div.classList.toggle('selected');
+                        var idx = selectedUrls.indexOf(img.url);
+                        if (idx >= 0) selectedUrls.splice(idx, 1);
+                        else selectedUrls.push(img.url);
+                    });
+                    editorSourcePicker.appendChild(div);
+                });
+                var addBtn = document.createElement('button');
+                addBtn.className = 'np-editor-source-add-btn';
+                addBtn.textContent = '選択した画像を追加';
+                addBtn.addEventListener('click', function() {
+                    selectedUrls.forEach(function(u) { addClipToTimeline('image', u, u); });
+                    editorSourcePicker.style.display = 'none';
+                });
+                editorSourcePicker.appendChild(addBtn);
+            });
+        }
+    }
+
+    document.getElementById('editor-add-from-gallery').addEventListener('click', function() {
+        showSourcePicker('videos');
+    });
+    document.getElementById('editor-add-from-images').addEventListener('click', function() {
+        showSourcePicker('images');
+    });
+
+    document.getElementById('editor-file-input').addEventListener('change', function(e) {
+        var files = e.target.files;
+        for (var i = 0; i < files.length; i++) {
+            (function(file) {
+                var url = URL.createObjectURL(file);
+                var type = file.type.startsWith('video') ? 'video' : 'image';
+                addClipToTimeline(type, url, url);
+                editorClips[editorClips.length - 1]._file = file;
+            })(files[i]);
+        }
+        e.target.value = '';
+    });
+
+    editorCombineBtn.addEventListener('click', function() {
+        if (editorClips.length === 0) return;
+        editorCombineBtn.disabled = true;
+        editorStatus.className = 'np-kling-status processing';
+        editorStatus.textContent = '結合処理中... しばらくお待ちください';
+        editorResult.innerHTML = '';
+
+        var formData = new FormData();
+        var clipMeta = [];
+        var fileIdx = 0;
+
+        editorClips.forEach(function(clip, i) {
+            if (clip._file) {
+                formData.append('file_' + fileIdx, clip._file);
+                clipMeta.push({ type: clip.type, source: 'file', file_key: 'file_' + fileIdx });
+                fileIdx++;
+            } else {
+                clipMeta.push({ type: clip.type, source: 'server', url: clip.url });
+            }
+        });
+
+        formData.append('clips', JSON.stringify(clipMeta));
+        formData.append('img_duration', document.getElementById('editor-img-duration').value);
+        formData.append('transition', document.getElementById('editor-transition').value);
+        formData.append('transition_duration', document.getElementById('editor-transition-dur').value);
+        formData.append('resolution', document.getElementById('editor-resolution').value);
+
+        fetch('/api/new-production/editor-combine', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            editorCombineBtn.disabled = false;
+            if (data.error) {
+                editorStatus.className = 'np-kling-status error';
+                editorStatus.textContent = 'エラー: ' + data.error;
+            } else {
+                editorStatus.className = 'np-kling-status complete';
+                editorStatus.textContent = '結合完了！';
+                editorResult.innerHTML = '<div class="np-kling-video-item">'
+                    + '<video controls data-testid="video-editor-result"><source src="' + data.url + '" type="video/mp4"></video>'
+                    + '<div class="np-kling-video-actions">'
+                    + '<a href="' + data.url + '" download class="np-kling-video-btn dl" data-testid="link-editor-download">ダウンロード</a>'
+                    + '<button class="np-kling-video-btn dl editor-save-combined" data-url="' + data.url + '" data-testid="button-editor-save">保存済みに追加</button>'
+                    + '</div></div>';
+                editorResult.querySelector('.editor-save-combined').addEventListener('click', function() {
+                    var self = this;
+                    fetch('/api/new-production/kling-save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ video_url: data.url, prompt: '結合動画', is_local: true })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d.ok) { self.textContent = '保存済み'; self.disabled = true; }
+                    });
+                });
+            }
+        })
+        .catch(function(err) {
+            editorCombineBtn.disabled = false;
+            editorStatus.className = 'np-kling-status error';
+            editorStatus.textContent = 'エラー: ' + err.message;
+        });
     });
 })();
 </script>

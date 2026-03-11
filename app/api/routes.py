@@ -1545,20 +1545,31 @@ async def new_production_kling_save(request: Request):
         prompt = body.get("prompt", "")
         if not video_url:
             return JSONResponse({"error": "動画URLが必要です"})
+        is_local = body.get("is_local", False)
         save_dir = "app/static/kling_saved"
         os.makedirs(save_dir, exist_ok=True)
         import time as _time
         import httpx
+        import shutil
         ts = int(_time.time())
         filename = f"kling_{ts}.mp4"
         filepath = os.path.join(save_dir, filename)
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.get(video_url)
-            if resp.status_code == 200:
-                with open(filepath, "wb") as f:
-                    f.write(resp.content)
+        if is_local:
+            local_path = video_url.lstrip("/")
+            if local_path.startswith("static/"):
+                local_path = "app/" + local_path
+            if os.path.exists(local_path):
+                shutil.copy2(local_path, filepath)
             else:
-                return JSONResponse({"error": f"動画ダウンロード失敗: {resp.status_code}"})
+                return JSONResponse({"error": "ローカルファイルが見つかりません"})
+        else:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.get(video_url)
+                if resp.status_code == 200:
+                    with open(filepath, "wb") as f:
+                        f.write(resp.content)
+                else:
+                    return JSONResponse({"error": f"動画ダウンロード失敗: {resp.status_code}"})
         meta_path = filepath + ".meta"
         with open(meta_path, "w", encoding="utf-8") as f:
             f.write(prompt)
@@ -1614,6 +1625,188 @@ async def new_production_kling_delete(request: Request):
         return JSONResponse({"ok": True})
     except Exception as e:
         logger.error(f"Kling delete error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/editor-combine")
+async def new_production_editor_combine(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        import time as _time
+        import subprocess
+        import json as _json
+
+        form = await request.form()
+        clips_raw = form.get("clips", "[]")
+        clips = _json.loads(clips_raw)
+        img_duration = float(form.get("img_duration", "3"))
+        transition = form.get("transition", "none")
+        transition_dur = float(form.get("transition_duration", "0.5"))
+        resolution = form.get("resolution", "1080x1920")
+        res_parts = resolution.split("x")
+        width = int(res_parts[0])
+        height = int(res_parts[1])
+
+        if not clips:
+            return JSONResponse({"error": "素材がありません"})
+
+        work_dir = "app/static/editor_tmp"
+        os.makedirs(work_dir, exist_ok=True)
+        out_dir = "app/static/editor_output"
+        os.makedirs(out_dir, exist_ok=True)
+        ts = int(_time.time())
+
+        input_files = []
+        for i, clip in enumerate(clips):
+            if clip["source"] == "file":
+                file_key = clip["file_key"]
+                uploaded = form.get(file_key)
+                if uploaded:
+                    ext = ".mp4" if clip["type"] == "video" else ".png"
+                    tmp_path = os.path.join(work_dir, f"clip_{ts}_{i}{ext}")
+                    content = await uploaded.read()
+                    with open(tmp_path, "wb") as f:
+                        f.write(content)
+                    input_files.append({"path": tmp_path, "type": clip["type"]})
+            elif clip["source"] == "server":
+                url = clip["url"].lstrip("/")
+                if url.startswith("static/"):
+                    url = "app/" + url
+                if os.path.exists(url):
+                    input_files.append({"path": url, "type": clip["type"]})
+
+        if not input_files:
+            return JSONResponse({"error": "有効な素材がありません"})
+
+        segment_files = []
+        for i, item in enumerate(input_files):
+            seg_path = os.path.join(work_dir, f"seg_{ts}_{i}.mp4")
+            if item["type"] == "image":
+                cmd = [
+                    "ffmpeg", "-y", "-loop", "1", "-i", item["path"],
+                    "-c:v", "libx264", "-t", str(img_duration),
+                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black",
+                    "-pix_fmt", "yuv420p", "-r", "30",
+                    seg_path
+                ]
+            else:
+                cmd = [
+                    "ffmpeg", "-y", "-i", item["path"],
+                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+                    "-an",
+                    seg_path
+                ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode != 0:
+                logger.error(f"FFmpeg segment error: {result.stderr}")
+                return JSONResponse({"error": f"セグメント{i+1}の処理に失敗: {result.stderr[:200]}"})
+            segment_files.append(seg_path)
+
+        output_filename = f"combined_{ts}.mp4"
+        output_path = os.path.join(out_dir, output_filename)
+
+        if len(segment_files) == 1:
+            import shutil
+            shutil.copy2(segment_files[0], output_path)
+        else:
+            if transition == "none":
+                concat_list = os.path.join(work_dir, f"concat_{ts}.txt")
+                with open(concat_list, "w") as f:
+                    for seg in segment_files:
+                        f.write(f"file '{os.path.abspath(seg)}'\n")
+                cmd = [
+                    "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                    "-i", concat_list, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    output_path
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                if result.returncode != 0:
+                    return JSONResponse({"error": f"結合失敗: {result.stderr[:200]}"})
+            else:
+                filter_parts = []
+                inputs_cmd = []
+                for i, seg in enumerate(segment_files):
+                    inputs_cmd.extend(["-i", seg])
+
+                n = len(segment_files)
+                td = transition_dur
+
+                for i in range(n):
+                    filter_parts.append(f"[{i}:v]setpts=PTS-STARTPTS[v{i}];")
+
+                cur = "v0"
+                for i in range(1, n):
+                    out = f"vout{i}" if i < n - 1 else "vfinal"
+                    if transition in ("fade", "dissolve"):
+                        filter_parts.append(
+                            f"[{cur}][v{i}]xfade=transition=fade:duration={td}:offset={{off_{i}}}[{out}];"
+                        )
+                    cur = out
+
+                filter_str = "".join(filter_parts).rstrip(";")
+
+                probe_durations = []
+                for seg in segment_files:
+                    probe_cmd = [
+                        "ffprobe", "-v", "error", "-show_entries",
+                        "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", seg
+                    ]
+                    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+                    try:
+                        dur = float(probe_result.stdout.strip())
+                    except ValueError:
+                        dur = 5.0
+                    probe_durations.append(dur)
+
+                offset = probe_durations[0] - td
+                for i in range(1, n):
+                    filter_str = filter_str.replace(f"{{off_{i}}}", f"{offset:.3f}")
+                    if i < n - 1:
+                        offset += probe_durations[i] - td
+
+                cmd = ["ffmpeg", "-y"] + inputs_cmd + [
+                    "-filter_complex", filter_str,
+                    "-map", "[vfinal]",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    output_path
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                if result.returncode != 0:
+                    logger.error(f"FFmpeg combine error: {result.stderr}")
+                    concat_list = os.path.join(work_dir, f"concat_{ts}.txt")
+                    with open(concat_list, "w") as f:
+                        for seg in segment_files:
+                            f.write(f"file '{os.path.abspath(seg)}'\n")
+                    cmd_fallback = [
+                        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                        "-i", concat_list, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        output_path
+                    ]
+                    result2 = subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=300)
+                    if result2.returncode != 0:
+                        return JSONResponse({"error": f"結合失敗: {result2.stderr[:200]}"})
+
+        for seg in segment_files:
+            try:
+                os.remove(seg)
+            except Exception:
+                pass
+        for item in input_files:
+            if item["path"].startswith(work_dir):
+                try:
+                    os.remove(item["path"])
+                except Exception:
+                    pass
+
+        return JSONResponse({"ok": True, "url": f"/static/editor_output/{output_filename}"})
+
+    except Exception as e:
+        logger.error(f"Editor combine error: {e}")
+        import traceback
+        traceback.print_exc()
         return JSONResponse({"error": str(e)})
 
 
