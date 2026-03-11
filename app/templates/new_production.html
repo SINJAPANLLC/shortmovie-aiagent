@@ -9,6 +9,7 @@
     <button class="np-tab active" data-tab="claude" data-testid="tab-claude">Claude</button>
     <button class="np-tab" data-tab="gemini" data-testid="tab-gemini">Gemini</button>
     <button class="np-tab" data-tab="kling" data-testid="tab-kling">Kling</button>
+    <button class="np-tab" data-tab="editor" data-testid="tab-editor">動画結合・編集</button>
 </div>
 
 <div class="np-panel active" id="panel-claude">
@@ -156,7 +157,6 @@
             <div class="np-kling-result-tabs">
                 <button class="np-kling-rtab active" data-krtab="latest" data-testid="tab-kling-latest">生成結果</button>
                 <button class="np-kling-rtab" data-krtab="videos" data-testid="tab-kling-videos">保存済み動画 <span id="kling-video-count" data-testid="text-video-count">0</span></button>
-                <button class="np-kling-rtab" data-krtab="editor" data-testid="tab-kling-editor">動画結合・編集</button>
             </div>
             <div class="np-kling-rpanel active" id="kpanel-latest">
                 <div id="kling-result-area" data-testid="area-kling-result"></div>
@@ -164,60 +164,59 @@
             <div class="np-kling-rpanel" id="kpanel-videos">
                 <div id="kling-video-gallery" class="np-kling-video-gallery" data-testid="area-kling-gallery"></div>
             </div>
-            <div class="np-kling-rpanel" id="kpanel-editor">
-                <div class="np-editor-section">
-                    <div class="np-editor-header">
-                        <h4>素材を追加</h4>
-                        <div class="np-editor-add-btns">
-                            <button id="editor-add-from-gallery" class="np-editor-btn source" data-testid="button-editor-add-gallery">保存済み動画から</button>
-                            <button id="editor-add-from-images" class="np-editor-btn source" data-testid="button-editor-add-images">保存済み画像から</button>
-                            <label class="np-editor-btn source" data-testid="button-editor-add-file">
-                                ファイルから追加
-                                <input type="file" id="editor-file-input" accept="video/*,image/*" multiple style="display:none;">
-                            </label>
-                        </div>
-                    </div>
-                    <div id="editor-source-picker" class="np-editor-source-picker" style="display:none;"></div>
-                    <div class="np-editor-timeline-label">タイムライン（ドラッグで並び替え）</div>
-                    <div id="editor-timeline" class="np-editor-timeline" data-testid="area-editor-timeline">
-                        <div class="np-editor-empty">素材を追加してタイムラインを構成してください</div>
-                    </div>
-                </div>
-                <div class="np-editor-section">
-                    <h4>設定</h4>
-                    <div class="np-form-row">
-                        <div class="np-form-group">
-                            <label>画像表示時間（秒）</label>
-                            <input type="number" id="editor-img-duration" value="3" min="1" max="30" class="np-select" data-testid="input-editor-img-duration">
-                        </div>
-                        <div class="np-form-group">
-                            <label>トランジション</label>
-                            <select id="editor-transition" class="np-select" data-testid="select-editor-transition">
-                                <option value="none">なし</option>
-                                <option value="fade" selected>フェード</option>
-                                <option value="dissolve">ディゾルブ</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="np-form-row">
-                        <div class="np-form-group">
-                            <label>出力解像度</label>
-                            <select id="editor-resolution" class="np-select" data-testid="select-editor-resolution">
-                                <option value="1080x1920" selected>1080x1920 (9:16)</option>
-                                <option value="1920x1080">1920x1080 (16:9)</option>
-                                <option value="1080x1080">1080x1080 (1:1)</option>
-                            </select>
-                        </div>
-                        <div class="np-form-group">
-                            <label>トランジション時間（秒）</label>
-                            <input type="number" id="editor-transition-dur" value="0.5" min="0" max="3" step="0.1" class="np-select" data-testid="input-editor-transition-dur">
-                        </div>
-                    </div>
-                </div>
-                <button id="editor-combine-btn" class="np-kling-btn" data-testid="button-editor-combine" disabled>結合・書き出し</button>
-                <div id="editor-status" class="np-kling-status" data-testid="text-editor-status"></div>
-                <div id="editor-result" data-testid="area-editor-result"></div>
+        </div>
+    </div>
+</div>
+
+<div class="np-panel" id="panel-editor">
+    <div class="np-editor-layout">
+        <div class="np-editor-left-panel">
+            <h3>素材ライブラリ</h3>
+            <div class="np-editor-add-btns">
+                <button id="editor-add-from-gallery" class="np-editor-btn source" data-testid="button-editor-add-gallery">保存済み動画から</button>
+                <button id="editor-add-from-images" class="np-editor-btn source" data-testid="button-editor-add-images">保存済み画像から</button>
+                <label class="np-editor-btn source" data-testid="button-editor-add-file">
+                    ファイルから追加
+                    <input type="file" id="editor-file-input" accept="video/*,image/*" multiple style="display:none;">
+                </label>
             </div>
+            <div id="editor-source-picker" class="np-editor-source-picker" style="display:none;"></div>
+            <div class="np-editor-section">
+                <h4>設定</h4>
+                <div class="np-form-group">
+                    <label>画像表示時間（秒）</label>
+                    <input type="number" id="editor-img-duration" value="3" min="1" max="30" class="np-select" data-testid="input-editor-img-duration">
+                </div>
+                <div class="np-form-group">
+                    <label>トランジション</label>
+                    <select id="editor-transition" class="np-select" data-testid="select-editor-transition">
+                        <option value="none">なし</option>
+                        <option value="fade" selected>フェード</option>
+                        <option value="dissolve">ディゾルブ</option>
+                    </select>
+                </div>
+                <div class="np-form-group">
+                    <label>トランジション時間（秒）</label>
+                    <input type="number" id="editor-transition-dur" value="0.5" min="0" max="3" step="0.1" class="np-select" data-testid="input-editor-transition-dur">
+                </div>
+                <div class="np-form-group">
+                    <label>出力解像度</label>
+                    <select id="editor-resolution" class="np-select" data-testid="select-editor-resolution">
+                        <option value="1080x1920" selected>1080x1920 (9:16)</option>
+                        <option value="1920x1080">1920x1080 (16:9)</option>
+                        <option value="1080x1080">1080x1080 (1:1)</option>
+                    </select>
+                </div>
+            </div>
+            <button id="editor-combine-btn" class="np-kling-btn" data-testid="button-editor-combine" disabled>結合・書き出し</button>
+            <div id="editor-status" class="np-kling-status" data-testid="text-editor-status"></div>
+        </div>
+        <div class="np-editor-right-panel">
+            <div class="np-editor-timeline-label">タイムライン（ドラッグで並び替え）</div>
+            <div id="editor-timeline" class="np-editor-timeline" data-testid="area-editor-timeline">
+                <div class="np-editor-empty">素材を追加してタイムラインを構成してください</div>
+            </div>
+            <div id="editor-result" class="np-editor-result-area" data-testid="area-editor-result"></div>
         </div>
     </div>
 </div>
@@ -756,10 +755,34 @@
 .np-kling-video-btn.del { background: var(--error); }
 .np-kling-video-btn.del:hover { background: #b71c1c; }
 
+.np-editor-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: calc(100vh - 200px);
+}
+.np-editor-left-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0 0 0 12px;
+    padding: 20px;
+    overflow-y: auto;
+}
+.np-editor-left-panel h3 { margin: 0 0 14px; font-size: 16px; color: var(--accent-dark); }
+.np-editor-right-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 0 12px 0;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.np-editor-result-area { margin-top: 16px; }
 .np-editor-section { margin-bottom: 16px; }
 .np-editor-section h4 { margin: 0 0 10px; font-size: 14px; color: var(--accent-dark); }
-.np-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
-.np-editor-add-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.np-editor-add-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .np-editor-btn {
     padding: 6px 12px;
     border: 1px solid var(--border);
@@ -825,15 +848,16 @@
 }
 .np-editor-timeline-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600; }
 .np-editor-timeline {
-    min-height: 100px;
+    min-height: 140px;
     border: 2px dashed var(--border);
     border-radius: 8px;
-    padding: 10px;
+    padding: 12px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
     overflow-x: auto;
     align-items: flex-start;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    flex: 1;
 }
 .np-editor-timeline.drag-over { border-color: var(--accent); background: rgba(0,137,123,0.05); }
 .np-editor-empty { color: var(--text-secondary); font-size: 13px; padding: 30px; text-align: center; width: 100%; }
@@ -939,6 +963,9 @@
     .np-kling-layout { grid-template-columns: 1fr; height: auto; }
     .np-kling-form-panel { border-radius: 0 0 12px 12px; }
     .np-kling-result-panel { border-left: 1px solid var(--border); border-radius: 12px; margin-top: 12px; }
+    .np-editor-layout { grid-template-columns: 1fr; height: auto; }
+    .np-editor-left-panel { border-radius: 0 0 12px 12px; }
+    .np-editor-right-panel { border-left: 1px solid var(--border); border-radius: 12px; margin-top: 12px; }
 }
 </style>
 
