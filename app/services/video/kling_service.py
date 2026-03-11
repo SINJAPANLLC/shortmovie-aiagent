@@ -50,7 +50,8 @@ def _get_kling_token():
 
 
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
-                         reference_image: str = None, progress_callback=None) -> str:
+                         reference_image: str = None, progress_callback=None,
+                         narration: str = "") -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -62,7 +63,10 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
         logger.warning("KLING_API_KEY/KLING_ACCESS_KEY not set, creating placeholder scene")
         return _create_placeholder_scene(drama_id, scene_number, reference_image=reference_image)
 
-    enhanced_prompt = f"{scene_description}, same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"
+    dialogue_part = ""
+    if narration:
+        dialogue_part = f' The character says: "{narration}"'
+    enhanced_prompt = f"{scene_description},{dialogue_part} same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"
 
     use_image2video = reference_image and os.path.exists(reference_image)
 

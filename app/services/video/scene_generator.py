@@ -207,7 +207,8 @@ def _is_kling_available() -> bool:
 
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
                          reference_image: str = None, progress_callback=None,
-                         emotion: str = "", duration: float = 6) -> str:
+                         emotion: str = "", duration: float = 6,
+                         narration: str = "") -> str:
     if progress_callback is None:
         progress_callback = _noop
 
@@ -228,7 +229,8 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
                 scene_number=scene_number,
                 drama_id=drama_id,
                 reference_image=kling_ref,
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                narration=narration
             )
             if kling_path and os.path.exists(kling_path) and os.path.getsize(kling_path) > 10000:
                 final = _ensure_duration(kling_path, duration)

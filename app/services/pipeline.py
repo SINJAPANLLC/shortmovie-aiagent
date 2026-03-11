@@ -270,6 +270,7 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
                 ref_image = None
             scene_emotion = scene.get("emotion", "")
             scene_duration = float(scene.get("duration", 6))
+            scene_narration = scene.get("narration", "")
             scene_path = generate_scene_video(
                 scene_description=scene_desc,
                 scene_number=scene.get("scene_number", i+1),
@@ -277,7 +278,8 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
                 reference_image=ref_image,
                 progress_callback=progress_callback,
                 emotion=scene_emotion,
-                duration=scene_duration
+                duration=scene_duration,
+                narration=scene_narration
             )
             scene_videos.append(scene_path)
             progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
@@ -594,6 +596,7 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
             ref_image = None
         scene_emotion = scene.get("emotion", "")
         scene_duration = float(scene.get("duration", 6))
+        scene_narration = scene.get("narration", "")
         scene_path = generate_scene_video(
             scene_description=scene_desc,
             scene_number=scene.get("scene_number", i+1),
@@ -601,7 +604,8 @@ def continue_pipeline_from_script(drama_id, progress_callback=None, max_scenes=N
             reference_image=ref_image,
             progress_callback=progress_callback,
             emotion=scene_emotion,
-            duration=scene_duration
+            duration=scene_duration,
+            narration=scene_narration
         )
         scene_videos.append(scene_path)
         progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")
