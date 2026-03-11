@@ -20,7 +20,7 @@
                 <div class="np-chat-welcome">脚本・キャラ・動画プロンプトを生成できます<br><small style="color:#999;">Claudeの回答から「プレビューに送る」で右パネルに表示</small></div>
             </div>
             <div class="np-chat-input-area">
-                <textarea id="claude-input" class="np-chat-input" data-testid="input-claude" placeholder="例: CEOドラマの第1話の脚本を書いて" rows="3"></textarea>
+                <textarea id="claude-input" class="np-chat-input" data-testid="input-claude" placeholder="例: CEOドラマの第1話の脚本を書いて（Shift+Enterで送信）" rows="3"></textarea>
                 <button id="claude-send" class="np-chat-send" data-testid="button-claude-send">送信</button>
             </div>
         </div>
@@ -1493,7 +1493,12 @@
         });
     });
 
-    var chatHistories = { claude: [], gemini: [] };
+    var _savedHistories = {};
+    try { _savedHistories = JSON.parse(localStorage.getItem('np_chat_histories') || '{}'); } catch(e) {}
+    var chatHistories = { claude: _savedHistories.claude || [], gemini: _savedHistories.gemini || [] };
+    function _saveChatHistories() {
+        try { localStorage.setItem('np_chat_histories', JSON.stringify(chatHistories)); } catch(e) {}
+    }
     var currentPreviewText = '';
     var savedItems = JSON.parse(localStorage.getItem('np_saved_items') || '[]');
 
@@ -1666,6 +1671,7 @@
             input.value = '';
             addMessage(messages, 'user', text, provider);
             chatHistories[provider].push({ role: 'user', content: text });
+            _saveChatHistories();
             sendBtn.disabled = true;
             showTyping(messages, provider);
 
@@ -1683,6 +1689,7 @@
                 } else {
                     addMessage(messages, 'assistant', data.response, provider);
                     chatHistories[provider].push({ role: 'assistant', content: data.response });
+                    _saveChatHistories();
                 }
                 sendBtn.disabled = false;
                 input.focus();
@@ -1694,9 +1701,17 @@
             });
         }
 
+        if (chatHistories[provider].length > 0) {
+            var welcome = messages.querySelector('.np-chat-welcome');
+            if (welcome) welcome.remove();
+            chatHistories[provider].forEach(function(h) {
+                addMessage(messages, h.role === 'user' ? 'user' : 'assistant', h.content, provider);
+            });
+        }
+
         sendBtn.addEventListener('click', send);
         input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+            if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); send(); }
         });
     }
 
