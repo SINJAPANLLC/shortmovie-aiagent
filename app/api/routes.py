@@ -1251,7 +1251,7 @@ async def new_production_gemini_image(request: Request):
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key={gemini_key}",
                 json=payload
             )
 
