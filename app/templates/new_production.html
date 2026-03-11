@@ -138,14 +138,14 @@
                 <label>生成モード</label>
                 <select id="kling-mode" class="np-select" data-testid="select-kling-mode">
                     <option value="text2video">テキスト → 動画</option>
-                    <option value="image2video">画像 → 動画</option>
+                    <option value="image2video" selected>画像 → 動画</option>
                 </select>
             </div>
             <div class="np-form-group">
                 <label>プロンプト</label>
                 <textarea id="kling-prompt" class="np-chat-input" data-testid="input-kling-prompt" placeholder="動画の説明を入力..." rows="4"></textarea>
             </div>
-            <div class="np-form-group" id="kling-image-group" style="display:none;">
+            <div class="np-form-group" id="kling-image-group">
                 <label>参照画像（ファイルアップロード）</label>
                 <input type="file" id="kling-image" class="np-file-input" data-testid="input-kling-image" accept="image/*">
                 <div id="kling-image-preview" class="np-image-preview"></div>
@@ -166,8 +166,9 @@
                 <div class="np-form-group">
                     <label>時間</label>
                     <select id="kling-duration" class="np-select" data-testid="select-kling-duration">
-                        <option value="5" selected>5秒</option>
+                        <option value="5">5秒</option>
                         <option value="10">10秒</option>
+                        <option value="15" selected>15秒</option>
                     </select>
                 </div>
             </div>
