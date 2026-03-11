@@ -125,15 +125,15 @@ def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_
 
         with httpx.Client(timeout=300) as client:
             response = client.post(
-                "https://api.klingai.com/v1/videos/omni-video",
+                "https://api.klingai.com/v1/videos/image2video",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model_name": "kling-v3-omni",
-                    "prompt": "Make the person in <<<image_1>>> " + prompt,
-                    "image_list": [{"image": image_b64}],
+                    "model_name": "kling-v3",
+                    "prompt": prompt,
+                    "image": image_b64,
                     "duration": "10",
                     "aspect_ratio": "9:16",
                     "mode": "pro",
@@ -144,7 +144,7 @@ def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_
                 result = response.json()
                 task_id = result.get("data", {}).get("task_id")
                 if task_id:
-                    return _poll_task(api_key, task_id, progress_callback, scene_number, "omni-video")
+                    return _poll_task(api_key, task_id, progress_callback, scene_number, "image2video")
 
             logger.warning(f"Kling image2video response: {response.status_code} - {response.text[:200]}")
     except Exception as e:
@@ -156,13 +156,13 @@ def _try_text2video(api_key, prompt, progress_callback, scene_number):
     try:
         with httpx.Client(timeout=300) as client:
             response = client.post(
-                "https://api.klingai.com/v1/videos/omni-video",
+                "https://api.klingai.com/v1/videos/text2video",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model_name": "kling-v3-omni",
+                    "model_name": "kling-v3",
                     "prompt": prompt,
                     "duration": "10",
                     "aspect_ratio": "9:16",
@@ -174,7 +174,7 @@ def _try_text2video(api_key, prompt, progress_callback, scene_number):
                 result = response.json()
                 task_id = result.get("data", {}).get("task_id")
                 if task_id:
-                    return _poll_task(api_key, task_id, progress_callback, scene_number, "omni-video")
+                    return _poll_task(api_key, task_id, progress_callback, scene_number, "text2video")
 
             logger.warning(f"Kling text2video response: {response.status_code} - {response.text[:200]}")
     except Exception as e:
