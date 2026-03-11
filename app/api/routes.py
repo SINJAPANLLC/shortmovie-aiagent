@@ -1433,6 +1433,9 @@ async def new_production_gemini_gallery(request: Request):
                     meta_obj = _json.loads(raw)
                     prompt = meta_obj.get("prompt", "")
                     category = meta_obj.get("category", "other")
+                    scene_num = meta_obj.get("scene_number")
+                    if category == "scene" and scene_num:
+                        category = f"scene{scene_num}"
                 except Exception:
                     prompt = raw
         images.append({

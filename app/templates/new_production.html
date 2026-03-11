@@ -96,7 +96,9 @@
                 <label>画像カテゴリ</label>
                 <select id="gemini-category" class="np-select" data-testid="select-gemini-category">
                     <option value="character">キャラクター画像</option>
-                    <option value="scene">シーン画像</option>
+                    <option value="scene1">シーン１</option>
+                    <option value="scene2">シーン２</option>
+                    <option value="scene3">シーン３</option>
                     <option value="thumbnail">サムネイル</option>
                     <option value="other">その他</option>
                 </select>
@@ -116,7 +118,9 @@
                 <div class="np-gallery-filter" data-testid="area-gallery-filter">
                     <button class="np-gallery-filter-btn active" data-filter="all">すべて</button>
                     <button class="np-gallery-filter-btn" data-filter="character">キャラクター</button>
-                    <button class="np-gallery-filter-btn" data-filter="scene">シーン</button>
+                    <button class="np-gallery-filter-btn" data-filter="scene1">シーン１</button>
+                    <button class="np-gallery-filter-btn" data-filter="scene2">シーン２</button>
+                    <button class="np-gallery-filter-btn" data-filter="scene3">シーン３</button>
                     <button class="np-gallery-filter-btn" data-filter="thumbnail">サムネイル</button>
                     <button class="np-gallery-filter-btn" data-filter="other">その他</button>
                 </div>
@@ -1578,7 +1582,9 @@
     padding: 2px 8px; border-radius: 10px; margin-bottom: 4px;
 }
 .np-img-category-badge.character { background: #e8f5e9; color: #2e7d32; }
-.np-img-category-badge.scene { background: #e3f2fd; color: #1565c0; }
+.np-img-category-badge.scene, .np-img-category-badge.scene1 { background: #e3f2fd; color: #1565c0; }
+.np-img-category-badge.scene2 { background: #e8eaf6; color: #283593; }
+.np-img-category-badge.scene3 { background: #e0f2f1; color: #00695c; }
 .np-img-category-badge.thumbnail { background: #fff3e0; color: #e65100; }
 .np-img-category-badge.other { background: #f3e5f5; color: #7b1fa2; }
 </style>
@@ -1840,7 +1846,7 @@
     var geminiGalleryArea = document.getElementById('gemini-gallery-area');
     var geminiGalleryCount = document.getElementById('gemini-gallery-count');
     var geminiImageCount = 0;
-    var CATEGORY_LABELS = { character: 'キャラクター', scene: 'シーン', thumbnail: 'サムネイル', other: 'その他' };
+    var CATEGORY_LABELS = { character: 'キャラクター', scene1: 'シーン１', scene2: 'シーン２', scene3: 'シーン３', scene: 'シーン', thumbnail: 'サムネイル', other: 'その他' };
     var selectedSavedRefs = [];
 
     geminiRefInput.addEventListener('change', function() {
