@@ -1213,6 +1213,30 @@ async def new_production_gemini_image(request: Request):
                         }
                     })
 
+        saved_ref_urls_raw = form.get("saved_ref_urls", "")
+        if saved_ref_urls_raw:
+            import json as _json
+            try:
+                saved_urls = _json.loads(saved_ref_urls_raw)
+                for surl in saved_urls:
+                    spath = surl.lstrip("/")
+                    if spath.startswith("static/"):
+                        spath = "app/" + spath
+                    if os.path.exists(spath):
+                        with open(spath, "rb") as sf:
+                            sdata = sf.read()
+                        sext = os.path.splitext(spath)[1].lower()
+                        smime = "image/png" if sext == ".png" else "image/jpeg"
+                        sb64 = base64.b64encode(sdata).decode("utf-8")
+                        parts.append({
+                            "inline_data": {
+                                "mime_type": smime,
+                                "data": sb64
+                            }
+                        })
+            except Exception:
+                pass
+
         if parts:
             parts.append({"text": f"Generate a new image based on the reference image(s) above. Use the same character appearance, facial features, and style. New scene description: {full_prompt}"})
         else:
@@ -1279,6 +1303,89 @@ async def new_production_gemini_image(request: Request):
             return JSONResponse({"images": images})
     except Exception as e:
         logger.error(f"Gemini image generation error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/api/new-production/gemini-save")
+async def new_production_gemini_save(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        url = body.get("url", "")
+        prompt = body.get("prompt", "")
+        if not url:
+            return JSONResponse({"error": "URLが必要です"})
+        save_dir = "app/static/gemini_saved"
+        os.makedirs(save_dir, exist_ok=True)
+        import time as _time
+        src_path = url.lstrip("/")
+        if src_path.startswith("static/"):
+            src_path = "app/" + src_path
+        if not os.path.exists(src_path):
+            return JSONResponse({"error": "画像が見つかりません"})
+        import shutil
+        ext = os.path.splitext(src_path)[1] or ".png"
+        filename = f"saved_{int(_time.time())}_{len(os.listdir(save_dir))}{ext}"
+        dst_path = os.path.join(save_dir, filename)
+        shutil.copy2(src_path, dst_path)
+        meta_path = dst_path + ".meta"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(prompt)
+        return JSONResponse({"ok": True, "filename": filename})
+    except Exception as e:
+        logger.error(f"Gemini save error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
+@router.get("/api/new-production/gemini-gallery")
+async def new_production_gemini_gallery(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    save_dir = "app/static/gemini_saved"
+    os.makedirs(save_dir, exist_ok=True)
+    images = []
+    for f in sorted(os.listdir(save_dir), reverse=True):
+        if f.endswith(".meta"):
+            continue
+        ext = os.path.splitext(f)[1].lower()
+        if ext not in (".png", ".jpg", ".jpeg", ".webp"):
+            continue
+        prompt = ""
+        meta_path = os.path.join(save_dir, f + ".meta")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r", encoding="utf-8") as mf:
+                prompt = mf.read().strip()
+        images.append({
+            "filename": f,
+            "url": f"/static/gemini_saved/{f}",
+            "prompt": prompt
+        })
+    return JSONResponse({"images": images})
+
+
+@router.post("/api/new-production/gemini-delete")
+async def new_production_gemini_delete(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        filename = os.path.basename(body.get("filename", ""))
+        if not filename:
+            return JSONResponse({"error": "ファイル名が必要です"})
+        save_dir = "app/static/gemini_saved"
+        filepath = os.path.join(save_dir, filename)
+        meta_path = filepath + ".meta"
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        logger.error(f"Gemini delete error: {e}")
         return JSONResponse({"error": str(e)})
 
 

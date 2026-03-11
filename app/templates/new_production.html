@@ -57,9 +57,13 @@
         <div class="np-gemini-form-panel">
             <h3>画像生成 (Gemini)</h3>
             <div class="np-form-group">
-                <label>参考キャラ画像（任意）</label>
+                <label>参考キャラ画像（任意・複数可）</label>
                 <input type="file" id="gemini-ref-image" class="np-file-input" data-testid="input-gemini-ref-image" accept="image/*" multiple>
                 <div id="gemini-ref-preview" class="np-ref-preview" data-testid="area-gemini-ref-preview"></div>
+                <div id="gemini-saved-ref-area" style="margin-top:8px;">
+                    <button type="button" id="gemini-toggle-saved-ref" class="np-msg-action-btn secondary" data-testid="button-toggle-saved-ref" style="font-size:12px;">保存済み画像から選ぶ ▼</button>
+                    <div id="gemini-saved-ref-grid" class="np-saved-ref-grid" style="display:none;" data-testid="area-saved-ref-grid"></div>
+                </div>
             </div>
             <div class="np-form-group">
                 <label>画像プロンプト</label>
@@ -90,8 +94,16 @@
             <div id="gemini-status" class="np-kling-status" data-testid="text-gemini-status"></div>
         </div>
         <div class="np-gemini-result-panel">
-            <h3>生成結果</h3>
-            <div id="gemini-result-area" class="np-gemini-results-grid" data-testid="area-gemini-results"></div>
+            <div class="np-gemini-result-tabs">
+                <button class="np-gemini-rtab active" data-rtab="latest" data-testid="tab-gemini-latest">生成結果</button>
+                <button class="np-gemini-rtab" data-rtab="gallery" data-testid="tab-gemini-gallery">保存済みギャラリー <span id="gemini-gallery-count" data-testid="text-gallery-count">0</span></button>
+            </div>
+            <div class="np-gemini-rpanel active" id="rpanel-latest">
+                <div id="gemini-result-area" class="np-gemini-results-grid" data-testid="area-gemini-results"></div>
+            </div>
+            <div class="np-gemini-rpanel" id="rpanel-gallery">
+                <div id="gemini-gallery-area" class="np-gemini-gallery-grid" data-testid="area-gemini-gallery"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -465,6 +477,127 @@
     padding: 60px 20px;
     font-size: 14px;
 }
+.np-gemini-result-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 12px;
+}
+.np-gemini-rtab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+.np-gemini-rtab:hover { color: var(--accent); }
+.np-gemini-rtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.np-gemini-rpanel { display: none; }
+.np-gemini-rpanel.active { display: block; }
+.np-gemini-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.np-gallery-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-primary);
+    position: relative;
+}
+.np-gallery-item img {
+    width: 100%;
+    aspect-ratio: 9/16;
+    object-fit: cover;
+    display: block;
+    cursor: pointer;
+}
+.np-gallery-item:hover .np-gallery-overlay {
+    opacity: 1;
+}
+.np-gallery-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.7);
+    padding: 6px;
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.np-gallery-overlay button, .np-gallery-overlay a {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #fff;
+    text-decoration: none;
+}
+.np-gallery-overlay .g-dl { background: var(--accent); }
+.np-gallery-overlay .g-kling { background: #ff6f00; }
+.np-gallery-overlay .g-ref { background: #1565c0; }
+.np-gallery-overlay .g-del { background: var(--error); }
+.np-gallery-info {
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.np-saved-ref-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-primary);
+}
+.np-saved-ref-item {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+.np-saved-ref-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.np-saved-ref-item.selected { border-color: var(--accent); }
+.np-saved-ref-item.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--accent);
+    color: #fff;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
 .np-kling-container {
     display: grid;
@@ -750,13 +883,28 @@
 
     setupChat('claude');
 
+    // Gemini result tabs
+    var geminiRtabs = document.querySelectorAll('.np-gemini-rtab');
+    geminiRtabs.forEach(function(rt) {
+        rt.addEventListener('click', function() {
+            geminiRtabs.forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.np-gemini-rpanel').forEach(function(p) { p.classList.remove('active'); });
+            rt.classList.add('active');
+            document.getElementById('rpanel-' + rt.dataset.rtab).classList.add('active');
+            if (rt.dataset.rtab === 'gallery') loadGallery();
+        });
+    });
+
     // Gemini image generation
     var geminiRefInput = document.getElementById('gemini-ref-image');
     var geminiRefPreview = document.getElementById('gemini-ref-preview');
     var geminiGenerateBtn = document.getElementById('gemini-generate');
     var geminiStatus = document.getElementById('gemini-status');
     var geminiResultArea = document.getElementById('gemini-result-area');
+    var geminiGalleryArea = document.getElementById('gemini-gallery-area');
+    var geminiGalleryCount = document.getElementById('gemini-gallery-count');
     var geminiImageCount = 0;
+    var selectedSavedRefs = [];
 
     geminiRefInput.addEventListener('change', function() {
         geminiRefPreview.innerHTML = '';
@@ -766,6 +914,42 @@
             geminiRefPreview.appendChild(img);
         });
     });
+
+    // Toggle saved ref grid
+    var toggleSavedRef = document.getElementById('gemini-toggle-saved-ref');
+    var savedRefGrid = document.getElementById('gemini-saved-ref-grid');
+    toggleSavedRef.addEventListener('click', function() {
+        var isHidden = savedRefGrid.style.display === 'none';
+        savedRefGrid.style.display = isHidden ? 'flex' : 'none';
+        toggleSavedRef.textContent = isHidden ? '保存済み画像から選ぶ ▲' : '保存済み画像から選ぶ ▼';
+        if (isHidden) loadSavedRefImages();
+    });
+
+    function loadSavedRefImages() {
+        fetch('/api/new-production/gemini-gallery', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            savedRefGrid.innerHTML = '';
+            selectedSavedRefs = [];
+            (data.images || []).forEach(function(img) {
+                var div = document.createElement('div');
+                div.className = 'np-saved-ref-item';
+                div.dataset.url = img.url;
+                div.innerHTML = '<img src="' + img.url + '">';
+                div.addEventListener('click', function() {
+                    div.classList.toggle('selected');
+                    var url = div.dataset.url;
+                    var idx = selectedSavedRefs.indexOf(url);
+                    if (idx >= 0) selectedSavedRefs.splice(idx, 1);
+                    else selectedSavedRefs.push(url);
+                });
+                savedRefGrid.appendChild(div);
+            });
+            if (!data.images || data.images.length === 0) {
+                savedRefGrid.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px;">保存済み画像はありません</div>';
+            }
+        });
+    }
 
     geminiGenerateBtn.addEventListener('click', function() {
         var prompt = document.getElementById('gemini-prompt').value.trim();
@@ -782,6 +966,9 @@
             Array.from(geminiRefInput.files).forEach(function(f) {
                 formData.append('ref_images', f);
             });
+        }
+        if (selectedSavedRefs.length > 0) {
+            formData.append('saved_ref_urls', JSON.stringify(selectedSavedRefs));
         }
 
         fetch('/api/new-production/gemini-generate-image', {
@@ -805,6 +992,7 @@
                     item.innerHTML = '<img src="' + imgUrl + '" data-testid="img-gemini-result-' + geminiImageCount + '">'
                         + '<div class="np-gemini-result-actions">'
                         + '<a href="' + imgUrl + '" download class="np-gemini-result-btn download" data-testid="button-download-gemini-' + geminiImageCount + '">ダウンロード</a>'
+                        + '<button class="np-gemini-result-btn save-img" data-url="' + imgUrl + '" data-testid="button-save-gemini-' + geminiImageCount + '">保存</button>'
                         + '<button class="np-gemini-result-btn use-kling" data-url="' + imgUrl + '" data-testid="button-kling-gemini-' + geminiImageCount + '">Klingに送る</button>'
                         + '</div>';
                     geminiResultArea.insertBefore(item, geminiResultArea.firstChild);
@@ -824,18 +1012,102 @@
     geminiResultArea.addEventListener('click', function(e) {
         var btn = e.target;
         if (btn.classList.contains('use-kling')) {
-            var imgUrl = btn.dataset.url;
-            tabs.forEach(function(t) { t.classList.remove('active'); });
-            document.querySelectorAll('.np-panel').forEach(function(p) { p.classList.remove('active'); });
-            document.querySelector('[data-tab="kling"]').classList.add('active');
-            document.getElementById('panel-kling').classList.add('active');
-            document.getElementById('kling-mode').value = 'image2video';
-            document.getElementById('kling-image-group').style.display = 'block';
-            document.getElementById('kling-prompt').value = document.getElementById('gemini-prompt').value;
-            var preview = document.getElementById('kling-image-preview');
-            preview.innerHTML = '<img src="' + imgUrl + '" style="max-width:200px;max-height:200px;border-radius:8px;border:1px solid var(--border);">';
-            btn.textContent = '送信済み';
-            setTimeout(function() { btn.textContent = 'Klingに送る'; }, 1500);
+            sendToKling(btn.dataset.url);
+        } else if (btn.classList.contains('save-img')) {
+            saveGeminiImage(btn.dataset.url, btn);
+        }
+    });
+
+    function sendToKling(imgUrl) {
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.np-panel').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelector('[data-tab="kling"]').classList.add('active');
+        document.getElementById('panel-kling').classList.add('active');
+        document.getElementById('kling-mode').value = 'image2video';
+        document.getElementById('kling-image-group').style.display = 'block';
+        document.getElementById('kling-prompt').value = document.getElementById('gemini-prompt').value;
+        var preview = document.getElementById('kling-image-preview');
+        preview.innerHTML = '<img src="' + imgUrl + '" style="max-width:200px;max-height:200px;border-radius:8px;border:1px solid var(--border);">';
+    }
+
+    function saveGeminiImage(url, btn) {
+        var prompt = document.getElementById('gemini-prompt').value.trim();
+        fetch('/api/new-production/gemini-save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ url: url, prompt: prompt })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                if (btn) { btn.textContent = '保存済み'; btn.disabled = true; }
+            } else {
+                alert('保存エラー: ' + (data.error || ''));
+            }
+        });
+    }
+
+    function loadGallery() {
+        fetch('/api/new-production/gemini-gallery', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            geminiGalleryArea.innerHTML = '';
+            var images = data.images || [];
+            geminiGalleryCount.textContent = images.length;
+            if (images.length === 0) {
+                geminiGalleryArea.innerHTML = '<div class="np-gemini-empty" style="grid-column:1/-1;">保存済みの画像はありません</div>';
+                return;
+            }
+            images.forEach(function(img) {
+                var div = document.createElement('div');
+                div.className = 'np-gallery-item';
+                div.innerHTML = '<img src="' + img.url + '">'
+                    + '<div class="np-gallery-overlay">'
+                    + '<a href="' + img.url + '" download class="g-dl">DL</a>'
+                    + '<button class="g-kling" data-url="' + img.url + '">Kling</button>'
+                    + '<button class="g-ref" data-url="' + img.url + '">参考画像</button>'
+                    + '<button class="g-del" data-url="' + img.url + '" data-filename="' + img.filename + '">削除</button>'
+                    + '</div>'
+                    + '<div class="np-gallery-info">' + escapeHtml(img.prompt || '') + '</div>';
+                geminiGalleryArea.appendChild(div);
+            });
+        });
+    }
+
+    geminiGalleryArea.addEventListener('click', function(e) {
+        var btn = e.target;
+        if (btn.classList.contains('g-kling')) {
+            sendToKling(btn.dataset.url);
+        } else if (btn.classList.contains('g-ref')) {
+            var url = btn.dataset.url;
+            if (selectedSavedRefs.indexOf(url) < 0) selectedSavedRefs.push(url);
+            geminiRefPreview.innerHTML = '';
+            selectedSavedRefs.forEach(function(u) {
+                var img = document.createElement('img');
+                img.src = u;
+                img.style.width = '80px';
+                img.style.height = '80px';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '6px';
+                img.style.border = '1px solid var(--border)';
+                geminiRefPreview.appendChild(img);
+            });
+            btn.textContent = '追加済み';
+            setTimeout(function() { btn.textContent = '参考画像'; }, 1000);
+        } else if (btn.classList.contains('g-del')) {
+            if (!confirm('この画像を削除しますか？')) return;
+            var filename = btn.dataset.filename;
+            fetch('/api/new-production/gemini-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ filename: filename })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) loadGallery();
+            });
         }
     });
 
