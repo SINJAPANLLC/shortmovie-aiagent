@@ -1165,6 +1165,123 @@ async def new_production_chat(request: Request):
         return JSONResponse({"error": str(e)})
 
 
+@router.post("/api/new-production/gemini-generate-image")
+async def new_production_gemini_image(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        import httpx
+        import base64
+        import time as _time
+
+        gemini_key = os.environ.get("GEMINI_API_KEY", "")
+        if not gemini_key:
+            return JSONResponse({"error": "GEMINI_API_KEYが設定されていません。設定画面で追加してください。"})
+
+        form = await request.form()
+        prompt = form.get("prompt", "").strip()
+        style = form.get("style", "")
+        aspect_ratio = form.get("aspect_ratio", "9:16")
+        if not prompt:
+            return JSONResponse({"error": "プロンプトを入力してください"})
+
+        full_prompt = prompt
+        if style:
+            style_map = {
+                "photorealistic": "photorealistic, ultra-realistic photography",
+                "cinematic": "cinematic lighting, movie scene, dramatic",
+                "anime": "anime style, Japanese animation",
+                "illustration": "digital illustration, detailed artwork",
+                "oil_painting": "oil painting style, classical art"
+            }
+            full_prompt = f"{style_map.get(style, style)}, {prompt}"
+        full_prompt += f", aspect ratio {aspect_ratio}"
+
+        parts = []
+        ref_images = form.getlist("ref_images")
+        for ref_img in ref_images:
+            if hasattr(ref_img, 'read'):
+                img_data = await ref_img.read()
+                if img_data:
+                    content_type = getattr(ref_img, 'content_type', 'image/jpeg') or 'image/jpeg'
+                    b64 = base64.b64encode(img_data).decode("utf-8")
+                    parts.append({
+                        "inline_data": {
+                            "mime_type": content_type,
+                            "data": b64
+                        }
+                    })
+
+        if parts:
+            parts.append({"text": f"Generate a new image based on the reference image(s) above. Use the same character appearance, facial features, and style. New scene description: {full_prompt}"})
+        else:
+            parts.append({"text": f"Generate an image: {full_prompt}"})
+
+        payload = {
+            "contents": [{"role": "user", "parts": parts}],
+            "generationConfig": {
+                "responseModalities": ["TEXT", "IMAGE"]
+            }
+        }
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={gemini_key}",
+                json=payload
+            )
+
+            if resp.status_code != 200:
+                error_text = resp.text[:500]
+                logger.error(f"Gemini image API error: {resp.status_code} {error_text}")
+                return JSONResponse({"error": f"Gemini API error: {resp.status_code}"})
+
+            data = resp.json()
+            images = []
+            save_dir = "app/static/gemini_images"
+            os.makedirs(save_dir, exist_ok=True)
+
+            candidates = data.get("candidates", [])
+            for candidate in candidates:
+                content_parts = candidate.get("content", {}).get("parts", [])
+                for part in content_parts:
+                    if "inlineData" in part:
+                        inline = part["inlineData"]
+                        img_bytes = base64.b64decode(inline["data"])
+                        mime = inline.get("mimeType", "image/png")
+                        ext = "png" if "png" in mime else "jpg"
+                        filename = f"gemini_{int(_time.time())}_{len(images)}.{ext}"
+                        filepath = os.path.join(save_dir, filename)
+                        with open(filepath, "wb") as f:
+                            f.write(img_bytes)
+                        images.append(f"/static/gemini_images/{filename}")
+                    elif "inline_data" in part:
+                        inline = part["inline_data"]
+                        img_bytes = base64.b64decode(inline["data"])
+                        mime = inline.get("mime_type", "image/png")
+                        ext = "png" if "png" in mime else "jpg"
+                        filename = f"gemini_{int(_time.time())}_{len(images)}.{ext}"
+                        filepath = os.path.join(save_dir, filename)
+                        with open(filepath, "wb") as f:
+                            f.write(img_bytes)
+                        images.append(f"/static/gemini_images/{filename}")
+
+            if not images:
+                text_response = ""
+                for candidate in candidates:
+                    for part in candidate.get("content", {}).get("parts", []):
+                        if "text" in part:
+                            text_response += part["text"]
+                if text_response:
+                    return JSONResponse({"error": f"画像が生成されませんでした。Geminiの応答: {text_response[:200]}"})
+                return JSONResponse({"error": "画像が生成されませんでした"})
+
+            return JSONResponse({"images": images})
+    except Exception as e:
+        logger.error(f"Gemini image generation error: {e}")
+        return JSONResponse({"error": str(e)})
+
+
 @router.post("/api/new-production/save-content")
 async def new_production_save_content(request: Request):
     user = get_current_user(request)
