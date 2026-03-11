@@ -1552,15 +1552,13 @@ async def new_production_kling_generate(request: Request):
             if image_b64:
                 payload = {
                     "model_name": "kling-v3-omni",
-                    "prompt": prompt,
-                    "image": image_b64,
+                    "prompt": "Make the person in <<<image_1>>> " + prompt if prompt else prompt,
+                    "image_list": [{"image": image_b64}],
                     "aspect_ratio": aspect_ratio,
                     "duration": duration,
-                    "cfg_scale": 0.5,
                     "mode": "pro",
-                    "sound": "on",
                 }
-                api_url = "https://api.klingai.com/v1/videos/image2video"
+                api_url = "https://api.klingai.com/v1/videos/omni-video"
             else:
                 return JSONResponse({"error": "画像を選択してください（ファイルまたはGemini保存画像）"})
         else:
@@ -1569,11 +1567,9 @@ async def new_production_kling_generate(request: Request):
                 "prompt": prompt,
                 "aspect_ratio": aspect_ratio,
                 "duration": duration,
-                "cfg_scale": 0.5,
                 "mode": "pro",
-                "sound": "on",
             }
-            api_url = "https://api.klingai.com/v1/videos/text2video"
+            api_url = "https://api.klingai.com/v1/videos/omni-video"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(api_url, json=payload, headers=headers)
@@ -1603,7 +1599,7 @@ async def new_production_kling_status(request: Request, task_id: str):
         headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(
-                f"https://api.klingai.com/v1/videos/text2video/{task_id}",
+                f"https://api.klingai.com/v1/videos/omni-video/{task_id}",
                 headers=headers
             )
             if resp.status_code != 200:
