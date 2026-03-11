@@ -1147,7 +1147,7 @@ async def new_production_chat(request: Request):
             contents.append({"role": "user", "parts": [{"text": message}]})
             async with httpx.AsyncClient(timeout=120.0) as client:
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}",
                     json={"contents": contents}
                 )
                 if resp.status_code != 200:
@@ -1468,23 +1468,25 @@ async def new_production_kling_generate(request: Request):
 
             if image_b64:
                 payload = {
-                    "model_name": "kling-v1",
+                    "model_name": "kling-v2-master",
                     "prompt": prompt,
                     "image": image_b64,
                     "aspect_ratio": aspect_ratio,
                     "duration": duration,
-                    "cfg_scale": 0.5
+                    "cfg_scale": 0.5,
+                    "with_audio": True
                 }
                 api_url = "https://api.klingai.com/v1/videos/image2video"
             else:
                 return JSONResponse({"error": "画像を選択してください（ファイルまたはGemini保存画像）"})
         else:
             payload = {
-                "model_name": "kling-v1",
+                "model_name": "kling-v2-master",
                 "prompt": prompt,
                 "aspect_ratio": aspect_ratio,
                 "duration": duration,
-                "cfg_scale": 0.5
+                "cfg_scale": 0.5,
+                "with_audio": True
             }
             api_url = "https://api.klingai.com/v1/videos/text2video"
 
