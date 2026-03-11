@@ -1108,6 +1108,92 @@
     color: var(--accent);
     padding: 0 4px 2px;
 }
+.np-kling-video-btn.yt-shorts-btn {
+    background: #ff0000;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.np-kling-video-btn.yt-shorts-btn:hover { background: #cc0000; }
+.np-yt-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.np-yt-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 520px;
+    max-width: 92vw;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+.np-yt-dialog h4 {
+    margin: 0 0 20px;
+    color: #ff0000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+}
+.np-yt-form-group { margin-bottom: 14px; }
+.np-yt-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+.np-yt-form-group input,
+.np-yt-form-group textarea,
+.np-yt-form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+    font-family: inherit;
+}
+.np-yt-form-group textarea { min-height: 80px; resize: vertical; }
+.np-yt-form-group input:focus,
+.np-yt-form-group textarea:focus { border-color: #ff0000; }
+.np-yt-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+.np-yt-actions button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.np-yt-actions .yt-upload { background: #ff0000; color: #fff; }
+.np-yt-actions .yt-upload:hover { background: #cc0000; }
+.np-yt-actions .yt-upload:disabled { background: #999; cursor: not-allowed; }
+.np-yt-actions .yt-cancel { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); }
+.np-yt-hint { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.np-yt-status {
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 12px;
+}
+.np-yt-status.uploading { background: #fff8e1; color: #f57f17; border: 1px solid #ffcc02; }
+.np-yt-status.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.np-yt-status.error { background: #fbe9e7; color: #c62828; border: 1px solid #ef9a9a; }
 .np-form-group { margin-bottom: 16px; }
 .np-form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
 .np-select {
@@ -1802,6 +1888,7 @@
                     + '<div class="np-kling-video-actions">'
                     + '<span class="np-kling-video-info">' + escapeHtml(v.prompt || '') + '</span>'
                     + '<a href="' + v.url + '" download class="np-kling-video-btn dl">DL</a>'
+                    + '<button class="np-kling-video-btn yt-shorts-btn" data-url="' + v.url + '">YT Shorts</button>'
                     + '<button class="np-kling-video-btn del" data-filename="' + v.filename + '">削除</button>'
                     + '</div>';
                 klingVideoGallery.appendChild(div);
@@ -1823,6 +1910,8 @@
             .then(function(data) {
                 if (data.ok) loadKlingGallery();
             });
+        } else if (btn.classList.contains('yt-shorts-btn')) {
+            openYoutubeModal(btn.dataset.url);
         }
     });
 
@@ -2087,7 +2176,8 @@
                     + '<video controls data-testid="video-editor-result"><source src="' + data.url + '" type="video/mp4"></video>'
                     + '<div class="np-kling-video-actions">'
                     + '<a href="' + data.url + '" download class="np-kling-video-btn dl" data-testid="link-editor-download">ダウンロード</a>'
-                    + '<button class="np-kling-video-btn dl editor-save-combined" data-url="' + data.url + '" data-testid="button-editor-save">保存済みに追加</button>'
+                    + '<button class="np-kling-video-btn dl editor-save-combined" data-url="' + data.url + '" data-testid="button-editor-save">保存</button>'
+                    + '<button class="np-kling-video-btn yt-shorts-btn" data-url="' + data.url + '" data-testid="button-editor-youtube">YouTube Shorts</button>'
                     + '</div></div>';
                 editorResult.querySelector('.editor-save-combined').addEventListener('click', function() {
                     var self = this;
@@ -2102,6 +2192,9 @@
                         if (d.ok) { self.textContent = '保存済み'; self.disabled = true; }
                     });
                 });
+                editorResult.querySelector('.yt-shorts-btn').addEventListener('click', function() {
+                    openYoutubeModal(this.dataset.url);
+                });
             }
         })
         .catch(function(err) {
@@ -2110,6 +2203,91 @@
             editorStatus.textContent = 'エラー: ' + err.message;
         });
     });
+
+    function openYoutubeModal(videoUrl) {
+        var modal = document.createElement('div');
+        modal.className = 'np-yt-modal';
+        modal.innerHTML = '<div class="np-yt-dialog">'
+            + '<h4>YouTube Shorts に投稿</h4>'
+            + '<div class="np-yt-form-group">'
+            + '<label>タイトル</label>'
+            + '<input type="text" id="yt-title" maxlength="100" placeholder="例: CEOの扉 第1話 #Shorts" data-testid="input-yt-title">'
+            + '<div class="np-yt-hint">#Shorts タグを含めるとShortsとして認識されます</div>'
+            + '</div>'
+            + '<div class="np-yt-form-group">'
+            + '<label>説明文</label>'
+            + '<textarea id="yt-description" rows="4" placeholder="動画の説明..." data-testid="input-yt-description"></textarea>'
+            + '</div>'
+            + '<div class="np-yt-form-group">'
+            + '<label>タグ（カンマ区切り）</label>'
+            + '<input type="text" id="yt-tags" placeholder="CEOドラマ, ショートドラマ, AI生成" data-testid="input-yt-tags">'
+            + '</div>'
+            + '<div class="np-yt-form-group">'
+            + '<label>公開設定</label>'
+            + '<select id="yt-privacy" data-testid="select-yt-privacy">'
+            + '<option value="public">公開</option>'
+            + '<option value="unlisted">限定公開</option>'
+            + '<option value="private">非公開</option>'
+            + '</select>'
+            + '</div>'
+            + '<div id="yt-upload-status"></div>'
+            + '<div class="np-yt-actions">'
+            + '<button class="yt-cancel" data-testid="button-yt-cancel">キャンセル</button>'
+            + '<button class="yt-upload" id="yt-upload-btn" data-testid="button-yt-upload">投稿する</button>'
+            + '</div>'
+            + '</div>';
+        document.body.appendChild(modal);
+
+        modal.querySelector('.yt-cancel').addEventListener('click', function() { document.body.removeChild(modal); });
+        modal.addEventListener('click', function(e) { if (e.target === modal) document.body.removeChild(modal); });
+
+        modal.querySelector('#yt-upload-btn').addEventListener('click', function() {
+            var title = modal.querySelector('#yt-title').value.trim();
+            if (!title) return alert('タイトルを入力してください');
+            var description = modal.querySelector('#yt-description').value.trim();
+            var tags = modal.querySelector('#yt-tags').value.trim();
+            var privacy = modal.querySelector('#yt-privacy').value;
+            var uploadBtn = modal.querySelector('#yt-upload-btn');
+            var statusEl = modal.querySelector('#yt-upload-status');
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '投稿中...';
+            statusEl.className = 'np-yt-status uploading';
+            statusEl.textContent = 'YouTube にアップロード中... しばらくお待ちください';
+
+            fetch('/api/new-production/youtube-upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    video_url: videoUrl,
+                    title: title,
+                    description: description,
+                    tags: tags,
+                    privacy: privacy
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    statusEl.className = 'np-yt-status error';
+                    statusEl.textContent = 'エラー: ' + data.error;
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '投稿する';
+                } else {
+                    statusEl.className = 'np-yt-status success';
+                    statusEl.innerHTML = '投稿完了！ <a href="https://youtube.com/shorts/' + data.video_id + '" target="_blank" style="color:#2e7d32;font-weight:600;">YouTube で確認</a>';
+                    uploadBtn.textContent = '投稿済み';
+                }
+            })
+            .catch(function(err) {
+                statusEl.className = 'np-yt-status error';
+                statusEl.textContent = 'エラー: ' + err.message;
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '投稿する';
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}

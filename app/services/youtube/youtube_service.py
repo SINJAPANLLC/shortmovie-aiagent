@@ -134,7 +134,7 @@ def get_youtube_service():
     return build("youtube", "v3", credentials=credentials)
 
 
-def upload_video(video_path: str, title: str, description: str, tags: list, thumbnail_path: str = None):
+def upload_video(video_path: str, title: str, description: str, tags: list, thumbnail_path: str = None, privacy_status: str = "public"):
     youtube = get_youtube_service()
 
     body = {
@@ -147,7 +147,7 @@ def upload_video(video_path: str, title: str, description: str, tags: list, thum
             "defaultAudioLanguage": "ja",
         },
         "status": {
-            "privacyStatus": "public",
+            "privacyStatus": privacy_status or "public",
             "selfDeclaredMadeForKids": False,
         },
     }

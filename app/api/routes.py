@@ -1857,6 +1857,76 @@ async def new_production_editor_combine(request: Request):
         return JSONResponse({"error": str(e)})
 
 
+@router.post("/api/new-production/youtube-upload")
+async def new_production_youtube_upload(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        video_url = body.get("video_url", "")
+        title = body.get("title", "")
+        description = body.get("description", "")
+        tags_str = body.get("tags", "")
+        privacy = body.get("privacy", "public")
+
+        if not video_url or not title:
+            return JSONResponse({"error": "タイトルと動画が必要です"})
+
+        video_path = video_url.lstrip("/")
+        if video_path.startswith("static/"):
+            video_path = "app/" + video_path
+        if not os.path.exists(video_path):
+            return JSONResponse({"error": "動画ファイルが見つかりません"})
+
+        if not title.endswith("#Shorts") and "#Shorts" not in title:
+            title = title + " #Shorts"
+
+        if "#Shorts" not in description:
+            description = description + "\n\n#Shorts" if description else "#Shorts"
+
+        tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else []
+        if "Shorts" not in tags:
+            tags.append("Shorts")
+
+        from app.services.youtube.youtube_service import upload_video, is_youtube_connected
+        if not is_youtube_connected():
+            return JSONResponse({"error": "YouTubeが接続されていません。設定ページからYouTube OAuthを設定してください。"})
+
+        import threading
+        result = {"video_id": None, "error": None}
+
+        def do_upload():
+            try:
+                vid = upload_video(
+                    video_path=video_path,
+                    title=title,
+                    description=description,
+                    tags=tags,
+                    thumbnail_path=None,
+                    privacy_status=privacy
+                )
+                result["video_id"] = vid
+            except Exception as e:
+                result["error"] = str(e)
+
+        t = threading.Thread(target=do_upload)
+        t.start()
+        t.join(timeout=300)
+
+        if result["error"]:
+            return JSONResponse({"error": result["error"]})
+        if result["video_id"]:
+            return JSONResponse({"ok": True, "video_id": result["video_id"]})
+        return JSONResponse({"error": "アップロードがタイムアウトしました"})
+
+    except Exception as e:
+        logger.error(f"YouTube upload error: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)})
+
+
 @router.get("/production", response_class=HTMLResponse)
 async def production_index(request: Request):
     user = get_current_user(request)
