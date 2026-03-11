@@ -82,10 +82,12 @@
 ## Video Specs
 - Aspect: 9:16 vertical
 - Resolution: 1080x1920
-- Duration: 45 seconds
-- Structure: 0-2s hook → 2-35s story → 35-45s twist + "続く..."
-- Scenes: 6-8 scenes × ~6 seconds each
-- Auto-schedule (JST): 10:00, 15:00, 21:00 (3 videos/day)
+- Duration: 45 seconds (3シーン × 15秒)
+- Structure: シーン1(0-15s) フック+状況 → シーン2(15-30s) ドラマ核心 → シーン3(30-45s) 転換+引き
+- Scenes: 3 scenes × 15 seconds each (Kling V3 pro mode, sound on)
+- Auto-schedule (JST): configurable via automation tab
+- Saved prompt templates (app/static/saved_contents/) used as reference for generation
+- Character images linked by name per scene (characters field in script JSON)
 
 ## Project Structure
 ```

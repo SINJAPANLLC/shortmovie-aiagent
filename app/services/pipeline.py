@@ -257,29 +257,46 @@ def run_full_pipeline(progress_callback=None, custom_theme=None, custom_genre=No
         for i, scene in enumerate(scenes):
             progress_callback(4, f"  シーン{scene.get('scene_number', i+1)}: {scene.get('narration', '')[:30]}...")
 
-        progress_callback(5, "動画シーンを生成中 (Kling AI / Luma)...")
+        char_by_name = {}
+        for c in characters_list:
+            char_by_name[c.get("name", "")] = c
+
+        progress_callback(5, "動画シーンを生成中 (Kling AI V3 / Luma)...")
         scene_videos = []
         for i, scene in enumerate(scenes):
             progress_callback(5, f"シーン{i+1}/{len(scenes)}を生成中...")
             scene_desc = scene.get("description", "")
-            if main_character:
+            scene_chars = scene.get("characters", [])
+
+            ref_image = None
+            if scene_chars and char_by_name:
+                for cname in scene_chars:
+                    matched_char = char_by_name.get(cname)
+                    if matched_char:
+                        ref_image = _pick_character_image_for_scene(matched_char, scene_desc)
+                        if ref_image:
+                            progress_callback(5, f"  キャラ「{cname}」の画像を参照")
+                            break
+            if not ref_image and main_character:
                 ref_image = _pick_character_image_for_scene(main_character, scene_desc)
-            elif character_image and os.path.exists(character_image):
+            if not ref_image and character_image and os.path.exists(character_image):
                 ref_image = character_image
-            else:
-                ref_image = None
+
             scene_emotion = scene.get("emotion", "")
-            scene_duration = float(scene.get("duration", 6))
+            scene_duration = float(scene.get("duration", 15))
             scene_narration = scene.get("narration", "")
+            video_prompt = scene.get("video_prompt", "")
+            image_prompt = scene.get("image_prompt", "")
             scene_path = generate_scene_video(
-                scene_description=scene_desc,
+                scene_description=video_prompt or scene_desc,
                 scene_number=scene.get("scene_number", i+1),
                 drama_id=drama_id,
                 reference_image=ref_image,
                 progress_callback=progress_callback,
                 emotion=scene_emotion,
                 duration=scene_duration,
-                narration=scene_narration
+                narration=scene_narration,
+                image_prompt=image_prompt or scene_desc
             )
             scene_videos.append(scene_path)
             progress_callback(5, f"シーン{i+1}/{len(scenes)}生成完了")

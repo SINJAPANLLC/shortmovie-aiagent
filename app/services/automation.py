@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler(timezone="Asia/Tokyo")
 _current_jobs = {}
 _running_status = {}
+_master_enabled = True
 
 
 def init_scheduler():
@@ -66,7 +67,29 @@ def _add_job(schedule):
     logger.info(f"Scheduled job {job_id} at {schedule['schedule_time']} ({days})")
 
 
+def get_master_enabled():
+    return _master_enabled
+
+
+def set_master_enabled(enabled):
+    global _master_enabled
+    _master_enabled = enabled
+    if enabled:
+        reload_schedules()
+    else:
+        for job_id in list(_current_jobs.keys()):
+            try:
+                scheduler.remove_job(job_id)
+            except Exception:
+                pass
+        _current_jobs.clear()
+    logger.info(f"Automation master switch set to: {'ON' if enabled else 'OFF'}")
+
+
 def run_automation_job(schedule_id):
+    if not _master_enabled:
+        logger.info(f"Automation master switch is OFF, skipping job {schedule_id}")
+        return
     schedule = get_schedule_by_id(schedule_id)
     if not schedule or not schedule["enabled"]:
         return

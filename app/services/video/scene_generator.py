@@ -207,16 +207,17 @@ def _is_kling_available() -> bool:
 
 def generate_scene_video(scene_description: str, scene_number: int, drama_id: int,
                          reference_image: str = None, progress_callback=None,
-                         emotion: str = "", duration: float = 6,
-                         narration: str = "") -> str:
+                         emotion: str = "", duration: float = 15,
+                         narration: str = "", image_prompt: str = "") -> str:
     if progress_callback is None:
         progress_callback = _noop
 
     os.makedirs(SCENES_DIR, exist_ok=True)
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
 
+    image_gen_prompt = image_prompt or scene_description
     scene_image = _generate_scene_specific_image(
-        scene_description, drama_id, scene_number, progress_callback
+        image_gen_prompt, drama_id, scene_number, progress_callback
     )
 
     kling_ref = scene_image or reference_image

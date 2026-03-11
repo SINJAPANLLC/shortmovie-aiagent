@@ -66,7 +66,8 @@ def generate_scene_video(scene_description: str, scene_number: int, drama_id: in
     dialogue_part = ""
     if narration:
         dialogue_part = f' The character says: "{narration}"'
-    enhanced_prompt = f"{scene_description},{dialogue_part} same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"
+    full_prompt = f"{scene_description},{dialogue_part} same character, same face, same clothes, cinematic lighting, vertical video 9:16, dramatic"
+    enhanced_prompt = full_prompt[:2500]
 
     use_image2video = reference_image and os.path.exists(reference_image)
 
@@ -134,7 +135,7 @@ def _try_image2video(api_key, prompt, reference_image, progress_callback, scene_
                     "model_name": "kling-v3",
                     "prompt": prompt,
                     "image": image_b64,
-                    "duration": "10",
+                    "duration": "15",
                     "aspect_ratio": "9:16",
                     "mode": "pro",
                     "sound": "on",
@@ -165,7 +166,7 @@ def _try_text2video(api_key, prompt, progress_callback, scene_number):
                 json={
                     "model_name": "kling-v3",
                     "prompt": prompt,
-                    "duration": "10",
+                    "duration": "15",
                     "aspect_ratio": "9:16",
                     "mode": "pro",
                     "sound": "on",
@@ -224,7 +225,7 @@ def _download_video(url: str, output_path: str):
             f.write(response.content)
 
 
-def _create_placeholder_scene(drama_id: int, scene_number: int, duration: float = 6, reference_image: str = None) -> str:
+def _create_placeholder_scene(drama_id: int, scene_number: int, duration: float = 15, reference_image: str = None) -> str:
     import subprocess
     output_path = os.path.join(SCENES_DIR, f"drama_{drama_id}_scene_{scene_number}.mp4")
 

@@ -2134,6 +2134,27 @@ async def get_automation_logs_api(request: Request):
     return JSONResponse({"logs": logs, "running": {str(k): v for k, v in running.items()}})
 
 
+@router.get("/api/new-production/automation-master-status")
+async def get_automation_master_status(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.services.automation import get_master_enabled
+    return JSONResponse({"enabled": get_master_enabled()})
+
+
+@router.post("/api/new-production/automation-master-toggle")
+async def toggle_automation_master(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    body = await request.json()
+    enabled = body.get("enabled", False)
+    from app.services.automation import set_master_enabled
+    set_master_enabled(enabled)
+    return JSONResponse({"ok": True, "enabled": enabled})
+
+
 @router.get("/production", response_class=HTMLResponse)
 async def production_index(request: Request):
     user = get_current_user(request)

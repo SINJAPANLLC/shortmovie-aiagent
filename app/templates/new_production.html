@@ -370,6 +370,19 @@
 </div>
 
 <div class="np-panel" id="panel-automation">
+    <div class="np-auto-master-switch" data-testid="area-auto-master-switch">
+        <div style="display:flex; align-items:center; gap:16px; padding:16px 20px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; margin-bottom:16px;">
+            <div style="flex:1;">
+                <h3 style="margin:0; font-size:16px;">自動生成システム</h3>
+                <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted);">全スケジュールの一括ON/OFF。OFFにすると全スケジュールが停止します。</p>
+            </div>
+            <label class="np-toggle-switch" data-testid="switch-auto-master">
+                <input type="checkbox" id="auto-master-switch" checked>
+                <span class="np-toggle-slider"></span>
+            </label>
+            <span id="auto-master-label" style="font-weight:600; font-size:14px; color:#00897b;">ON</span>
+        </div>
+    </div>
     <div class="np-auto-layout">
         <div class="np-auto-left">
             <h3>スケジュール管理</h3>
@@ -401,8 +414,8 @@
                     <input type="text" id="auto-custom-theme" class="np-select" placeholder="例：裏切りの代償" data-testid="input-auto-theme">
                 </div>
                 <div class="np-form-group">
-                    <label>最大シーン数（空欄でデフォルト）</label>
-                    <input type="number" id="auto-max-scenes" class="np-select" min="1" max="10" placeholder="例: 5" data-testid="input-auto-max-scenes">
+                    <label>シーン数（デフォルト: 3シーン×15秒）</label>
+                    <input type="number" id="auto-max-scenes" class="np-select" min="1" max="5" value="3" placeholder="3" data-testid="input-auto-max-scenes">
                 </div>
                 <div class="np-auto-checks">
                     <label class="np-auto-check-item">
@@ -1378,10 +1391,37 @@
     .np-auto-left { border-radius: 12px 12px 0 0; }
     .np-auto-right { border-left: none; border-top: 1px solid var(--border); border-radius: 0 0 12px 12px; }
 }
+.np-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    cursor: pointer;
+}
+.np-toggle-switch input { opacity: 0; width: 0; height: 0; }
+.np-toggle-slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #ccc;
+    border-radius: 28px;
+    transition: .3s;
+}
+.np-toggle-slider:before {
+    content: "";
+    position: absolute;
+    height: 22px; width: 22px;
+    left: 3px; bottom: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: .3s;
+}
+.np-toggle-switch input:checked + .np-toggle-slider { background: #00897b; }
+.np-toggle-switch input:checked + .np-toggle-slider:before { transform: translateX(24px); }
+
 .np-auto-layout {
     display: grid;
     grid-template-columns: 360px 1fr;
-    height: calc(100vh - 150px);
+    height: calc(100vh - 200px);
     background: var(--bg-panel);
     border-radius: 12px;
     overflow: hidden;
@@ -2915,10 +2955,40 @@
         }, 3000);
     }
 
+    const masterSwitch = document.getElementById('auto-master-switch');
+    const masterLabel = document.getElementById('auto-master-label');
+    function updateMasterLabel() {
+        if (masterSwitch.checked) {
+            masterLabel.textContent = 'ON';
+            masterLabel.style.color = '#00897b';
+        } else {
+            masterLabel.textContent = 'OFF';
+            masterLabel.style.color = '#c62828';
+        }
+    }
+    fetch('/api/new-production/automation-master-status').then(r => r.json()).then(d => {
+        masterSwitch.checked = !!d.enabled;
+        updateMasterLabel();
+    }).catch(() => {});
+    masterSwitch.addEventListener('change', () => {
+        updateMasterLabel();
+        fetch('/api/new-production/automation-master-toggle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: masterSwitch.checked})
+        }).then(r => r.json()).then(d => {
+            if (d.ok) loadAutoSchedules();
+        });
+    });
+
     const autoTab = document.querySelector('[data-tab="automation"]');
     if (autoTab) {
         autoTab.addEventListener('click', () => {
             loadAutoSchedules();
+            fetch('/api/new-production/automation-master-status').then(r => r.json()).then(d => {
+                masterSwitch.checked = !!d.enabled;
+                updateMasterLabel();
+            }).catch(() => {});
             fetch('/api/new-production/automation-logs').then(r => r.json()).then(d => {
                 const hasRunning = d.running && Object.values(d.running).some(v => v.status === 'running');
                 if (hasRunning) startAutoPolling();
