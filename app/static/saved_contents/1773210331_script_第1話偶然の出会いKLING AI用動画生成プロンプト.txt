@@ -1,0 +1,23 @@
+# # 第1話「偶然の出会い」KLING AI用動画生成プロンプト
+# Type: script
+# Date: 2026-03-11 06:25:31
+
+# 第1話「偶然の出会い」KLING AI用動画生成プロンプト
+
+## シーン1（0-15秒）：朝の通勤ラッシュ
+**登場キャラクター**: 田中美咲
+```
+A young Japanese woman in business casual clothes looking tired in a crowded train, then rushing up station stairs with papers flying in the wind, realistic style, cinematic lighting, 4K quality
+```
+
+## シーン2（15-30秒）：運命の瞬間  
+**登場キャラクター**: 田中美咲、神崎亮
+```
+A handsome Japanese businessman in an expensive suit helping collect scattered papers for a young woman at a train station, their eyes meeting in a romantic moment, soft morning light, cinematic style
+```
+
+## シーン3（30-45秒）：予感
+**登場キャラクター**: 田中美咲、神崎亮
+```
+A young Japanese woman watching a mysterious businessman walk away at a train station, he turns back and they share a meaningful look, urban background, dramatic lighting, romantic atmosphere
+```
