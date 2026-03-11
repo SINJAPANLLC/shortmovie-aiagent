@@ -1,6 +1,7 @@
 import os
 import logging
 import threading
+import asyncio
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -1172,12 +1173,11 @@ async def new_production_gemini_image(request: Request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     try:
         import httpx
-        import base64
         import time as _time
 
-        gemini_key = os.environ.get("GEMINI_API_KEY", "")
-        if not gemini_key:
-            return JSONResponse({"error": "GEMINI_API_KEYが設定されていません。設定画面で追加してください。"})
+        luma_key = os.environ.get("LUMA_API_KEY", "")
+        if not luma_key:
+            return JSONResponse({"error": "LUMA_API_KEYが設定されていません。設定画面で追加してください。"})
 
         form = await request.form()
         prompt = form.get("prompt", "").strip()
@@ -1196,22 +1196,26 @@ async def new_production_gemini_image(request: Request):
                 "oil_painting": "oil painting style, classical art"
             }
             full_prompt = f"{style_map.get(style, style)}, {prompt}"
-        full_prompt += f", aspect ratio {aspect_ratio}"
 
-        parts = []
+        ref_image_urls = []
+
         ref_images = form.getlist("ref_images")
+        upload_dir = "app/static/gemini_images"
+        os.makedirs(upload_dir, exist_ok=True)
         for ref_img in ref_images:
             if hasattr(ref_img, 'read'):
                 img_data = await ref_img.read()
                 if img_data:
-                    content_type = getattr(ref_img, 'content_type', 'image/jpeg') or 'image/jpeg'
-                    b64 = base64.b64encode(img_data).decode("utf-8")
-                    parts.append({
-                        "inline_data": {
-                            "mime_type": content_type,
-                            "data": b64
-                        }
-                    })
+                    ext = ".jpg"
+                    ct = getattr(ref_img, 'content_type', '') or ''
+                    if 'png' in ct:
+                        ext = ".png"
+                    tmp_name = f"ref_{int(_time.time())}_{len(ref_image_urls)}{ext}"
+                    tmp_path = os.path.join(upload_dir, tmp_name)
+                    with open(tmp_path, "wb") as f:
+                        f.write(img_data)
+                    host = str(request.base_url).rstrip("/")
+                    ref_image_urls.append(f"{host}/static/gemini_images/{tmp_name}")
 
         saved_ref_urls_raw = form.get("saved_ref_urls", "")
         if saved_ref_urls_raw:
@@ -1221,86 +1225,76 @@ async def new_production_gemini_image(request: Request):
                 for surl in saved_urls:
                     spath = surl.lstrip("/")
                     if spath.startswith("static/"):
-                        spath = "app/" + spath
-                    if os.path.exists(spath):
-                        with open(spath, "rb") as sf:
-                            sdata = sf.read()
-                        sext = os.path.splitext(spath)[1].lower()
-                        smime = "image/png" if sext == ".png" else "image/jpeg"
-                        sb64 = base64.b64encode(sdata).decode("utf-8")
-                        parts.append({
-                            "inline_data": {
-                                "mime_type": smime,
-                                "data": sb64
-                            }
-                        })
+                        if os.path.exists("app/" + spath):
+                            host = str(request.base_url).rstrip("/")
+                            ref_image_urls.append(f"{host}/{spath}")
             except Exception:
                 pass
 
-        if parts:
-            parts.append({"text": f"Generate a new image based on the reference image(s) above. Use the same character appearance, facial features, and style. New scene description: {full_prompt}"})
-        else:
-            parts.append({"text": f"Generate an image: {full_prompt}"})
-
-        payload = {
-            "contents": [{"role": "user", "parts": parts}],
-            "generationConfig": {
-                "responseModalities": ["TEXT", "IMAGE"]
-            }
+        luma_headers = {
+            "Authorization": f"Bearer {luma_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        body = {
+            "prompt": full_prompt,
+            "aspect_ratio": aspect_ratio,
+            "model": "photon-1",
+        }
+        if ref_image_urls:
+            body["image_ref"] = [{"url": u, "weight": 0.85} for u in ref_image_urls[:4]]
+
+        async with httpx.AsyncClient(timeout=180.0) as client:
             resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={gemini_key}",
-                json=payload
+                "https://api.lumalabs.ai/dream-machine/v1/generations/image",
+                headers=luma_headers,
+                json=body
             )
+            if resp.status_code not in (200, 201):
+                logger.error(f"Luma Photon create error: {resp.status_code} {resp.text[:500]}")
+                return JSONResponse({"error": f"Luma Photon API error: {resp.status_code}"})
 
-            if resp.status_code != 200:
-                error_text = resp.text[:500]
-                logger.error(f"Gemini image API error: {resp.status_code} {error_text}")
-                return JSONResponse({"error": f"Gemini API error: {resp.status_code}"})
+            gen_data = resp.json()
+            gen_id = gen_data.get("id")
+            if not gen_id:
+                return JSONResponse({"error": "Luma Photon: generation IDが取得できませんでした"})
 
-            data = resp.json()
-            images = []
-            save_dir = "app/static/gemini_images"
-            os.makedirs(save_dir, exist_ok=True)
+            logger.info(f"Luma Photon image generation started: {gen_id}")
 
-            candidates = data.get("candidates", [])
-            for candidate in candidates:
-                content_parts = candidate.get("content", {}).get("parts", [])
-                for part in content_parts:
-                    if "inlineData" in part:
-                        inline = part["inlineData"]
-                        img_bytes = base64.b64decode(inline["data"])
-                        mime = inline.get("mimeType", "image/png")
-                        ext = "png" if "png" in mime else "jpg"
-                        filename = f"gemini_{int(_time.time())}_{len(images)}.{ext}"
-                        filepath = os.path.join(save_dir, filename)
-                        with open(filepath, "wb") as f:
-                            f.write(img_bytes)
-                        images.append(f"/static/gemini_images/{filename}")
-                    elif "inline_data" in part:
-                        inline = part["inline_data"]
-                        img_bytes = base64.b64decode(inline["data"])
-                        mime = inline.get("mime_type", "image/png")
-                        ext = "png" if "png" in mime else "jpg"
-                        filename = f"gemini_{int(_time.time())}_{len(images)}.{ext}"
-                        filepath = os.path.join(save_dir, filename)
-                        with open(filepath, "wb") as f:
-                            f.write(img_bytes)
-                        images.append(f"/static/gemini_images/{filename}")
+            for _ in range(60):
+                await asyncio.sleep(3)
+                poll_resp = await client.get(
+                    f"https://api.lumalabs.ai/dream-machine/v1/generations/{gen_id}",
+                    headers=luma_headers
+                )
+                if poll_resp.status_code != 200:
+                    continue
+                poll_data = poll_resp.json()
+                state = poll_data.get("state", "")
+                if state == "completed":
+                    image_url = poll_data.get("assets", {}).get("image")
+                    if not image_url:
+                        return JSONResponse({"error": "Luma Photon: 画像URLが取得できませんでした"})
 
-            if not images:
-                text_response = ""
-                for candidate in candidates:
-                    for part in candidate.get("content", {}).get("parts", []):
-                        if "text" in part:
-                            text_response += part["text"]
-                if text_response:
-                    return JSONResponse({"error": f"画像が生成されませんでした。Geminiの応答: {text_response[:200]}"})
-                return JSONResponse({"error": "画像が生成されませんでした"})
+                    img_resp = await client.get(image_url)
+                    if img_resp.status_code != 200:
+                        return JSONResponse({"error": "Luma Photon: 画像ダウンロードに失敗しました"})
 
-            return JSONResponse({"images": images})
+                    save_dir = "app/static/gemini_images"
+                    os.makedirs(save_dir, exist_ok=True)
+                    filename = f"luma_{int(_time.time())}.jpg"
+                    filepath = os.path.join(save_dir, filename)
+                    with open(filepath, "wb") as f:
+                        f.write(img_resp.content)
+
+                    return JSONResponse({"images": [f"/static/gemini_images/{filename}"]})
+                elif state == "failed":
+                    fail_reason = poll_data.get("failure_reason", "不明なエラー")
+                    logger.error(f"Luma Photon generation failed: {fail_reason}")
+                    return JSONResponse({"error": f"Luma Photon生成失敗: {fail_reason}"})
+
+            return JSONResponse({"error": "Luma Photon: タイムアウト（3分以内に完了しませんでした）"})
     except Exception as e:
         logger.error(f"Gemini image generation error: {e}")
         return JSONResponse({"error": str(e)})
